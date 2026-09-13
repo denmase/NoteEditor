@@ -7,6 +7,8 @@
     <Nullable>disable</Nullable>
     <IsPackable>false</IsPackable>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <!-- Expected: this net8.0 test project intentionally references the net472 WinForms app project. -->
+    <NoWarn>$(NoWarn);NU1702</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
