@@ -153,10 +153,10 @@ namespace JianpuEditor.ViewModels
             {
                 if (!string.IsNullOrWhiteSpace(_currentFilePath))
                 {
-                    return "简谱编辑器 - " + Path.GetFileName(_currentFilePath);
+                    return "Jianpu Editor - " + Path.GetFileName(_currentFilePath);
                 }
 
-                return "简谱编辑器";
+                return "Jianpu Editor";
             }
         }
 

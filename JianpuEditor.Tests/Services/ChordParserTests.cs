@@ -11,7 +11,7 @@ namespace JianpuEditor.Tests.Services
         [InlineData("Bm7", true)]
         [InlineData("G/D", true)]
         [InlineData("F#maj7", true)]
-        [InlineData("间奏", false)]
+        [InlineData("Interlude", false)]
         [InlineData("Cmaj", true)]
         public void IsChordSymbol_DetectsValidSymbols(string token, bool expected)
         {
@@ -47,7 +47,7 @@ namespace JianpuEditor.Tests.Services
         public void ExtractScheduledChords_ReturnsOnlyValidChordMarkers()
         {
             var measure = ScoreTestHelper.MeasureWithChords(
-                new[] { "C", "间奏", "G" },
+                new[] { "C", "Interlude", "G" },
                 new[] { 0d, 1d, 2d },
                 ScoreTestHelper.Note(1),
                 ScoreTestHelper.Note(2),

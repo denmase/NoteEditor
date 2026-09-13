@@ -88,7 +88,7 @@ namespace JianpuEditor.Services.EditCommands
 
         public void Undo()
         {
-            RestoreState(_undoState, _undoMeasureIndex, "已撤回: " + _description);
+            RestoreState(_undoState, _undoMeasureIndex, "Undone: " + _description);
         }
 
         private void RestoreState(JianpuScore state, int measureIndex, string message)

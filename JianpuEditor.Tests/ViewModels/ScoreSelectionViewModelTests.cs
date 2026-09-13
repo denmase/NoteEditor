@@ -19,7 +19,7 @@ namespace JianpuEditor.Tests.ViewModels
 
             var description = selection.BuildSelectionDescription();
 
-            Assert.Contains("第 1 小节第 3 个音符", description);
+            Assert.Contains("note 3 in measure 1", description);
         }
 
         [Fact]
@@ -41,7 +41,7 @@ namespace JianpuEditor.Tests.ViewModels
 
             var description = selection.BuildSelectionDescription();
 
-            Assert.Contains("3 个音符", description);
+            Assert.Contains("Selected 3 note(s)", description);
         }
 
         [Fact]
@@ -57,7 +57,7 @@ namespace JianpuEditor.Tests.ViewModels
 
             var description = selection.BuildSelectionDescription();
 
-            Assert.Contains("第 1 到第 3 小节", description);
+            Assert.Contains("measures 1 to 3", description);
         }
     }
 }

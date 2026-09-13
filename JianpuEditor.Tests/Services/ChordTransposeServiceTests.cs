@@ -11,7 +11,7 @@ namespace JianpuEditor.Tests.Services
         {
             var score = ScoreTestHelper.CreateScore(
                 ScoreTestHelper.MeasureWithChords(
-                    new[] { "C", "Am", "间奏" },
+                    new[] { "C", "Am", "Interlude" },
                     new[] { 0d, 2d, 3d },
                     ScoreTestHelper.Note(1),
                     ScoreTestHelper.Note(2),
@@ -27,7 +27,7 @@ namespace JianpuEditor.Tests.Services
             Assert.Equal("1=G", score.KeySignature);
             Assert.Equal("G", score.Measures[0].ChordMarkers[0].Text);
             Assert.Equal("Em", score.Measures[0].ChordMarkers[1].Text);
-            Assert.Equal("间奏", score.Measures[0].ChordMarkers[2].Text);
+            Assert.Equal("Interlude", score.Measures[0].ChordMarkers[2].Text);
         }
 
         [Fact]
@@ -39,7 +39,7 @@ namespace JianpuEditor.Tests.Services
             var ok = ChordTransposeService.TryTransposeChords(score, "C", out var error, out var count);
 
             Assert.False(ok);
-            Assert.Contains("无需转调", error);
+            Assert.Contains("no transposition is needed", error);
             Assert.Equal(0, count);
         }
 

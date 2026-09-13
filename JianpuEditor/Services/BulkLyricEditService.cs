@@ -109,7 +109,7 @@ namespace JianpuEditor.Services
                     measure.LyricSyllables,
                     measure.LyricText,
                     syllables,
-                    "对齐第 " + (measureIndex + 1) + " 小节歌词"));
+                    "Align lyrics for measure " + (measureIndex + 1)));
             }
 
             return commands;

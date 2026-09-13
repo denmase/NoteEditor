@@ -37,7 +37,7 @@ namespace JianpuEditor.Tests.ViewModels
 
             viewModel.LoadDemoScore();
 
-            Assert.Equal("欢乐颂", viewModel.Title);
+            Assert.Equal("Ode to Joy", viewModel.Title);
             Assert.False(viewModel.IsDirty);
             Assert.Equal(5, viewModel.Score.Measures.Count);
         }

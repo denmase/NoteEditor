@@ -104,7 +104,7 @@ namespace JianpuEditor.Tests.Services
             {
                 Title = title,
                 KeySignature = "1=C",
-                Tempo = "中速",
+                Tempo = "Moderato",
                 Bpm = 120,
                 Composer = "Test",
                 Measures = measures

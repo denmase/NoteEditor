@@ -20,7 +20,7 @@ namespace JianpuEditor.Views
         {
             _suggestions = suggestions ?? Array.Empty<HarmonyProgressionSuggestion>();
 
-            Text = "和弦进行建议";
+            Text = "Chord Progression Suggestions";
             FormBorderStyle = FormBorderStyle.FixedDialog;
             StartPosition = FormStartPosition.CenterParent;
             MinimizeBox = false;
@@ -32,7 +32,7 @@ namespace JianpuEditor.Views
             {
                 Location = new Point(16, 16),
                 Size = new Size(488, 36),
-                Text = "第 " + fromMeasureNumber + "–" + toMeasureNumber + " 小节，调号 " + (keySignature ?? "1=C")
+                Text = "Measures " + fromMeasureNumber + "–" + toMeasureNumber + ", key " + (keySignature ?? "1=C")
             };
 
             var hintLabel = new Label
@@ -40,7 +40,7 @@ namespace JianpuEditor.Views
                 Location = new Point(16, 52),
                 Size = new Size(488, 32),
                 ForeColor = Color.DimGray,
-                Text = "综合旋律低音与和声走向，推荐 1–3 组连续和弦进行（纯本地规则）。"
+                Text = "Based on the melody's bass line and harmonic movement, suggests 1–3 continuous chord progressions (local rules only)."
             };
 
             _suggestionList = new ListBox
@@ -72,14 +72,14 @@ namespace JianpuEditor.Views
 
             var applyButton = new Button
             {
-                Text = "应用到各小节",
+                Text = "Apply to Measures",
                 DialogResult = DialogResult.OK,
                 Location = new Point(300, 296),
                 Width = 110
             };
             var cancelButton = new Button
             {
-                Text = "取消",
+                Text = "Cancel",
                 DialogResult = DialogResult.Cancel,
                 Location = new Point(424, 296),
                 Width = 80

@@ -26,12 +26,12 @@ namespace JianpuEditor
 
         private static void OnThreadException(object sender, ThreadExceptionEventArgs e)
         {
-            AppLog.Exception("UI 线程未处理异常", e.Exception);
+            AppLog.Exception("Unhandled exception on UI thread", e.Exception);
         }
 
         private static void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)
         {
-            AppLog.Exception("应用程序未处理异常", e.ExceptionObject as Exception);
+            AppLog.Exception("Unhandled application exception", e.ExceptionObject as Exception);
         }
     }
 }

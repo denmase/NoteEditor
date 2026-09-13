@@ -63,7 +63,7 @@ namespace JianpuEditor.ViewModels
             var result = new ScoreEditResult
             {
                 Changed = true,
-                Message = "当前编辑第 " + (index + 1) + " 小节",
+                Message = "Now editing measure " + (index + 1),
                 SelectMeasureIndex = index,
                 RequiresScoreRefresh = false
             };
@@ -75,7 +75,7 @@ namespace JianpuEditor.ViewModels
         {
             return EditCommandHelper.Execute(
                 _history,
-                new ScoreSnapshotEditCommand(_document, this, _messenger, () => ApplyAddMeasure(), "新增小节"));
+                new ScoreSnapshotEditCommand(_document, this, _messenger, () => ApplyAddMeasure(), "Add measure"));
         }
 
         public ScoreEditResult AddMeasureWithPlaceholders()
@@ -87,14 +87,14 @@ namespace JianpuEditor.ViewModels
                     this,
                     _messenger,
                     () => ApplyAddMeasure(forcePlaceholders: true),
-                    "新增小节（含占位符）"));
+                    "Add measure (with placeholders)"));
         }
 
         public ScoreEditResult DuplicateMeasures()
         {
             return EditCommandHelper.Execute(
                 _history,
-                new ScoreSnapshotEditCommand(_document, this, _messenger, ApplyDuplicateMeasures, "复制小节"));
+                new ScoreSnapshotEditCommand(_document, this, _messenger, ApplyDuplicateMeasures, "Duplicate measure"));
         }
 
         public (int fromIndex, int toIndex) NormalizeMeasureRange(int fromOneBased, int toOneBased, bool fromChanged)
@@ -123,7 +123,7 @@ namespace JianpuEditor.ViewModels
             fromIndex = Math.Max(0, Math.Min(fromIndex, _document.Score.Measures.Count - 1));
             toIndex = Math.Max(0, Math.Min(toIndex, _document.Score.Measures.Count - 1));
 
-            var message = "已选择第 " + (fromIndex + 1) + " 到第 " + (toIndex + 1) + " 小节";
+            var message = "Selected measures " + (fromIndex + 1) + " to " + (toIndex + 1);
             _messenger.Send(new StatusChangedMessage(message));
             return new ScoreEditResult
             {
@@ -162,7 +162,7 @@ namespace JianpuEditor.ViewModels
             _document.Score = score;
             CurrentMeasureIndex = newIndex;
 
-            var message = "已新增第 " + score.Measures.Count + " 小节";
+            var message = "Added measure " + score.Measures.Count;
             return new ScoreEditResult
             {
                 Changed = true,
@@ -194,7 +194,7 @@ namespace JianpuEditor.ViewModels
             var duplicatedIndices = Enumerable.Range(duplicatedStart, indices.Count).ToList();
             CurrentMeasureIndex = duplicatedStart;
 
-            var message = "已复制 " + indices.Count + " 个小节到第 " + (duplicatedStart + 1) + " 小节后";
+            var message = "Duplicated " + indices.Count + " measure(s) after measure " + (duplicatedStart + 1);
             return new ScoreEditResult
             {
                 Changed = true,

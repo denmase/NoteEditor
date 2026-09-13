@@ -121,9 +121,9 @@ namespace JianpuEditor.ViewModels
                 && TieIndex < _document.Score.Ties.Count)
             {
                 var tie = _document.Score.Ties[TieIndex];
-                return "已选中连音线：第 " + (tie.StartMeasureIndex + 1) + " 小节第 " + (tie.StartNoteIndex + 1) +
-                       " 个音符 → 第 " + (tie.EndMeasureIndex + 1) + " 小节第 " + (tie.EndNoteIndex + 1) +
-                       " 个音符，点击「删除」可移除";
+                return "Tie selected: measure " + (tie.StartMeasureIndex + 1) + " note " + (tie.StartNoteIndex + 1) +
+                       " → measure " + (tie.EndMeasureIndex + 1) + " note " + (tie.EndNoteIndex + 1) +
+                       ". Click \"Delete\" to remove it.";
             }
 
             if (HasChordSelected
@@ -134,9 +134,9 @@ namespace JianpuEditor.ViewModels
                 if (ChordMarkerIndex >= 0 && ChordMarkerIndex < measure.ChordMarkers.Count)
                 {
                     var marker = measure.ChordMarkers[ChordMarkerIndex];
-                    return "已选中和弦标识：第 " + (ChordMeasureIndex + 1) + " 小节第 " +
-                           (ChordMarkerIndex + 1) + " 个，拍位 " + (marker.BeatPosition + 1) +
-                           "，可拖动 :: 改位置，Delete/「删除」移除";
+                    return "Chord marker selected: measure " + (ChordMeasureIndex + 1) + ", marker " +
+                           (ChordMarkerIndex + 1) + ", beat position " + (marker.BeatPosition + 1) +
+                           ". Drag \"::\" to reposition, or press Delete/\"Delete\" to remove it.";
                 }
             }
 
@@ -146,32 +146,32 @@ namespace JianpuEditor.ViewModels
                 var maxMeasure = SelectedNotes.Max(note => note.MeasureIndex);
                 if (minMeasure != maxMeasure)
                 {
-                    return "已选中 " + SelectedNotes.Count + " 个音符（第 " + (minMeasure + 1) +
-                           " 到第 " + (maxMeasure + 1) + " 小节），可用上方按钮批量修改";
+                    return "Selected " + SelectedNotes.Count + " note(s) (measures " + (minMeasure + 1) +
+                           " to " + (maxMeasure + 1) + "). Use the buttons above to edit them in bulk.";
                 }
 
-                return "已选中 " + SelectedNotes.Count + " 个音符，可用上方按钮批量修改";
+                return "Selected " + SelectedNotes.Count + " note(s). Use the buttons above to edit them in bulk.";
             }
 
             if (SelectedMeasureIndices != null && SelectedMeasureIndices.Count > 1)
             {
-                return "已选择第 " + (SelectedMeasureIndices.Min() + 1) + " 到第 " +
-                       (SelectedMeasureIndices.Max() + 1) + " 小节，可点击「复制小节」";
+                return "Selected measures " + (SelectedMeasureIndices.Min() + 1) + " to " +
+                       (SelectedMeasureIndices.Max() + 1) + ". Click \"Duplicate Measure\" to copy them.";
             }
 
             if (HasNoteSelected)
             {
-                return "已选中第 " + (MeasureIndex + 1) + " 小节第 " + (NoteIndex + 1) + " 个音符，可用上方按钮修改";
+                return "Selected note " + (NoteIndex + 1) + " in measure " + (MeasureIndex + 1) + ". Use the buttons above to edit it.";
             }
 
             if (HasGapSelected)
             {
-                return "已选中第 " + (MeasureIndex + 1) + " 小节第 " + (InsertIndex + 1) + " 个插入位置，可用上方按钮插入音符";
+                return "Selected insert position " + (InsertIndex + 1) + " in measure " + (MeasureIndex + 1) + ". Use the buttons above to insert a note.";
             }
 
             if (MeasureIndex >= 0)
             {
-                return "当前编辑第 " + (MeasureIndex + 1) + " 小节，点击副旋律空白拍位添加和弦，点击歌词行编辑文字";
+                return "Now editing measure " + (MeasureIndex + 1) + ". Click an empty beat in the secondary melody to add a chord, or click the lyric line to edit the text.";
             }
 
             return string.Empty;

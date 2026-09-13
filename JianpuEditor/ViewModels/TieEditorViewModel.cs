@@ -55,7 +55,7 @@ namespace JianpuEditor.ViewModels
             IsTieModeActive = true;
             _tieStartMeasureIndex = -1;
             _tieStartNoteIndex = -1;
-            _messenger.Send(new StatusChangedMessage("连音线：请选择起始音符"));
+            _messenger.Send(new StatusChangedMessage("Tie: please select the starting note"));
         }
 
         public void CancelTieMode()
@@ -63,7 +63,7 @@ namespace JianpuEditor.ViewModels
             IsTieModeActive = false;
             _tieStartMeasureIndex = -1;
             _tieStartNoteIndex = -1;
-            _messenger.Send(new StatusChangedMessage("已取消连音线"));
+            _messenger.Send(new StatusChangedMessage("Tie cancelled"));
         }
 
         public ScoreEditResult TryCompleteTie(int endMeasureIndex, int endNoteIndex)
@@ -77,13 +77,13 @@ namespace JianpuEditor.ViewModels
             {
                 _tieStartMeasureIndex = endMeasureIndex;
                 _tieStartNoteIndex = endNoteIndex;
-                _messenger.Send(new StatusChangedMessage("连音线：请选择结束音符"));
+                _messenger.Send(new StatusChangedMessage("Tie: please select the ending note"));
                 return ScoreEditResult.Unchanged;
             }
 
             if (_tieStartMeasureIndex == endMeasureIndex && _tieStartNoteIndex == endNoteIndex)
             {
-                _messenger.Send(new StatusChangedMessage("连音线：结束音符不能与起始音符相同"));
+                _messenger.Send(new StatusChangedMessage("Tie: the ending note cannot be the same as the starting note"));
                 return ScoreEditResult.Unchanged;
             }
 
@@ -91,7 +91,7 @@ namespace JianpuEditor.ViewModels
             {
                 _tieStartMeasureIndex = endMeasureIndex;
                 _tieStartNoteIndex = endNoteIndex;
-                _messenger.Send(new StatusChangedMessage("连音线：结束音符须晚于起始音符，请重新选择结束音符"));
+                _messenger.Send(new StatusChangedMessage("Tie: the ending note must come after the starting note, please reselect the ending note"));
                 return ScoreEditResult.Unchanged;
             }
 
@@ -104,7 +104,7 @@ namespace JianpuEditor.ViewModels
                     _navigation,
                     _messenger,
                     () => ApplyAddTie(startMeasureIndex, startNoteIndex, endMeasureIndex, endNoteIndex),
-                    "添加连音线"));
+                    "Add tie"));
         }
 
         private ScoreEditResult ApplyAddTie(
@@ -127,7 +127,7 @@ namespace JianpuEditor.ViewModels
             });
 
             CancelTieMode();
-            return ScoreEditResult.WithMessage("已添加连音线");
+            return ScoreEditResult.WithMessage("Tie added");
         }
 
         private static bool IsNoteAfter(int measureA, int noteA, int measureB, int noteB)

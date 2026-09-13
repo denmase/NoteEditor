@@ -107,7 +107,7 @@ namespace JianpuEditor.ViewModels
             var measure = _document.Score.Measures[measureIndex];
             if (measure.ChordMarkers.Count >= JianpuMeasure.MaxChordMarkers)
             {
-                var status = "当前小节最多 " + JianpuMeasure.MaxChordMarkers + " 个和弦标识";
+                var status = "This measure allows at most " + JianpuMeasure.MaxChordMarkers + " chord markers";
                 _messenger.Send(new StatusChangedMessage(status));
                 return ScoreEditResult.Unchanged;
             }
@@ -119,7 +119,7 @@ namespace JianpuEditor.ViewModels
                     _navigation,
                     _messenger,
                     () => ApplyAddChordMarker(measureIndex, 0),
-                    "添加和弦标识"));
+                    "Add chord marker"));
         }
 
         public ScoreEditResult AddChordMarkerAtBeat(int measureIndex, double beatPosition)
@@ -131,7 +131,7 @@ namespace JianpuEditor.ViewModels
                     _navigation,
                     _messenger,
                     () => ApplyAddChordMarker(measureIndex, beatPosition),
-                    "添加和弦标识"));
+                    "Add chord marker"));
         }
 
         public void ApplyChordText(string text)
@@ -188,7 +188,7 @@ namespace JianpuEditor.ViewModels
             return new ScoreEditResult
             {
                 Changed = true,
-                Message = "已删除和弦标识",
+                Message = "Chord marker removed",
                 ClearChordSelection = true
             };
         }
@@ -221,7 +221,7 @@ namespace JianpuEditor.ViewModels
                     _navigation,
                     _messenger,
                     () => ApplyTransposeChords(trimmedTarget),
-                    "和弦转调"));
+                    "Transpose chords"));
         }
 
         public string CurrentKeySignature
@@ -264,7 +264,7 @@ namespace JianpuEditor.ViewModels
                     _navigation,
                     _messenger,
                     () => ApplyHarmonyProgressionSuggestionCore(progression, firstMeasureIndex),
-                    "应用和弦进行建议"));
+                    "Apply chord progression suggestion"));
         }
 
         public IReadOnlyList<HarmonySuggestion> GetHarmonySuggestions(int measureIndex, double beatPosition)
@@ -326,7 +326,7 @@ namespace JianpuEditor.ViewModels
                     _navigation,
                     _messenger,
                     () => ApplyHarmonySuggestionCore(measureIndex, beatPosition, chordSymbol.Trim()),
-                    "应用和弦建议"));
+                    "Apply chord suggestion"));
         }
 
         private ScoreEditResult ApplyHarmonyProgressionSuggestionCore(
@@ -354,7 +354,7 @@ namespace JianpuEditor.ViewModels
             return new ScoreEditResult
             {
                 Changed = true,
-                Message = "已应用和弦进行（" + applied + " 个小节）",
+                Message = "Applied chord progression (" + applied + " measures)",
                 SelectMeasureIndex = firstMeasureIndex,
                 SelectChordMeasureIndex = firstMeasureIndex,
                 SelectChordMarkerIndex = 0
@@ -386,7 +386,7 @@ namespace JianpuEditor.ViewModels
             }
             else
             {
-                var status = "当前小节最多 " + JianpuMeasure.MaxChordMarkers + " 个和弦标识";
+                var status = "This measure allows at most " + JianpuMeasure.MaxChordMarkers + " chord markers";
                 _messenger.Send(new StatusChangedMessage(status));
                 return ScoreEditResult.Unchanged;
             }
@@ -394,7 +394,7 @@ namespace JianpuEditor.ViewModels
             return new ScoreEditResult
             {
                 Changed = true,
-                Message = "已应用和弦建议 " + chordSymbol,
+                Message = "Applied chord suggestion " + chordSymbol,
                 SelectMeasureIndex = measureIndex,
                 SelectChordMeasureIndex = measureIndex,
                 SelectChordMarkerIndex = markerIndex
@@ -414,7 +414,7 @@ namespace JianpuEditor.ViewModels
             {
                 if (beatPosition == 0)
                 {
-                    var status = "当前小节最多 " + JianpuMeasure.MaxChordMarkers + " 个和弦标识";
+                    var status = "This measure allows at most " + JianpuMeasure.MaxChordMarkers + " chord markers";
                     _messenger.Send(new StatusChangedMessage(status));
                 }
 
@@ -425,7 +425,7 @@ namespace JianpuEditor.ViewModels
             return new ScoreEditResult
             {
                 Changed = true,
-                Message = "已添加和弦标识",
+                Message = "Added chord marker",
                 SelectMeasureIndex = measureIndex,
                 SelectChordMeasureIndex = measureIndex,
                 SelectChordMarkerIndex = markerIndex
@@ -447,7 +447,7 @@ namespace JianpuEditor.ViewModels
                 };
             }
 
-            var message = "已将 " + transposedCount + " 个和弦转调到 " + _document.Score.KeySignature;
+            var message = "Transposed " + transposedCount + " chords to " + _document.Score.KeySignature;
             OnPropertyChanged(nameof(CurrentKeySignature));
             return ScoreEditResult.WithMessage(message);
         }

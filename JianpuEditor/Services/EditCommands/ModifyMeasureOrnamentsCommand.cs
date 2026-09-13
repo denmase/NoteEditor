@@ -45,7 +45,7 @@ namespace JianpuEditor.Services.EditCommands
 
         public void Undo()
         {
-            ApplyOrnaments(_oldOrnaments, "已撤回: " + Description);
+            ApplyOrnaments(_oldOrnaments, "Undone: " + Description);
         }
 
         private void ApplyOrnaments(IReadOnlyList<JianpuOrnament> ornaments, string message)

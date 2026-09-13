@@ -93,10 +93,10 @@ namespace JianpuEditor.Tests.Services
         [Fact]
         public void GetPlaceholderGlyph_ReturnsToolbarLabel()
         {
-            Assert.Equal("倚", OrnamentService.GetPlaceholderGlyph(OrnamentType.GraceNote));
+            Assert.Equal("gr", OrnamentService.GetPlaceholderGlyph(OrnamentType.GraceNote));
             Assert.Equal("tr", OrnamentService.GetPlaceholderGlyph(OrnamentType.Trill));
-            Assert.Equal("回", OrnamentService.GetPlaceholderGlyph(OrnamentType.Turn));
-            Assert.Equal("延", OrnamentService.GetPlaceholderGlyph(OrnamentType.Fermata));
+            Assert.Equal("trn", OrnamentService.GetPlaceholderGlyph(OrnamentType.Turn));
+            Assert.Equal("ferm", OrnamentService.GetPlaceholderGlyph(OrnamentType.Fermata));
         }
 
         [Fact]

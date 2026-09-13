@@ -169,7 +169,7 @@ namespace JianpuEditor.Rendering
                 return 1;
             }
 
-            // 简谱增时线：0条=四分(1拍)，1条=二分(2拍)，3条=全音(4拍)，按时值线性叠加而非 2^n
+            // Jianpu duration-extension dashes: 0 dashes=quarter(1 beat), 1 dash=half(2 beats), 3 dashes=whole(4 beats) - durations add up linearly rather than as 2^n
             var lengthUnits = 1.0 + note.Dashes;
             var divisor = Math.Pow(2, note.Underlines);
             var duration = lengthUnits / divisor;
@@ -567,8 +567,8 @@ namespace JianpuEditor.Rendering
 
         private void DrawPdfContinuationHeader(Graphics g, JianpuScore score, int width, PdfPageSlice slice)
         {
-            var title = string.IsNullOrWhiteSpace(score.Title) ? "未命名乐曲" : score.Title.Trim();
-            var pageText = title + "    第 " + slice.PageNumber + " / " + slice.TotalPages + " 页";
+            var title = string.IsNullOrWhiteSpace(score.Title) ? "Untitled Score" : score.Title.Trim();
+            var pageText = title + "    Page " + slice.PageNumber + " / " + slice.TotalPages;
             using (var font = new Font("Microsoft YaHei", 14f, FontStyle.Regular))
             using (var ink = CreateInkBrush())
             {
@@ -578,9 +578,9 @@ namespace JianpuEditor.Rendering
 
         private void DrawRowLabelsForBlock(Graphics g, int blockTop)
         {
-            DrawRowLabel(g, "主旋律", blockTop + 28);
-            DrawRowLabel(g, "副旋律", blockTop + MelodyRowHeight + RowGap + 10);
-            DrawRowLabel(g, "歌词", blockTop + MelodyRowHeight + RowGap + SecondaryRowHeight + RowGap + 8);
+            DrawRowLabel(g, "Melody", blockTop + 28);
+            DrawRowLabel(g, "Secondary", blockTop + MelodyRowHeight + RowGap + 10);
+            DrawRowLabel(g, "Lyrics", blockTop + MelodyRowHeight + RowGap + SecondaryRowHeight + RowGap + 8);
         }
 
         private void DrawHeader(Graphics g, JianpuScore score, int width, ScoreLayoutOptions options)
@@ -604,7 +604,7 @@ namespace JianpuEditor.Rendering
                     bpm);
                 if (!string.IsNullOrWhiteSpace(score.Composer))
                 {
-                    meta += "    作曲: " + score.Composer;
+                    meta += "    Composer: " + score.Composer;
                 }
 
                 var metaTop = titleTop + titleFont.Size + 10f;
@@ -693,7 +693,7 @@ namespace JianpuEditor.Rendering
                 const float metaGap = 10f;
                 var metaTop = titleTop + titleFont.Size + metaGap;
                 var rowHeight = Math.Max(titleFont.Height, metaFont.Height) + 8f;
-                var titleText = string.IsNullOrWhiteSpace(score.Title) ? "点击输入标题" : score.Title;
+                var titleText = string.IsNullOrWhiteSpace(score.Title) ? "Click to enter title" : score.Title;
                 var titleWidth = g.MeasureString(titleText, titleFont).Width;
                 layout.TitleBounds = Rectangle.Round(new RectangleF(
                     Math.Max(8f, (width - titleWidth) / 2f - 12f),
@@ -713,7 +713,7 @@ namespace JianpuEditor.Rendering
                 var tempoWidth = Math.Max(g.MeasureString(tempoText, metaFont).Width, 36f);
                 var bpmSegment = "BPM " + bpmText;
                 var bpmWidth = g.MeasureString(bpmSegment, metaFont).Width;
-                var composerSegment = "作曲: " + composerText;
+                var composerSegment = "Composer: " + composerText;
                 var composerWidth = Math.Max(g.MeasureString(composerSegment, metaFont).Width, 56f);
 
                 var metaTotalWidth = keyWidth + gapWidth + tempoWidth + gapWidth + bpmWidth + gapWidth + composerWidth;
@@ -767,9 +767,9 @@ namespace JianpuEditor.Rendering
             }
 
             var blockTop = layout.Lines[0].BlockTop;
-            DrawRowLabel(g, "主旋律", blockTop + 28);
-            DrawRowLabel(g, "副旋律", blockTop + MelodyRowHeight + RowGap + 10);
-            DrawRowLabel(g, "歌词", blockTop + MelodyRowHeight + RowGap + SecondaryRowHeight + RowGap + 8);
+            DrawRowLabel(g, "Melody", blockTop + 28);
+            DrawRowLabel(g, "Secondary", blockTop + MelodyRowHeight + RowGap + 10);
+            DrawRowLabel(g, "Lyrics", blockTop + MelodyRowHeight + RowGap + SecondaryRowHeight + RowGap + 8);
         }
 
         private void DrawRowLabel(Graphics g, string text, float y)
@@ -1675,7 +1675,7 @@ namespace JianpuEditor.Rendering
             {
                 using (var font = new Font("Microsoft YaHei", 8f, FontStyle.Regular))
                 {
-                    var hint = "+ 点击空白拍位添加和弦";
+                    var hint = "+ Click an empty beat to add a chord";
                     g.DrawString(hint, font, Brushes.DimGray, rowBounds.Left + 4, rowBounds.Bottom - 14);
                 }
             }

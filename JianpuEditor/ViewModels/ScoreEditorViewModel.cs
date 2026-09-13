@@ -49,14 +49,14 @@ namespace JianpuEditor.ViewModels
         {
             return EditCommandHelper.Execute(
                 _history,
-                new ScoreSnapshotEditCommand(_document, _navigation, _messenger, ApplyDelete, "删除"));
+                new ScoreSnapshotEditCommand(_document, _navigation, _messenger, ApplyDelete, "Delete"));
         }
 
         public ScoreEditResult ClearScore()
         {
             return EditCommandHelper.Execute(
                 _history,
-                new ScoreSnapshotEditCommand(_document, _navigation, _messenger, ApplyClearScore, "清空谱面"));
+                new ScoreSnapshotEditCommand(_document, _navigation, _messenger, ApplyClearScore, "Clear score"));
         }
 
         private ScoreEditResult ApplyDelete()
@@ -70,7 +70,7 @@ namespace JianpuEditor.ViewModels
                 return new ScoreEditResult
                 {
                     Changed = true,
-                    Message = "已删除连音线",
+                    Message = "Tie deleted",
                     ClearTieSelection = true
                 };
             }
@@ -122,8 +122,8 @@ namespace JianpuEditor.ViewModels
                     if (removedCount > 0)
                     {
                         var message = removedCount > 1
-                            ? "已删除 " + removedCount + " 个选中音符"
-                            : "已删除选中音符";
+                            ? "Deleted " + removedCount + " selected notes"
+                            : "Deleted selected note";
                         return new ScoreEditResult
                         {
                             Changed = true,
@@ -144,7 +144,7 @@ namespace JianpuEditor.ViewModels
                 return new ScoreEditResult
                 {
                     Changed = true,
-                    Message = "已删除当前小节最后一个音符",
+                    Message = "Deleted last note in current measure",
                     ClearMelodySelection = true,
                     ClearTieSelection = true
                 };
@@ -160,7 +160,7 @@ namespace JianpuEditor.ViewModels
                 return new ScoreEditResult
                 {
                     Changed = true,
-                    Message = "已删除空小节",
+                    Message = "Empty measure deleted",
                     ClearTieSelection = true,
                     SelectMeasureIndex = newIndex
                 };
@@ -176,7 +176,7 @@ namespace JianpuEditor.ViewModels
             return new ScoreEditResult
             {
                 Changed = true,
-                Message = "谱面已清空",
+                Message = "Score cleared",
                 SelectMeasureIndex = 0
             };
         }

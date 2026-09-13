@@ -4,7 +4,7 @@ namespace JianpuEditor.Models
     {
         public string Text { get; set; } = string.Empty;
 
-        /// <summary>小节内四分拍位置（0 为第 1 拍），与主旋律四分音符对齐。</summary>
+        /// <summary>Quarter-beat position within the measure (0 = beat 1), aligned with the melody's quarter notes.</summary>
         public double BeatPosition { get; set; }
     }
 }

@@ -90,7 +90,7 @@ namespace JianpuEditor.ViewModels
         public ScoreEditResult NotifyInlineLyricEdited(int measureIndex)
         {
             LoadFromMeasure(measureIndex);
-            return ScoreEditResult.WithMessage("已更新小节文字");
+            return ScoreEditResult.WithMessage("Measure lyrics updated");
         }
 
         public IReadOnlyList<string> GetLyricTextsForRange(int fromIndex, int toIndex)
@@ -134,14 +134,14 @@ namespace JianpuEditor.ViewModels
             }
             else
             {
-                _history.Execute(new CompositeEditCommand("批量编辑歌词", commands));
+                _history.Execute(new CompositeEditCommand("Bulk edit lyrics", commands));
             }
 
             LoadFromMeasure(Math.Max(0, _navigation.CurrentMeasureIndex));
             return new ScoreEditResult
             {
                 Changed = true,
-                Message = "已批量更新歌词",
+                Message = "Lyrics updated in bulk",
                 RequiresScoreRefresh = true
             };
         }

@@ -13,7 +13,7 @@ if (-not (Test-Path $dotnet)) {
 }
 
 if (-not (Test-Path $InputMidi)) {
-    throw "MIDI 文件不存在: $InputMidi"
+    throw "MIDI file not found: $InputMidi"
 }
 
 Push-Location $repoRoot

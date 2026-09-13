@@ -27,7 +27,7 @@ namespace JianpuEditor.Tests.Services
             Assert.Equal("F", suggestions[0].Steps[1].ChordSymbol);
             Assert.Equal("G", suggestions[0].Steps[2].ChordSymbol);
             Assert.Equal("C", suggestions[0].Steps[3].ChordSymbol);
-            Assert.Contains("低音走向 1→4→5→1", suggestions[0].BassLineSummary);
+            Assert.Contains("Bass movement 1→4→5→1", suggestions[0].BassLineSummary);
         }
 
         [Fact]

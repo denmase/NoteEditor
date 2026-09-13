@@ -65,7 +65,7 @@ namespace JianpuEditor.Services.NoteEditCommands
         public void Undo()
         {
             NoteEditState.RestoreMeasuresMelody(_score, _backup);
-            var message = "已撤回: " + Description;
+            var message = "Undone: " + Description;
             _messenger.Send(new ScoreEditedMessage(message));
             Result = new ScoreEditResult
             {

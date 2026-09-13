@@ -16,9 +16,9 @@ All notable changes to this project are documented in this file.
 
 ### Editing
 
-- **增时+ / 减时-** six-step duration cycling (1/16 → 1/8 → 1/4 →延 1/2/3 拍)
+- **Increase duration (+) / Decrease duration (−)** six-step duration cycling (1/16 → 1/8 → 1/4 → tied +1/+2/+3 beats)
 - **Ctrl / Shift** multi-note selection with cross-measure range sync
-- **升 key / 降 key** pitch transpose within current key
+- **Raise key / Lower key** pitch transpose within current key
 - **Split / Merge** note duration tools
 - **Undo (Ctrl+Z)** undo stack via score snapshots
 

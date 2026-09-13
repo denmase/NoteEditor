@@ -143,7 +143,7 @@ namespace JianpuEditor.Glue
 
         private void OnPlaybackError(Exception ex)
         {
-            ShowPlaybackError("播放中断", ex);
+            ShowPlaybackError("Playback interrupted", ex);
         }
 
         private void OnScoreEdited(ScoreCanvasGlue recipient, ScoreEditedMessage message)
@@ -162,8 +162,8 @@ namespace JianpuEditor.Glue
                 ? title
                 : title + Environment.NewLine + Environment.NewLine +
                   ex.Message + Environment.NewLine + Environment.NewLine +
-                  "详细日志:" + Environment.NewLine + Services.AppLog.LogFilePath;
-            System.Windows.Forms.MessageBox.Show(msg, "错误", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
+                  "Detailed log:" + Environment.NewLine + Services.AppLog.LogFilePath;
+            System.Windows.Forms.MessageBox.Show(msg, "Error", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
         }
     }
 }

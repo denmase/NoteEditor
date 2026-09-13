@@ -80,8 +80,8 @@ namespace JianpuEditor.ViewModels
             if (selectedNotes.Count > 0)
             {
                 var message = selectedNotes.Count > 1
-                    ? "已修改 " + selectedNotes.Count + " 个选中音符为 " + pitch
-                    : "已修改选中音符为 " + pitch;
+                    ? "Changed " + selectedNotes.Count + " selected notes to " + pitch
+                    : "Changed selected note to " + pitch;
                 return ExecuteCommand(new ModifyMelodyNotesCommand(
                     _document.Score,
                     _messenger,
@@ -100,7 +100,7 @@ namespace JianpuEditor.ViewModels
             var note = ClonePendingNote();
             note.Type = NoteType.Note;
             note.Pitch = pitch;
-            return InsertMelodyNote(note, "已插入音符 " + pitch);
+            return InsertMelodyNote(note, "Inserted note " + pitch);
         }
 
         public ScoreEditResult AddRest()
@@ -109,8 +109,8 @@ namespace JianpuEditor.ViewModels
             if (selectedNotes.Count > 0)
             {
                 var message = selectedNotes.Count > 1
-                    ? "已修改 " + selectedNotes.Count + " 个选中音符为休止符"
-                    : "已修改选中音符为休止符";
+                    ? "Changed " + selectedNotes.Count + " selected notes to rests"
+                    : "Changed selected note to a rest";
                 return ExecuteCommand(new ModifyMelodyNotesCommand(
                     _document.Score,
                     _messenger,
@@ -129,7 +129,7 @@ namespace JianpuEditor.ViewModels
             var note = ClonePendingNote();
             note.Type = NoteType.Rest;
             note.Pitch = 0;
-            return InsertMelodyNote(note, "已插入休止符");
+            return InsertMelodyNote(note, "Inserted rest");
         }
 
         public ScoreEditResult AppendNote(int pitch, bool copyPreviousNoteStyle = false)
@@ -138,8 +138,8 @@ namespace JianpuEditor.ViewModels
             note.Type = NoteType.Note;
             note.Pitch = pitch;
             var message = copyPreviousNoteStyle
-                ? "已追加音符 " + pitch + "（复制上一音符时值/八度）"
-                : "已追加音符 " + pitch;
+                ? "Appended note " + pitch + " (copied duration/octave from previous note)"
+                : "Appended note " + pitch;
             return InsertMelodyNoteAt(GetCurrentMeasureIndex(), note, message);
         }
 
@@ -149,8 +149,8 @@ namespace JianpuEditor.ViewModels
             note.Type = NoteType.Rest;
             note.Pitch = 0;
             var message = copyPreviousNoteStyle
-                ? "已追加休止符（复制上一音符时值/八度）"
-                : "已追加休止符";
+                ? "Appended rest (copied duration/octave from previous note)"
+                : "Appended rest";
             return InsertMelodyNoteAt(GetCurrentMeasureIndex(), note, message);
         }
 
@@ -160,8 +160,8 @@ namespace JianpuEditor.ViewModels
             if (selectedNotes.Count > 0)
             {
                 var message = selectedNotes.Count > 1
-                    ? "已修改 " + selectedNotes.Count + " 个选中音符八度"
-                    : "已修改选中音符八度";
+                    ? "Changed octave for " + selectedNotes.Count + " selected notes"
+                    : "Changed octave for selected note";
                 return ExecuteCommand(new ModifyMelodyNotesCommand(
                     _document.Score,
                     _messenger,
@@ -177,8 +177,8 @@ namespace JianpuEditor.ViewModels
             }
 
             _pendingNote.Octave = _pendingNote.Octave == octave ? 0 : octave;
-            var label = _pendingNote.Octave > 0 ? "高音" : _pendingNote.Octave < 0 ? "低音" : "中音";
-            _messenger.Send(new StatusChangedMessage("当前八度: " + label));
+            var label = _pendingNote.Octave > 0 ? "high octave" : _pendingNote.Octave < 0 ? "low octave" : "middle octave";
+            _messenger.Send(new StatusChangedMessage("Current octave: " + label));
             return ScoreEditResult.Unchanged;
         }
 
@@ -189,8 +189,8 @@ namespace JianpuEditor.ViewModels
             {
                 var dotted = !selectedNotes[0].Dotted;
                 var message = selectedNotes.Count > 1
-                    ? (dotted ? "已为 " + selectedNotes.Count + " 个选中音符添加附点" : "已移除 " + selectedNotes.Count + " 个选中音符附点")
-                    : (dotted ? "已为选中音符添加附点" : "已移除选中音符附点");
+                    ? (dotted ? "Added dot to " + selectedNotes.Count + " selected notes" : "Removed dot from " + selectedNotes.Count + " selected notes")
+                    : (dotted ? "Added dot to selected note" : "Removed dot from selected note");
                 return ExecuteCommand(new ModifyMelodyNotesCommand(
                     _document.Score,
                     _messenger,
@@ -206,7 +206,7 @@ namespace JianpuEditor.ViewModels
             }
 
             _pendingNote.Dotted = !_pendingNote.Dotted;
-            _messenger.Send(new StatusChangedMessage(_pendingNote.Dotted ? "下一音符将带附点" : "已取消附点"));
+            _messenger.Send(new StatusChangedMessage(_pendingNote.Dotted ? "Next note will be dotted" : "Dot removed"));
             return ScoreEditResult.Unchanged;
         }
 
@@ -225,21 +225,21 @@ namespace JianpuEditor.ViewModels
             var refs = GetSelectedNoteRefs();
             if (refs.Count == 0)
             {
-                _messenger.Send(new StatusChangedMessage("请先选中要拆分的音符"));
+                _messenger.Send(new StatusChangedMessage("Select a note to split first"));
                 return ScoreEditResult.Unchanged;
             }
 
             _document.EnsureMeasures();
             if (!CanSplitAny(refs))
             {
-                return PublishEdit("无法拆分：音符已达最短时值或为休止符");
+                return PublishEdit("Cannot split: note is already at the shortest duration or is a rest");
             }
 
             return ExecuteCommand(new MeasuresMelodySnapshotCommand(
                 _document.Score,
                 _messenger,
                 () => ApplySplitSelectedNotes(refs),
-                "拆分音符"));
+                "Split note"));
         }
 
         public ScoreEditResult MergeSelectedNotes()
@@ -247,21 +247,21 @@ namespace JianpuEditor.ViewModels
             var refs = GetSelectedNoteRefs();
             if (refs.Count < 2)
             {
-                _messenger.Send(new StatusChangedMessage("请至少选中两个音符进行合并"));
+                _messenger.Send(new StatusChangedMessage("Select at least two notes to merge"));
                 return ScoreEditResult.Unchanged;
             }
 
             _document.EnsureMeasures();
             if (NoteSplitMergeService.GetMergePairs(refs).Count == 0)
             {
-                return PublishEdit("无法合并：请至少选中两个音符");
+                return PublishEdit("Cannot merge: select at least two notes");
             }
 
             return ExecuteCommand(new MeasuresMelodySnapshotCommand(
                 _document.Score,
                 _messenger,
                 () => ApplyMergeSelectedNotes(refs),
-                "合并音符"));
+                "Merge notes"));
         }
 
         public ScoreEditResult TransposePitch(int delta)
@@ -272,13 +272,13 @@ namespace JianpuEditor.ViewModels
                 var changedCount = CountTransposableNotes(selectedNotes, delta);
                 if (changedCount == 0)
                 {
-                    return PublishEdit(delta > 0 ? "已达最高音" : "已达最低音");
+                    return PublishEdit(delta > 0 ? "Already at the highest pitch" : "Already at the lowest pitch");
                 }
 
-                var direction = delta > 0 ? "升" : "降";
+                var direction = delta > 0 ? "up" : "down";
                 var message = changedCount > 1
-                    ? "已" + direction + "key " + changedCount + " 个选中音符"
-                    : "已" + direction + "key选中音符";
+                    ? "Transposed " + direction + " key for " + changedCount + " selected notes"
+                    : "Transposed " + direction + " key for selected note";
                 return ExecuteCommand(new ModifyMelodyNotesCommand(
                     _document.Score,
                     _messenger,
@@ -295,12 +295,12 @@ namespace JianpuEditor.ViewModels
 
             if (!JianpuPitchService.TryTranspose(_pendingNote, delta))
             {
-                _messenger.Send(new StatusChangedMessage(delta > 0 ? "下一音符已达最高音" : "下一音符已达最低音"));
+                _messenger.Send(new StatusChangedMessage(delta > 0 ? "Next note is already at the highest pitch" : "Next note is already at the lowest pitch"));
                 return ScoreEditResult.Unchanged;
             }
 
             _messenger.Send(new StatusChangedMessage(
-                "下一音符音高: " + _pendingNote.Pitch +
+                "Next note pitch: " + _pendingNote.Pitch +
                 (_pendingNote.Octave > 0 ? "·" : _pendingNote.Octave < 0 ? ".." : string.Empty)));
             return ScoreEditResult.Unchanged;
         }
@@ -314,13 +314,13 @@ namespace JianpuEditor.ViewModels
                 var nextTier = Math.Max(MinDurationTier, Math.Min(MaxDurationTier, tier + delta));
                 if (nextTier == tier)
                 {
-                    var limit = delta > 0 ? "已达最长时值" : "已达最短时值";
-                    return PublishEdit(limit + "（" + GetDurationTierLabel(tier) + "）");
+                    var limit = delta > 0 ? "Already at the longest duration" : "Already at the shortest duration";
+                    return PublishEdit(limit + " (" + GetDurationTierLabel(tier) + ")");
                 }
 
                 var message = selectedNotes.Count > 1
-                    ? "时值: " + GetDurationTierLabel(nextTier) + "（" + selectedNotes.Count + " 个音符）"
-                    : "时值: " + GetDurationTierLabel(nextTier);
+                    ? "Duration: " + GetDurationTierLabel(nextTier) + " (" + selectedNotes.Count + " notes)"
+                    : "Duration: " + GetDurationTierLabel(nextTier);
                 return ExecuteCommand(new ModifyMelodyNotesCommand(
                     _document.Score,
                     _messenger,
@@ -338,7 +338,7 @@ namespace JianpuEditor.ViewModels
             var pendingTier = GetDurationTier(_pendingNote);
             var nextPendingTier = Math.Max(MinDurationTier, Math.Min(MaxDurationTier, pendingTier + delta));
             ApplyDurationTier(_pendingNote, nextPendingTier);
-            _messenger.Send(new StatusChangedMessage("下一音符时值: " + GetDurationTierLabel(nextPendingTier)));
+            _messenger.Send(new StatusChangedMessage("Next note duration: " + GetDurationTierLabel(nextPendingTier)));
             return ScoreEditResult.Unchanged;
         }
 
@@ -454,11 +454,11 @@ namespace JianpuEditor.ViewModels
 
             if (splitCount == 0)
             {
-                return BuildEditResult("无法拆分：音符已达最短时值或为休止符");
+                return BuildEditResult("Cannot split: note is already at the shortest duration or is a rest");
             }
 
             return BuildEditResult(
-                splitCount > 1 ? "已拆分 " + splitCount + " 个音符" : "已拆分选中音符",
+                splitCount > 1 ? "Split " + splitCount + " notes" : "Split selected note",
                 selectMeasureIndex,
                 selectNoteIndex);
         }
@@ -468,7 +468,7 @@ namespace JianpuEditor.ViewModels
             _document.EnsureMeasures();
             if (NoteSplitMergeService.GetMergePairs(refs).Count == 0)
             {
-                return BuildEditResult("无法合并：请至少选中两个音符");
+                return BuildEditResult("Cannot merge: select at least two notes");
             }
 
             var mergedCount = NoteSplitMergeService.ApplyMergePairs(_document.Score, refs);
@@ -490,11 +490,11 @@ namespace JianpuEditor.ViewModels
 
             if (mergedCount == 0)
             {
-                return BuildEditResult("无法合并：配对音符不相邻、时值相差超过 2 倍或类型不兼容");
+                return BuildEditResult("Cannot merge: paired notes are not adjacent, differ in duration by more than 2x, or have incompatible types");
             }
 
             return BuildEditResult(
-                mergedCount > 1 ? "已合并 " + mergedCount + " 对音符" : "已合并选中音符",
+                mergedCount > 1 ? "Merged " + mergedCount + " note pairs" : "Merged selected notes",
                 selectMeasureIndex,
                 selectNoteIndex);
         }
@@ -711,11 +711,11 @@ namespace JianpuEditor.ViewModels
                 case 1:
                     return "1/8";
                 case 3:
-                    return "延1拍";
+                    return "+1 beat";
                 case 4:
-                    return "延2拍";
+                    return "+2 beats";
                 case 5:
-                    return "延3拍";
+                    return "+3 beats";
                 default:
                     return "1/4";
             }

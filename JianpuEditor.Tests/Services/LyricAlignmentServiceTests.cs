@@ -34,7 +34,7 @@ namespace JianpuEditor.Tests.Services
             Assert.Equal(1, syllables[1].NoteIndex);
             Assert.Equal("世", syllables[2].Text);
             Assert.Equal(3, syllables[3].NoteIndex);
-            Assert.Contains("已对齐 4 个音节", message);
+            Assert.Contains("Aligned 4 syllable(s)", message);
         }
 
         [Fact]

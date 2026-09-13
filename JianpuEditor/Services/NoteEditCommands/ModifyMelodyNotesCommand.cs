@@ -84,8 +84,8 @@ namespace JianpuEditor.Services.NoteEditCommands
             }
 
             SyncAffectedMeasures();
-            _messenger.Send(new ScoreEditedMessage("已撤回: " + Description));
-            Result = BuildResult("已撤回: " + Description);
+            _messenger.Send(new ScoreEditedMessage("Undone: " + Description));
+            Result = BuildResult("Undone: " + Description);
         }
 
         private void SyncAffectedMeasures()

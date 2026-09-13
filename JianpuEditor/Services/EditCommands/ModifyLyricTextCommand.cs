@@ -37,7 +37,7 @@ namespace JianpuEditor.Services.EditCommands
             _measureIndex = measureIndex;
             _oldText = oldText ?? string.Empty;
             _newText = newText ?? string.Empty;
-            Description = "更新歌词";
+            Description = "Update lyrics";
         }
 
         public string Description { get; }
@@ -46,12 +46,12 @@ namespace JianpuEditor.Services.EditCommands
 
         public void Execute()
         {
-            ApplyText(_newText, "已更新歌词");
+            ApplyText(_newText, "Lyrics updated");
         }
 
         public void Undo()
         {
-            ApplyText(_oldText, "已撤回: " + Description);
+            ApplyText(_oldText, "Undone: " + Description);
         }
 
         private void ApplyText(string text, string message)

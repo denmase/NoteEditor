@@ -24,7 +24,8 @@ namespace JianpuEditor.Services
             {
                 var settings = new JsonSerializerSettings
                 {
-                    // Measures 默认列表若已存在条目，Auto 会追加而非替换，导致读入后多出一节空小节。
+                    // If the default Measures list already has entries, Auto would append rather than replace,
+                    // resulting in an extra empty measure after loading.
                     ObjectCreationHandling = ObjectCreationHandling.Replace
                 };
                 var score = JsonConvert.DeserializeObject<JianpuScore>(json, settings) ?? CreateEmptyScore();
@@ -66,9 +67,9 @@ namespace JianpuEditor.Services
         {
             var score = new JianpuScore
             {
-                Title = token.Value<string>("Title") ?? "未命名乐曲",
+                Title = token.Value<string>("Title") ?? "Untitled Score",
                 KeySignature = token.Value<string>("KeySignature") ?? "1=C",
-                Tempo = token.Value<string>("Tempo") ?? "中速",
+                Tempo = token.Value<string>("Tempo") ?? "Moderato",
                 Bpm = token.Value<int?>("Bpm") ?? 120,
                 Composer = token.Value<string>("Composer") ?? string.Empty,
                 Measures = new List<JianpuMeasure>()

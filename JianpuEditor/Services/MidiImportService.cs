@@ -35,7 +35,7 @@ namespace JianpuEditor.Services
             var notes = ExtractNotes(track, file.TicksPerQuarter);
             if (notes.Count == 0)
             {
-                throw new InvalidOperationException("MIDI 文件未包含可导入的旋律音符。");
+                throw new InvalidOperationException("The MIDI file does not contain any melody notes that can be imported.");
             }
 
             var bpm = track.TempoChanges.Count > 0
@@ -48,9 +48,9 @@ namespace JianpuEditor.Services
 
             return new JianpuScore
             {
-                Title = Path.GetFileNameWithoutExtension(path) ?? "MIDI 导入",
+                Title = Path.GetFileNameWithoutExtension(path) ?? "MIDI Import",
                 KeySignature = keySignature,
-                Tempo = "中速",
+                Tempo = "Moderato",
                 Bpm = bpm,
                 Composer = string.Empty,
                 Measures = measures,
@@ -621,13 +621,13 @@ namespace JianpuEditor.Services
                     var header = Encoding.ASCII.GetString(reader.ReadBytes(4));
                     if (header != "MThd")
                     {
-                        throw new InvalidOperationException("不是有效的 MIDI 文件（缺少 MThd）。");
+                        throw new InvalidOperationException("Not a valid MIDI file (missing MThd).");
                     }
 
                     var headerLength = ReadInt32Be(reader);
                     if (headerLength < 6)
                     {
-                        throw new InvalidOperationException("MIDI 文件头损坏。");
+                        throw new InvalidOperationException("The MIDI file header is corrupted.");
                     }
 
                     var format = ReadInt16Be(reader);
@@ -640,7 +640,7 @@ namespace JianpuEditor.Services
 
                     if ((division & 0x8000) != 0)
                     {
-                        throw new NotSupportedException("Spike 暂不支持 SMPTE 时间码格式的 MIDI。");
+                        throw new NotSupportedException("Spike does not yet support MIDI files using SMPTE timecode format.");
                     }
 
                     var data = new MidiFileData
@@ -663,7 +663,7 @@ namespace JianpuEditor.Services
                 var marker = Encoding.ASCII.GetString(reader.ReadBytes(4));
                 if (marker != "MTrk")
                 {
-                    throw new InvalidOperationException("MIDI 轨道块损坏（缺少 MTrk）。");
+                    throw new InvalidOperationException("The MIDI track chunk is corrupted (missing MTrk).");
                 }
 
                 var trackLength = ReadInt32Be(reader);
@@ -686,7 +686,7 @@ namespace JianpuEditor.Services
                     {
                         if (!runningStatus.HasValue)
                         {
-                            throw new InvalidOperationException("MIDI 事件流损坏（缺少状态字节）。");
+                            throw new InvalidOperationException("The MIDI event stream is corrupted (missing status byte).");
                         }
 
                         reader.BaseStream.Position--;

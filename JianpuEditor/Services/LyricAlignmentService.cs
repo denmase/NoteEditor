@@ -19,27 +19,27 @@ namespace JianpuEditor.Services
 
             if (measure == null)
             {
-                message = "小节不存在";
+                message = "Measure does not exist";
                 return false;
             }
 
             if (string.IsNullOrWhiteSpace(lyricText))
             {
-                message = "请先输入歌词";
+                message = "Please enter lyrics first";
                 return false;
             }
 
             var tokens = LyricSyllableService.TokenizeLyricText(lyricText);
             if (tokens.Count == 0)
             {
-                message = "歌词内容为空";
+                message = "Lyric text is empty";
                 return false;
             }
 
             var alignableNoteIndices = GetAlignableNoteIndices(measure, ties, measureIndex);
             if (alignableNoteIndices.Count == 0)
             {
-                message = "当前小节没有可对齐的音符";
+                message = "No notes in the current measure can be aligned";
                 return false;
             }
 
@@ -114,17 +114,17 @@ namespace JianpuEditor.Services
         {
             if (tokenCount > alignableNoteCount)
             {
-                return "已对齐 " + alignedCount + " 个音节（歌词超出 "
-                    + (tokenCount - alignableNoteCount) + " 个字）";
+                return "Aligned " + alignedCount + " syllable(s) (lyrics exceed notes by "
+                    + (tokenCount - alignableNoteCount) + " character(s))";
             }
 
             if (alignableNoteCount > tokenCount)
             {
-                return "已对齐 " + alignedCount + " 个音节（剩余 "
-                    + (alignableNoteCount - tokenCount) + " 个音符未填词）";
+                return "Aligned " + alignedCount + " syllable(s) ("
+                    + (alignableNoteCount - tokenCount) + " note(s) left without lyrics)";
             }
 
-            return "已对齐 " + alignedCount + " 个音节";
+            return "Aligned " + alignedCount + " syllable(s)";
         }
     }
 }

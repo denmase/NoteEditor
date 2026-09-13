@@ -22,7 +22,7 @@ namespace JianpuEditor.Models
         /// <summary>Number of duration underlines (0=quarter, 1=eighth, 2=sixteenth).</summary>
         public int Underlines { get; set; }
 
-        /// <summary>增时线数量：0=四分，1=二分，3=全音（每条增时线 +1 拍）。</summary>
+        /// <summary>Number of duration-extension dashes: 0=quarter, 1=half, 3=whole note (each dash adds +1 beat).</summary>
         public int Dashes { get; set; }
 
         public bool Dotted { get; set; }

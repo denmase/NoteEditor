@@ -43,16 +43,16 @@ namespace JianpuEditor.Rendering
 
         public bool HeaderMetaLeftAligned { get; set; }
 
-        /// <summary>PDF 等导出场景：仅绘制和弦文字，不绘制编辑边框与手柄。</summary>
+        /// <summary>For export scenarios like PDF: draws only the chord text, without edit borders or handles.</summary>
         public bool ChordMarkersTextOnly { get; set; }
 
-        /// <summary>编辑界面：显示拍位网格、提示，以及选中态的操作标记。</summary>
+        /// <summary>Editing UI: shows the beat grid, hints, and selection-state markers.</summary>
         public bool ShowChordEditorAffordances { get; set; }
 
-        /// <summary>为 false 时（如 PDF 导出）始终使用浅色纸面。</summary>
+        /// <summary>When false (e.g. PDF export), always use a light paper background.</summary>
         public bool RespectAppTheme { get; set; } = true;
 
-        /// <summary>编辑器与 PDF：音符上方标注分层排布（升降号、高音点、装饰音纵向叠放）。</summary>
+        /// <summary>Editor and PDF: stacks note annotations above the note in layers (accidentals, octave dots, ornaments stacked vertically).</summary>
         public bool CompactAccidentalGlyphs { get; set; }
     }
 }

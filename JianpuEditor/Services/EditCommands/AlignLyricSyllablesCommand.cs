@@ -47,7 +47,7 @@ namespace JianpuEditor.Services.EditCommands
             _oldSyllables = CloneSyllables(oldSyllables);
             _oldLyricText = oldLyricText ?? string.Empty;
             _newSyllables = CloneSyllables(newSyllables);
-            Description = description ?? "歌词对齐";
+            Description = description ?? "Align lyrics";
         }
 
         public string Description { get; }
@@ -61,7 +61,7 @@ namespace JianpuEditor.Services.EditCommands
 
         public void Undo()
         {
-            Apply(_oldSyllables, "已撤回: " + Description);
+            Apply(_oldSyllables, "Undone: " + Description);
         }
 
         private void Apply(List<LyricSyllable> syllables, string message)

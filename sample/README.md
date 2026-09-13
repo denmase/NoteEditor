@@ -1,12 +1,12 @@
-# 示例曲库
+# Sample Library
 
-本目录存放 JianpuEditor 自带的示例简谱（`.jianpu` / `.json`）。
+This folder holds the sample Jianpu scores (`.jianpu` / `.json`) bundled with JianpuEditor.
 
-在编辑器中通过 **文件 → 示例曲库** 或工具栏 **曲库** 按钮加载。
+Load them from within the editor via **File → Sample Library**, or the **Library** button on the toolbar.
 
-| 文件 | 说明 |
+| File | Description |
 |------|------|
-| `欢乐颂 Ode to Joy.jianpu` | 贝多芬《欢乐颂》片段，1=C，120 BPM（与内置演示曲一致） |
-| `卡农 Canon in D.jianpu` | 帕赫贝尔《D 大调卡农》，1=D，72 BPM |
+| `欢乐颂 Ode to Joy.jianpu` | An excerpt of Beethoven's Ode to Joy, 1=C, 120 BPM (matches the built-in demo score) |
+| `卡农 Canon in D.jianpu` | Pachelbel's Canon in D, 1=D, 72 BPM |
 
-可将自有曲谱复制到本目录，重启应用或重新打开曲库菜单后即可看到新条目。
+You can copy your own scores into this folder — they'll show up as new entries after restarting the app or reopening the library menu.

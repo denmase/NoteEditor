@@ -72,7 +72,7 @@ namespace JianpuEditor.Services.EditCommands
 
         public void Undo()
         {
-            RestoreSnapshot(_backup, _backupMeasureIndex, "已撤回: " + Description);
+            RestoreSnapshot(_backup, _backupMeasureIndex, "Undone: " + Description);
         }
 
         private void RestoreSnapshot(JianpuScore snapshot, int measureIndex, string message)
