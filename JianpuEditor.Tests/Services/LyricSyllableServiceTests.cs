@@ -8,25 +8,25 @@ namespace JianpuEditor.Tests.Services
     public class LyricSyllableServiceTests
     {
         [Fact]
-        public void ImportLegacyLyricText_SplitsChineseCharactersAcrossNotes()
+        public void ImportLegacyLyricText_SplitsCharactersAcrossNotesWhenNoWhitespace()
         {
             var measure = ScoreTestHelper.Measure(
                 ScoreTestHelper.Note(1),
                 ScoreTestHelper.Note(2),
                 ScoreTestHelper.Note(3),
                 ScoreTestHelper.Note(4));
-            measure.LyricText = "欢乐女神";
+            measure.LyricText = "Ruby";
 
             LyricSyllableService.ImportLegacyLyricText(measure);
 
             Assert.Equal(4, measure.LyricSyllables.Count);
-            Assert.Equal("欢", measure.LyricSyllables[0].Text);
+            Assert.Equal("R", measure.LyricSyllables[0].Text);
             Assert.Equal(0, measure.LyricSyllables[0].NoteIndex);
-            Assert.Equal("乐", measure.LyricSyllables[1].Text);
+            Assert.Equal("u", measure.LyricSyllables[1].Text);
             Assert.Equal(1, measure.LyricSyllables[1].NoteIndex);
-            Assert.Equal("女", measure.LyricSyllables[2].Text);
-            Assert.Equal("神", measure.LyricSyllables[3].Text);
-            Assert.Equal("欢乐女神", measure.LyricText);
+            Assert.Equal("b", measure.LyricSyllables[2].Text);
+            Assert.Equal("y", measure.LyricSyllables[3].Text);
+            Assert.Equal("Ruby", measure.LyricText);
         }
 
         [Fact]
@@ -50,19 +50,19 @@ namespace JianpuEditor.Tests.Services
         [Fact]
         public void GetDisplayText_UsesLyricTextWhenNoStructuredLyrics()
         {
-            var measure = new JianpuMeasure { LyricText = "照大地" };
+            var measure = new JianpuMeasure { LyricText = "shines on the earth" };
 
             Assert.False(LyricSyllableService.HasStructuredLyrics(measure));
-            Assert.Equal("照大地", LyricSyllableService.GetDisplayText(measure));
-            Assert.Equal("照大地", LyricSyllableService.GetFallbackText(measure));
+            Assert.Equal("shines on the earth", LyricSyllableService.GetDisplayText(measure));
+            Assert.Equal("shines on the earth", LyricSyllableService.GetFallbackText(measure));
         }
 
         [Fact]
         public void GetDisplayText_JoinsStructuredSyllables()
         {
             var measure = ScoreTestHelper.MeasureWithLyrics(
-                "欢乐女神",
-                new[] { "欢", "乐", "女", "神" },
+                "Ruby",
+                new[] { "R", "u", "b", "y" },
                 new[] { 0, 1, 2, 3 },
                 ScoreTestHelper.Note(1),
                 ScoreTestHelper.Note(2),
@@ -71,8 +71,8 @@ namespace JianpuEditor.Tests.Services
             LyricSyllableService.NormalizeMeasure(measure);
 
             Assert.True(LyricSyllableService.HasStructuredLyrics(measure));
-            Assert.Equal("欢乐女神", LyricSyllableService.GetDisplayText(measure));
-            Assert.Equal("欢乐女神", LyricSyllableService.GetFallbackText(measure));
+            Assert.Equal("Ruby", LyricSyllableService.GetDisplayText(measure));
+            Assert.Equal("Ruby", LyricSyllableService.GetFallbackText(measure));
         }
 
         [Fact]
@@ -82,7 +82,7 @@ namespace JianpuEditor.Tests.Services
                 ScoreTestHelper.Note(1),
                 ScoreTestHelper.Note(2, dashes: 1),
                 ScoreTestHelper.Note(3));
-            measure.LyricSyllables.Add(new LyricSyllable { Text = "啊", NoteIndex = 2 });
+            measure.LyricSyllables.Add(new LyricSyllable { Text = "la", NoteIndex = 2 });
 
             LyricSyllableService.NormalizeMeasure(measure);
 
@@ -96,7 +96,7 @@ namespace JianpuEditor.Tests.Services
                 ScoreTestHelper.Note(1),
                 ScoreTestHelper.Note(2, dashes: 1),
                 ScoreTestHelper.Note(3));
-            var syllable = new LyricSyllable { Text = "啦", BeatPosition = 3 };
+            var syllable = new LyricSyllable { Text = "da", BeatPosition = 3 };
 
             Assert.Equal(2, LyricSyllableService.ResolveNoteIndex(measure, syllable));
         }
@@ -105,8 +105,8 @@ namespace JianpuEditor.Tests.Services
         public void ImportLegacyLyricText_DoesNotOverwriteExistingSyllables()
         {
             var measure = ScoreTestHelper.MeasureWithLyrics(
-                "旧歌词",
-                new[] { "新" },
+                "old lyrics",
+                new[] { "new" },
                 new[] { 0 },
                 ScoreTestHelper.Note(1),
                 ScoreTestHelper.Note(2));
@@ -114,8 +114,8 @@ namespace JianpuEditor.Tests.Services
             LyricSyllableService.ImportLegacyLyricText(measure);
 
             Assert.Single(measure.LyricSyllables);
-            Assert.Equal("新", measure.LyricSyllables[0].Text);
-            Assert.Equal("旧歌词", measure.LyricText);
+            Assert.Equal("new", measure.LyricSyllables[0].Text);
+            Assert.Equal("old lyrics", measure.LyricText);
         }
     }
 }

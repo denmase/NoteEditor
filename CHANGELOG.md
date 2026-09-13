@@ -25,7 +25,7 @@ All notable changes to this project are documented in this file.
 ### Assets / docs
 
 - Updated `Screen Sample.png`
-- Updated Canon sample score (`sample/卡农 Canon in D.jianpu`)
+- Updated Canon sample score (`sample/Canon in D.jianpu`)
 - README updated for new features
 
 ### Tests

@@ -14,8 +14,8 @@ namespace JianpuEditor.Tests.Rendering
         {
             var score = ScoreTestHelper.CreateScore(
                 ScoreTestHelper.MeasureWithLyrics(
-                    "你好世界",
-                    new[] { "你", "好", "世", "界" },
+                    "Ruby",
+                    new[] { "R", "u", "b", "y" },
                     new[] { 0, 1, 2, 3 },
                     ScoreTestHelper.Note(1),
                     ScoreTestHelper.Note(2),
@@ -58,9 +58,9 @@ namespace JianpuEditor.Tests.Rendering
                 ScoreTestHelper.Note(2),
                 ScoreTestHelper.Note(3),
                 ScoreTestHelper.Note(4)));
-            document.Score.Measures[0].LyricText = "你好世界";
+            document.Score.Measures[0].LyricText = "Ruby";
 
-            var result = content.ApplyBulkLyrics(0, 0, new[] { "你好世界" }, realign: true);
+            var result = content.ApplyBulkLyrics(0, 0, new[] { "Ruby" }, realign: true);
 
             Assert.True(result.Changed);
             Assert.True(LyricSyllableService.HasStructuredLyrics(document.Score.Measures[0]));

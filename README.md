@@ -56,7 +56,7 @@ A Jianpu (numbered musical notation) editing tool built on C# WinForms, supporti
   - Consecutive measures: combines the melody's bass notes and harmonic direction to recommend 1–3 chord progressions (e.g., I–IV–V–I), writable to each measure with one click
   - Purely local rule-based logic, no external LLM
   - Updates the score's key signature field in sync; the main melody's numbered Jianpu digits are not transposed
-  - Supports key signature formats such as `C`, `1=G`, `F#`, `Bb`, `D大调` (Chinese for "D major"), etc.
+  - Supports key signature formats such as `C`, `1=G`, `F#`, `Bb`, `D major`, etc.
 - **Lyrics**
   - Click the lyric row to edit the entire `LyricText` line inline
   - **Bulk edit lyrics**: Menu **Edit → Bulk Edit Lyrics...** lists each row's lyrics by measure range, allowing multiple measures to be modified at once
@@ -217,7 +217,7 @@ Measure field descriptions:
 | `Chords[]` | Simultaneous-note slots: `{ "BeatPosition": 0, "Notes": [ ... ], "Text": "" }`; `Notes` can contain multiple notes sounding at once |
 | `ChordMarkers[]` | `{ "Text": "C", "BeatPosition": 0 }` (chord symbols in the secondary melody row, distinct from `Chords`) |
 | `LyricText` | The full lyric line text |
-| `LyricSyllables[]` | Lyrics by syllable, `{ "Text": "你", "NoteIndex": 0, "BeatPosition": 0 }`; when present, the canvas draws each syllable under its note |
+| `LyricSyllables[]` | Lyrics by syllable, `{ "Text": "Hi", "NoteIndex": 0, "BeatPosition": 0 }`; when present, the canvas draws each syllable under its note |
 | `Ornaments[]` | Ornaments, `{ "Type": "Trill", "NoteIndex": 0, "BeatPosition": 0 }`; `Type` is an enum name (e.g., `GraceNote`, `Trill`, `Turn`, `Fermata`) |
 | `Pitch` / `Accidental` | Natural pitch `Pitch: 3`; chromatic pitches such as `Pitch: 1.5, Accidental: "Sharp"` (displayed as `#1`) or `Pitch: 2.5, Accidental: "Flat"` (displayed as `b3`) |
 

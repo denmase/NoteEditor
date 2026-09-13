@@ -87,9 +87,7 @@ namespace JianpuEditor.Services
                 text = text.Substring(equalIndex + 1).Trim();
             }
 
-            text = text.Replace("大调", string.Empty)
-                .Replace("小调", string.Empty)
-                .Replace("major", string.Empty)
+            text = text.Replace("major", string.Empty)
                 .Replace("Major", string.Empty)
                 .Replace("minor", string.Empty)
                 .Replace("Minor", string.Empty)
