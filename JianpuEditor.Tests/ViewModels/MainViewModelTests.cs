@@ -14,8 +14,8 @@ namespace JianpuEditor.Tests.ViewModels
 
             main.NewScoreCommand.Execute(null);
 
-            Assert.Equal("未命名乐曲", main.Document.Title);
-            Assert.Equal("已新建谱面", main.StatusMessage);
+            Assert.Equal("Untitled Score", main.Document.Title);
+            Assert.Equal("New score created", main.StatusMessage);
         }
 
         [Fact]
@@ -30,7 +30,7 @@ namespace JianpuEditor.Tests.ViewModels
                 NoteIndex = 1
             });
 
-            Assert.Contains("第 1 小节第 2 个音符", main.StatusMessage);
+            Assert.Contains("note 2 in measure 1", main.StatusMessage);
         }
     }
 }

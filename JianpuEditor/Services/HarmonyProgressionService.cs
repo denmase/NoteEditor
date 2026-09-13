@@ -217,8 +217,8 @@ namespace JianpuEditor.Services
             return new HarmonyProgressionSuggestion
             {
                 Label = string.Join(" - ", romans),
-                BassLineSummary = "低音走向 " + string.Join("→", bassDegrees),
-                HarmonicSummary = "和声走向 " + string.Join("→", romans.Select(GetHarmonicFunctionName)),
+                BassLineSummary = "Bass movement " + string.Join("→", bassDegrees),
+                HarmonicSummary = "Harmonic movement " + string.Join("→", romans.Select(GetHarmonicFunctionName)),
                 Reason = BuildReason(profiles, bassDegrees, score),
                 Steps = steps
             };
@@ -230,7 +230,7 @@ namespace JianpuEditor.Services
             double score)
         {
             var melodyBass = string.Join("→", profiles.Select(profile => profile.BassDegree.ToString()));
-            return "旋律低音 " + melodyBass + "，匹配度 " + score.ToString("0.0");
+            return "Melody bass " + melodyBass + ", match score " + score.ToString("0.0");
         }
 
         private static string GetHarmonicFunctionName(string roman)
@@ -243,12 +243,12 @@ namespace JianpuEditor.Services
             var text = roman.Trim();
             if (text.StartsWith("vii", StringComparison.OrdinalIgnoreCase))
             {
-                return "导";
+                return "Leading";
             }
 
             if (text.StartsWith("iii", StringComparison.OrdinalIgnoreCase))
             {
-                return "中";
+                return "Mediant";
             }
 
             if (text.StartsWith("ii", StringComparison.OrdinalIgnoreCase))
@@ -263,17 +263,17 @@ namespace JianpuEditor.Services
 
             if (text.StartsWith("iv", StringComparison.OrdinalIgnoreCase))
             {
-                return "下属";
+                return "Subdominant";
             }
 
             if (text.StartsWith("v", StringComparison.OrdinalIgnoreCase))
             {
-                return "属";
+                return "Dominant";
             }
 
             if (text.StartsWith("i", StringComparison.OrdinalIgnoreCase))
             {
-                return "主";
+                return "Tonic";
             }
 
             return text;

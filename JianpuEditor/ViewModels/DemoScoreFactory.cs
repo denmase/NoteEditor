@@ -10,11 +10,11 @@ namespace JianpuEditor.ViewModels
         {
             var score = new JianpuScore
             {
-                Title = "欢乐颂",
+                Title = "Ode to Joy",
                 KeySignature = "1=C",
-                Tempo = "中速",
+                Tempo = "Moderato",
                 Bpm = 120,
-                Composer = "贝多芬",
+                Composer = "Beethoven",
                 Measures = new List<JianpuMeasure>
                 {
                     new JianpuMeasure
@@ -29,7 +29,7 @@ namespace JianpuEditor.ViewModels
                             new ChordMarker { Text = "C", BeatPosition = 0 },
                             new ChordMarker { Text = "G", BeatPosition = 2 }
                         },
-                        LyricText = "欢乐女神"
+                        LyricText = "Goddess of joy"
                     },
                     new JianpuMeasure
                     {
@@ -43,7 +43,7 @@ namespace JianpuEditor.ViewModels
                             new ChordMarker { Text = "G", BeatPosition = 0 },
                             new ChordMarker { Text = "C", BeatPosition = 2 }
                         },
-                        LyricText = "圣洁美丽"
+                        LyricText = "pure and beautiful"
                     },
                     new JianpuMeasure
                     {
@@ -55,7 +55,7 @@ namespace JianpuEditor.ViewModels
                         {
                             new ChordMarker { Text = "F", BeatPosition = 0 }
                         },
-                        LyricText = "灿烂光芒"
+                        LyricText = "Radiant light"
                     },
                     new JianpuMeasure
                     {
@@ -69,7 +69,7 @@ namespace JianpuEditor.ViewModels
                             new ChordMarker { Text = "C", BeatPosition = 0 },
                             new ChordMarker { Text = "G", BeatPosition = 2 }
                         },
-                        LyricText = "照大地"
+                        LyricText = "shines on the earth"
                     },
                     new JianpuMeasure
                     {
@@ -82,7 +82,7 @@ namespace JianpuEditor.ViewModels
                         {
                             new ChordMarker { Text = "C", BeatPosition = 0 }
                         },
-                        LyricText = "我们欢聚"
+                        LyricText = "we gather joyfully"
                     }
                 }
             };

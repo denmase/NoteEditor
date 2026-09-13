@@ -112,7 +112,7 @@ namespace JianpuEditor.Tests.ViewModels
             var (document, selection, messenger, history) = ViewModelTestHelper.CreateDocumentWithSelection();
             var navigation = ViewModelTestHelper.CreateMeasureNavigation(document, selection, messenger, history);
             document.EnsureMeasures();
-            document.Score.Measures.Add(new JianpuMeasure { LyricText = "第二小节" });
+            document.Score.Measures.Add(new JianpuMeasure { LyricText = "second measure" });
             selection.UpdateFrom(new ScoreSelectionInfo
             {
                 MeasureIndex = 0,

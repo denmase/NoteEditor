@@ -16,8 +16,8 @@ namespace JianpuEditor.Tests.Services
                 new[] { 0d, 2d },
                 ScoreTestHelper.Note(1, dashes: 1, dotted: true),
                 ScoreTestHelper.Note(2, underlines: 1));
-            source.LyricText = "歌词";
-            source.LyricSyllables.Add(new LyricSyllable { Text = "歌", NoteIndex = 0 });
+            source.LyricText = "lyrics";
+            source.LyricSyllables.Add(new LyricSyllable { Text = "ly", NoteIndex = 0 });
             source.Ornaments.Add(new JianpuOrnament
             {
                 Type = OrnamentType.Trill,
@@ -41,13 +41,13 @@ namespace JianpuEditor.Tests.Services
             clone.MelodyNotes[0].Pitch = 7;
             clone.ChordMarkers[0].Text = "Am";
             clone.LyricText = "changed";
-            clone.LyricSyllables[0].Text = "词";
+            clone.LyricSyllables[0].Text = "ric";
             clone.Ornaments[0].Type = OrnamentType.Fermata;
 
             Assert.Equal(1, source.MelodyNotes[0].Pitch);
             Assert.Equal("C", source.ChordMarkers[0].Text);
-            Assert.Equal("歌词", source.LyricText);
-            Assert.Equal("歌", source.LyricSyllables[0].Text);
+            Assert.Equal("lyrics", source.LyricText);
+            Assert.Equal("ly", source.LyricSyllables[0].Text);
             Assert.Equal(OrnamentType.Trill, source.Ornaments[0].Type);
         }
 

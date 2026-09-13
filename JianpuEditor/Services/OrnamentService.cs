@@ -216,15 +216,15 @@ namespace JianpuEditor.Services
             switch (type)
             {
                 case OrnamentType.GraceNote:
-                    return "倚";
+                    return "gr";
                 case OrnamentType.Trill:
                     return "tr";
                 case OrnamentType.Turn:
-                    return "回";
+                    return "trn";
                 case OrnamentType.Fermata:
-                    return "延";
+                    return "ferm";
                 case OrnamentType.Mordent:
-                    return "波";
+                    return "mor";
                 default:
                     return type.ToString();
             }

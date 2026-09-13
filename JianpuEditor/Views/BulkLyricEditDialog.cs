@@ -35,7 +35,7 @@ namespace JianpuEditor.Views
             _measureCount = measureCount;
             _loadLinesForRange = loadLinesForRange;
 
-            Text = "批量编辑歌词";
+            Text = "Bulk Edit Lyrics";
             FormBorderStyle = FormBorderStyle.FixedDialog;
             StartPosition = FormStartPosition.CenterParent;
             MinimizeBox = false;
@@ -45,7 +45,7 @@ namespace JianpuEditor.Views
 
             var fromLabel = new Label
             {
-                Text = "从第",
+                Text = "From measure",
                 Location = new Point(16, 18),
                 AutoSize = true
             };
@@ -59,7 +59,7 @@ namespace JianpuEditor.Views
             };
             var toLabel = new Label
             {
-                Text = "到第",
+                Text = "to",
                 Location = new Point(124, 18),
                 AutoSize = true
             };
@@ -73,13 +73,13 @@ namespace JianpuEditor.Views
             };
             var measureSuffix = new Label
             {
-                Text = "小节",
+                Text = "measures",
                 Location = new Point(228, 18),
                 AutoSize = true
             };
             _realignCheckBox = new CheckBox
             {
-                Text = "重新对齐当前范围",
+                Text = "Realign current range",
                 Location = new Point(16, 48),
                 AutoSize = true
             };
@@ -92,14 +92,14 @@ namespace JianpuEditor.Views
             };
             var okButton = new Button
             {
-                Text = "确定",
+                Text = "OK",
                 DialogResult = DialogResult.OK,
                 Location = new Point(308, 382),
                 Width = 76
             };
             var cancelButton = new Button
             {
-                Text = "取消",
+                Text = "Cancel",
                 DialogResult = DialogResult.Cancel,
                 Location = new Point(392, 382),
                 Width = 76
@@ -190,7 +190,7 @@ namespace JianpuEditor.Views
                 var measureNumber = from + i;
                 var label = new Label
                 {
-                    Text = "第 " + measureNumber + " 小节",
+                    Text = "Measure " + measureNumber,
                     Location = new Point(8, y + 4),
                     AutoSize = true
                 };

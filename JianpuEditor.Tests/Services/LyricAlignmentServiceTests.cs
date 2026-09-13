@@ -20,7 +20,7 @@ namespace JianpuEditor.Tests.Services
 
             var success = LyricAlignmentService.TryBuildAlignment(
                 measure,
-                "你好世界",
+                "Ruby",
                 ties: null,
                 measureIndex: 0,
                 out var syllables,
@@ -28,13 +28,13 @@ namespace JianpuEditor.Tests.Services
 
             Assert.True(success);
             Assert.Equal(4, syllables.Count);
-            Assert.Equal("你", syllables[0].Text);
+            Assert.Equal("R", syllables[0].Text);
             Assert.Equal(0, syllables[0].NoteIndex);
-            Assert.Equal("好", syllables[1].Text);
+            Assert.Equal("u", syllables[1].Text);
             Assert.Equal(1, syllables[1].NoteIndex);
-            Assert.Equal("世", syllables[2].Text);
+            Assert.Equal("b", syllables[2].Text);
             Assert.Equal(3, syllables[3].NoteIndex);
-            Assert.Contains("已对齐 4 个音节", message);
+            Assert.Contains("Aligned 4 syllable(s)", message);
         }
 
         [Fact]
@@ -51,7 +51,7 @@ namespace JianpuEditor.Tests.Services
 
             var success = LyricAlignmentService.TryBuildAlignment(
                 measure,
-                "你好",
+                "Hi",
                 ties,
                 measureIndex: 0,
                 out var syllables,
@@ -73,7 +73,7 @@ namespace JianpuEditor.Tests.Services
 
             var success = LyricAlignmentService.TryBuildAlignment(
                 measure,
-                "你好",
+                "Hi",
                 ties: null,
                 measureIndex: 0,
                 out var syllables,
@@ -95,7 +95,7 @@ namespace JianpuEditor.Tests.Services
 
             var success = LyricAlignmentService.TryBuildAlignment(
                 measure,
-                "你好啊",
+                "Sun",
                 ties: null,
                 measureIndex: 0,
                 out var syllables,
@@ -122,13 +122,13 @@ namespace JianpuEditor.Tests.Services
                 ScoreTestHelper.Note(3),
                 ScoreTestHelper.Note(4)
             });
-            document.Score.Measures[0].LyricText = "你好世界";
+            document.Score.Measures[0].LyricText = "Ruby";
 
             var result = content.AlignLyricsToNotes();
 
             Assert.True(result.Changed);
             Assert.Equal(4, document.Score.Measures[0].LyricSyllables.Count);
-            Assert.Equal("你", document.Score.Measures[0].LyricSyllables[0].Text);
+            Assert.Equal("R", document.Score.Measures[0].LyricSyllables[0].Text);
             Assert.True(history.CanUndo);
 
             history.Undo();

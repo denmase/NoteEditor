@@ -1,102 +1,88 @@
-# 贡献者许可协议（CLA）
+# Contributor License Agreement (CLA)
 
-## Contributor License Agreement
+This document sets out the copyright and patent license terms for contributions submitted to **JianpuEditor** (the "Project"). This project uses the [Apache License 2.0](LICENSE).
 
-本文件约定：向 **JianpuEditor**（以下简称「本项目」）提交贡献的版权与专利授权条款。本项目采用 [Apache License 2.0](LICENSE)。
-
-**版权持有人（Project Owner）：** loootte
+**Project Owner:** loootte
 
 ---
 
-## 一、适用范围
+## 1. Scope
 
-「贡献」指您向本项目仓库提交的任意内容，包括但不限于：
+"Contribution" means any content you submit to this project's repository, including but not limited to:
 
-- 源代码、测试、脚本、配置
-- 文档、注释、示例数据
-- Issue、Pull Request 中的实质性修改
+- Source code, tests, scripts, configuration
+- Documentation, comments, sample data
+- Substantive changes made in Issues or Pull Requests
 
-通过提交 Pull Request、推送代码、或在仓库 Issue/讨论中提交将被合并的补丁，即表示您已阅读并同意本协议。
-
----
-
-## 二、您授予的权利
-
-为避免歧义，您确认向 **loootte** 及本项目的后续维护者与用户授予以下权利：
-
-### 1. 著作权许可
-
-在适用法律允许的最大范围内，您授予上述主体一项**永久、全球性、不可撤销、免费、可再许可、非独占**的著作权许可，以便其：
-
-- 使用、复制、修改、合并、发布、分发、再许可您的贡献
-- 以源代码或编译形式提供您的贡献
-- 将您的贡献纳入本项目及衍生作品
-
-该许可适用于本项目当前采用的 **Apache License 2.0**，以及维护者未来可能采用的、与开源实践相容的其他许可证。
-
-### 2. 专利权许可
-
-若您的贡献受您拥有或控制的专利权利要求覆盖，您授予上述主体一项**永久、全球性、不可撤销、免费、非独占**的专利许可，使其可以制造、委托制造、使用、许诺销售、销售、进口或以其他方式利用该贡献及包含该贡献的本项目。
-
-若您对他人发起专利诉讼，主张本项目或其中贡献构成专利侵权（含反诉），则本协议授予您的专利许可自诉讼提起之日起终止。
+By submitting a Pull Request, pushing code, or submitting a patch in a repository Issue/Discussion that is subsequently merged, you indicate that you have read and agree to this Agreement.
 
 ---
 
-## 三、您的声明与保证
+## 2. Rights You Grant
 
-您声明并保证：
+For the avoidance of doubt, you confirm that you grant **loootte** and the project's subsequent maintainers and users the following rights:
 
-1. **权属**：贡献为您原创，或您拥有足以作出本授权的必要权利。
-2. **不侵权**：据您所知，贡献不侵犯任何第三方的著作权、专利、商标或其他权利。
-3. **授权能力**：若您代表雇主或其他组织提交贡献，您已获得该组织授权，或该组织已放弃对贡献主张专有权利。
-4. **无恶意代码**：贡献不包含您明知或应知的恶意、破坏性代码或后门。
+### 2.1 Copyright License
 
----
+To the maximum extent permitted by applicable law, you grant the above parties a **perpetual, worldwide, irrevocable, royalty-free, sublicensable, non-exclusive** copyright license to:
 
-## 四、保留权利
+- Use, reproduce, modify, merge, publish, distribute, and sublicense your contribution
+- Provide your contribution in source or compiled form
+- Incorporate your contribution into this project and derivative works
 
-- 除本协议明确授予的权利外，您保留对贡献的著作权。
-- 本协议**不**要求您必须继续贡献，也**不**限制您将相同或类似作品用于其他项目。
+This license applies to the **Apache License 2.0** currently used by this project, as well as any other license compatible with open-source practices that the maintainers may adopt in the future.
 
----
+### 2.2 Patent License
 
-## 五、免责声明
+If your contribution is covered by patent claims you own or control, you grant the above parties a **perpetual, worldwide, irrevocable, royalty-free, non-exclusive** patent license to make, have made, use, offer to sell, sell, import, or otherwise exploit the contribution and the project that incorporates it.
 
-贡献按 **「现状」** 提供。在法律允许范围内，您不对贡献作任何明示或默示担保。本协议不创设您与 loootte 之间的雇佣、合伙、代理或信托关系。
+If you initiate patent litigation against any party (including a cross-claim or counterclaim) alleging that this project or a contribution within it constitutes patent infringement, the patent license granted to you under this Agreement terminates as of the date such litigation is filed.
 
 ---
 
-## 六、企业贡献
+## 3. Your Representations and Warranties
 
-若您以**公司或组织**名义贡献，且该组织希望对贡献主张权利或需要单独协议，请在提交重大变更前通过 GitHub Issue 联系维护者，协商签署企业贡献者许可协议（CCLA）。
+You represent and warrant that:
 
----
-
-## 七、如何表示同意
-
-以下任一行为，即视为您接受本 CLA：
-
-1. 向 `loootte/JianpuEditor` 提交 Pull Request，且 PR 描述或评论中包含：`I have read the CLA and agree to its terms.` 或 `我已阅读并同意 CLA。`
-2. 在首次贡献的 PR 中 @ 维护者并明确书面同意本文件。
-
-维护者合并您的 PR，即表示接受您的贡献，并视您已同意本协议。
+1. **Ownership**: The contribution is your original work, or you hold the necessary rights to make this grant.
+2. **Non-infringement**: To your knowledge, the contribution does not infringe any third party's copyright, patent, trademark, or other rights.
+3. **Authority**: If you are submitting the contribution on behalf of your employer or another organization, you have been authorized to do so by that organization, or that organization has waived any proprietary rights it may have in the contribution.
+4. **No malicious code**: The contribution does not contain malicious or destructive code or backdoors that you know of or should reasonably know of.
 
 ---
 
-## 八、协议版本
+## 4. Retained Rights
 
-- **版本：** 1.0
-- **生效日期：** 2026-07-03
-- 维护者可在仓库中更新本文件；更新后对**此后**的新贡献生效，不影响已合并贡献的授权效力。
+- You retain copyright in your contribution, except for the rights expressly granted under this Agreement.
+- This Agreement does **not** require you to continue contributing, nor does it restrict you from using the same or similar work in other projects.
 
 ---
 
-## English Summary (Individual CLA)
+## 5. Disclaimer
 
-By submitting a contribution to **JianpuEditor**, you grant **loootte** and downstream users a perpetual, worldwide, irrevocable, royalty-free, sublicensable, non-exclusive license under your copyright and applicable patent rights to use, modify, and redistribute your contribution under this project's **Apache License 2.0** (and compatible open-source licenses).
+Contributions are provided **"AS IS."** To the extent permitted by law, you make no express or implied warranties regarding the contribution. This Agreement does not create an employment, partnership, agency, or fiduciary relationship between you and loootte.
 
-You represent that you have the legal right to grant this license and that your contribution is your original work or otherwise properly licensed.
+---
 
-Corporate contributors with special requirements should contact the maintainer before large contributions.
+## 6. Corporate Contributions
 
-**Agreement version:** 1.0 — **Effective:** 2026-07-03
+If you are contributing on behalf of a company or organization, and that organization wishes to assert rights over the contribution or requires a separate agreement, please contact the maintainer via a GitHub Issue before submitting major changes, in order to negotiate a Corporate Contributor License Agreement (CCLA).
+
+---
+
+## 7. How to Indicate Agreement
+
+Any of the following actions constitutes your acceptance of this CLA:
+
+1. Submitting a Pull Request to `loootte/JianpuEditor` where the PR description or a comment includes: `I have read the CLA and agree to its terms.`
+2. @-mentioning the maintainer in your first contribution PR and explicitly agreeing to this document in writing.
+
+The maintainer merging your PR constitutes acceptance of your contribution, and you will be deemed to have agreed to this Agreement.
+
+---
+
+## 8. Agreement Version
+
+- **Version:** 1.0
+- **Effective date:** 2026-07-03
+- The maintainer may update this document in the repository; updates take effect for new contributions made thereafter and do not affect the validity of licenses already granted for merged contributions.

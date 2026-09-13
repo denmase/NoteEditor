@@ -11,26 +11,26 @@ namespace JianpuEditor.Services
 
             if (score == null)
             {
-                errorMessage = "当前没有可转调的曲谱。";
+                errorMessage = "There is no score to transpose.";
                 return false;
             }
 
             if (!KeySignatureService.TryParseTonicPitchClass(score.KeySignature, out var sourcePitchClass))
             {
-                errorMessage = "无法识别当前调号「" + (score.KeySignature ?? string.Empty) + "」。请使用如 C、1=G、F# 的格式。";
+                errorMessage = "Unable to recognize the current key signature \"" + (score.KeySignature ?? string.Empty) + "\". Please use a format like C, 1=G, or F#.";
                 return false;
             }
 
             if (!KeySignatureService.TryParseTonicPitchClass(targetKeySignature, out var targetPitchClass))
             {
-                errorMessage = "无法识别目标调号「" + (targetKeySignature ?? string.Empty) + "」。请使用如 C、1=G、F# 的格式。";
+                errorMessage = "Unable to recognize the target key signature \"" + (targetKeySignature ?? string.Empty) + "\". Please use a format like C, 1=G, or F#.";
                 return false;
             }
 
             var semitones = KeySignatureService.GetTransposeSemitones(sourcePitchClass, targetPitchClass);
             if (semitones == 0)
             {
-                errorMessage = "目标调与当前调相同，无需转调。";
+                errorMessage = "The target key is the same as the current key; no transposition is needed.";
                 return false;
             }
 

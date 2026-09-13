@@ -43,7 +43,7 @@ namespace JianpuEditor.Services.EditCommands
             _newStringValue = newStringValue ?? string.Empty;
             _oldBpm = oldBpm;
             _newBpm = newBpm;
-            Description = "更新谱头";
+            Description = "Update score header";
         }
 
         public string Description { get; }
@@ -52,12 +52,12 @@ namespace JianpuEditor.Services.EditCommands
 
         public void Execute()
         {
-            Apply(_newStringValue, _newBpm, "已更新谱头");
+            Apply(_newStringValue, _newBpm, "Score header updated");
         }
 
         public void Undo()
         {
-            Apply(_oldStringValue, _oldBpm, "已撤回: " + Description);
+            Apply(_oldStringValue, _oldBpm, "Undone: " + Description);
         }
 
         private void Apply(string stringValue, int bpm, string message)

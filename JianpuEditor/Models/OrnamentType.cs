@@ -1,6 +1,6 @@
 namespace JianpuEditor.Models
 {
-    /// <summary>装饰音与谱面符号类型，供后续工具栏与绘制扩展。</summary>
+    /// <summary>Ornament and score symbol types, for future toolbar and rendering extensions.</summary>
     public enum OrnamentType
     {
         Unknown = 0,

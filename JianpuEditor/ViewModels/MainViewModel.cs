@@ -14,7 +14,7 @@ namespace JianpuEditor.ViewModels
         private readonly IMidiExportService _midiExportService;
         private readonly IMidiImportService _midiImportService;
         private readonly IAppMessenger _messenger;
-        private string _statusMessage = "就绪";
+        private string _statusMessage = "Ready";
 
         public MainViewModel(
             ScoreDocumentViewModel document,
@@ -130,7 +130,7 @@ namespace JianpuEditor.ViewModels
             Document.ResetAsNew();
             MeasureNavigation.SyncCurrentMeasureIndex(0);
             Playback.ResetHead();
-            StatusMessage = "已新建谱面";
+            StatusMessage = "New score created";
             SaveScoreCommand.NotifyCanExecuteChanged();
         }
 
@@ -180,13 +180,13 @@ namespace JianpuEditor.ViewModels
             try
             {
                 _pdfExportService.Export(Document.Score, filePath, renderWidth);
-                SetStatus("PDF 已导出: " + filePath);
-                return ScoreEditResult.WithMessage("PDF 已导出: " + filePath);
+                SetStatus("PDF exported: " + filePath);
+                return ScoreEditResult.WithMessage("PDF exported: " + filePath);
             }
             catch (Exception ex)
             {
-                SetStatus("PDF 导出失败");
-                throw new InvalidOperationException("PDF 导出失败: " + ex.Message, ex);
+                SetStatus("PDF export failed");
+                throw new InvalidOperationException("PDF export failed: " + ex.Message, ex);
             }
         }
 
@@ -195,13 +195,13 @@ namespace JianpuEditor.ViewModels
             try
             {
                 _midiExportService.Export(Document.Score, filePath);
-                SetStatus("MIDI 已导出: " + filePath);
-                return ScoreEditResult.WithMessage("MIDI 已导出: " + filePath);
+                SetStatus("MIDI exported: " + filePath);
+                return ScoreEditResult.WithMessage("MIDI exported: " + filePath);
             }
             catch (Exception ex)
             {
-                SetStatus("MIDI 导出失败");
-                throw new InvalidOperationException("MIDI 导出失败: " + ex.Message, ex);
+                SetStatus("MIDI export failed");
+                throw new InvalidOperationException("MIDI export failed: " + ex.Message, ex);
             }
         }
 
@@ -212,13 +212,13 @@ namespace JianpuEditor.ViewModels
                 Playback.Stop();
                 var score = _midiImportService.Import(filePath);
                 Document.LoadFromMidi(score);
-                SetStatus("MIDI 已导入: " + filePath);
-                return ScoreEditResult.WithMessage("MIDI 已导入: " + filePath);
+                SetStatus("MIDI imported: " + filePath);
+                return ScoreEditResult.WithMessage("MIDI imported: " + filePath);
             }
             catch (Exception ex)
             {
-                SetStatus("MIDI 导入失败");
-                throw new InvalidOperationException("MIDI 导入失败: " + ex.Message, ex);
+                SetStatus("MIDI import failed");
+                throw new InvalidOperationException("MIDI import failed: " + ex.Message, ex);
             }
         }
 

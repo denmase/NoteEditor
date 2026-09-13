@@ -1,292 +1,292 @@
-# 简谱编辑器 (JianpuEditor)
+# Jianpu Editor (JianpuEditor)
 
-基于 C# WinForms 的简谱编辑工具，支持主旋律编辑、装饰音、和弦标识、歌词、连音线，以及 JSON 保存、PDF/MIDI 导出与谱面播放。
+A Jianpu (numbered musical notation) editing tool built on C# WinForms, supporting main melody editing, ornaments, chord markers, lyrics, ties, as well as JSON saving, PDF/MIDI export, and score playback.
 
-![简谱编辑器界面截图](Screen%20Sample.png)
+![Jianpu Editor interface screenshot](Screen%20Sample.png)
 
-## 功能
+## Features
 
-- **主旋律编辑**：输入音符 1–7、休止符 0，点击音符间隙插入
-- **同时音 / 和弦音（v1.3 #57）**
-  - 同一拍位可包含多个旋律音符（如 MIDI 导入的和弦音）
-  - 画布垂直堆叠显示；播放与 MIDI 导出同时发声
-  - JSON 以 `Chords[]` 存储；旧谱面仅含 `MelodyNotes` 时打开自动迁移
-- **多选音符**
-  - **Ctrl + 左键**：增选 / 减选单个音符
-  - **Shift + 左键**：从锚点到当前音符范围批量增选 / 减选（可跨小节）
-  - 跨小节多选时，工具栏「从 / 到」小节范围自动同步高亮
-  - 多选时工具栏修饰、删除等操作批量生效
-- **时值修饰**
-  - **增时+ / 减时-** 六档循环：1/16 → 1/8 → 1/4 → 延 1 拍 → 延 2 拍 → 延 3 拍
-  - 高音点 / 低音点 / 附点
-- **音高调整**
-  - **升 key / 降 key**：在当前调内按音级升降选中音符（1–7 及八度点）
-- **拆分 / 合并**
-  - **拆分**：1/4 音符拆为 2 个 1/8；长于 1/4 的音符拆成等长 1/4 段；1/16 不可拆
-  - **合并**：小节内按音符序号两两配对 `(0,1)、(2,3)…` 合并；须谱面相邻、时值比 ≤ 2；音高取前一个；落单不处理
-- **撤回 / 重做**
-  - 菜单 **编辑 → 撤回**（**Ctrl+Z**）/ **重做**（**Ctrl+Y**），逐步恢复或重放谱面编辑
-  - 覆盖音符编辑、删除、小节、转调、谱头 / 歌词 / 和弦内联编辑、连音线、装饰音、批量歌词编辑等；新建 / 打开 / 加载谱面后清空撤回 / 重做栈
-- **装饰音**
-  - 工具栏「装饰」区：**倚音** / **颤音** / **回音** / **延长**；菜单 **编辑 → 装饰音** 提供相同入口
-  - 先选中一个或多个音符，再点击装饰按钮；多选时批量添加
-  - 再次点击同类型按钮可取消该音符上的同类型装饰（其他类型保留）
-  - Delete / 「删除」优先移除选中音符上的装饰音
-  - 画布与 PDF 导出在音符上方绘制占位符号（倚 / tr / 回 / 延）
-  - 谱面播放与 MIDI 导出会展开倚音、颤音、回音、波音与延长时值
-- **连音线**
-  - 点「连音线」→ 选起始音符 → 选结束音符；Esc 取消
-  - 点击弧线可选中（蓝色高亮）
-  - Delete / 「删除」可移除选中的连音线
-  - 删除连音线首/尾音符时，连音线自动清除
-- **和弦标识（副旋律行）**
-  - 每小节最多 4 个和弦标识，与四分拍位置对齐
-  - 点击空白拍位新增；点击标识可内联编辑
-  - 拖动 `::` 改变拍位；拖到另一标识拍位可交换顺序
-  - 点击 `x` 或 Delete 删除；工具栏「和弦」框可同步编辑选中项
-  - 仅识别为和弦符号的文本会参与播放与 MIDI 导出
-- **谱头编辑**：点击谱面标题、调号、速度、BPM、作曲者直接内联编辑（工具栏已精简）
-- **和弦转调**
-  - 菜单「编辑 → 和弦转调...」
-  - 输入目标调号后，自动转调副旋律中所有和弦符号（如 `C` → `G`、`Bm7` → `F#m7`、`G/D` → `D/A`）
+- **Main melody editing**: Enter notes 1–7, rest 0; click between notes to insert
+- **Simultaneous notes / chord notes (v1.3 #57)**
+  - A single beat position can contain multiple melody notes (e.g., chord notes imported from MIDI)
+  - Displayed stacked vertically on the canvas; sounds simultaneously during playback and MIDI export
+  - Stored in JSON as `Chords[]`; older scores containing only `MelodyNotes` are automatically migrated on open
+- **Multi-selecting notes**
+  - **Ctrl + Left click**: Add/remove a single note from the selection
+  - **Shift + Left click**: Batch add/remove the range from the anchor to the current note (can span measures)
+  - When multi-selecting across measures, the toolbar's "From / To" measure range automatically syncs the highlight
+  - With multiple selection, toolbar ornament/delete operations etc. apply in batch
+- **Duration modification**
+  - **Increase (+) / Decrease (-) duration**: cycles through six levels: 1/16 → 1/8 → 1/4 → extend 1 beat → extend 2 beats → extend 3 beats
+  - High octave dot / low octave dot / dot (dotted note)
+- **Pitch adjustment**
+  - **Key up / Key down**: raise or lower the selected notes by scale degree within the current key (1–7 and octave dots)
+- **Split / Merge**
+  - **Split**: A 1/4 note splits into two 1/8 notes; a note longer than 1/4 splits into equal 1/4 segments; 1/16 notes cannot be split
+  - **Merge**: Within a measure, notes are paired by index `(0,1), (2,3), …` and merged; requires them to be adjacent on the score with a duration ratio ≤ 2; the pitch of the first note is kept; an unpaired leftover note is left unchanged
+- **Undo / Redo**
+  - Menu **Edit → Undo** (**Ctrl+Z**) / **Redo** (**Ctrl+Y**) steps backward or forward through score edits
+  - Covers note editing, deletion, measures, transposition, header/lyric/chord inline editing, ties, ornaments, bulk lyric editing, etc.; the undo/redo stack is cleared after creating, opening, or loading a score
+- **Ornaments**
+  - Toolbar "Ornaments" section: **Grace note** / **Trill** / **Turn** / **Fermata**; the menu **Edit → Ornaments** provides the same options
+  - Select one or more notes first, then click an ornament button; with multiple selection, ornaments are added in batch
+  - Clicking the same button again removes that type of ornament from the note (other types are kept)
+  - Delete / "Delete" removes ornaments on the selected note first
+  - The canvas and PDF export draw placeholder symbols above the note (grace / tr / turn / fermata)
+  - Score playback and MIDI export expand grace notes, trills, turns, mordents, and fermata durations
+- **Ties**
+  - Click "Tie" → select the start note → select the end note; Esc to cancel
+  - Click the arc to select it (highlighted in blue)
+  - Delete / "Delete" removes the selected tie
+  - Deleting the tie's start/end note automatically clears the tie
+- **Chord markers (secondary melody row)**
+  - Up to 4 chord markers per measure, aligned to quarter-beat positions
+  - Click an empty beat position to add one; click a marker to edit it inline
+  - Drag `::` to change the beat position; dragging onto another marker's beat position swaps their order
+  - Click `x` or press Delete to remove; the toolbar's "Chord" box can edit the selected item in sync
+  - Only text recognized as a chord symbol participates in playback and MIDI export
+- **Header editing**: Click the score title, key signature, tempo, BPM, or composer to edit inline directly (the toolbar has been simplified)
+- **Chord transpose**
+  - Menu "Edit → Chord Transpose..."
+  - After entering the target key signature, all chord symbols in the secondary melody are automatically transposed (e.g., `C` → `G`, `Bm7` → `F#m7`, `G/D` → `D/A`)
 
-- **和弦建议（v2.0 #31）**
-  - 菜单「编辑 → 和弦建议...」
-  - 单小节：根据调号与旋律音高推荐 1–3 个和弦（如 C 大调 I / V / vi）
-  - 连续多小节：综合旋律低音与和声走向，推荐 1–3 组进行（如 I–IV–V–I），一键写入各小节
-  - 纯本地规则，无外部 LLM
-  - 同步更新曲谱调号字段；主旋律数字简谱不转调
-  - 支持调号格式：`C`、`1=G`、`F#`、`Bb`、`D大调` 等
-- **歌词**
-  - 点击歌词行内联编辑整行 `LyricText`
-  - **批量编辑歌词**：菜单 **编辑 → 批量编辑歌词...**，按小节范围列出各行歌词，可一次修改多小节
-  - 可选 **重新对齐当前范围**：将歌词按音节映射到主旋律音符（跳过休止符与连音线延续音），写入 `LyricSyllables`
-  - 对齐后画布逐字显示在对应音符下方；未对齐时仍显示整行歌词
-  - 批量修改合并为单条撤回记录（**Ctrl+Z** 一步恢复）
-- **三行排版**：主旋律、和弦标识、歌词
-- **小节操作**
-  - 新建小节；**编辑 → 新增小节（含占位符）**（**Ctrl+Shift+N**）可预填 4 个四分音符占位
-  - **视图 → 新增小节默认填充占位符** 可让普通「新增小节」也带占位符
-  - 工具栏设置「从 / 到」小节号后复制小节范围
-- **文件**：JSON 格式保存 / 打开
-- **PDF 导出**：A4 纵向，每行 4 小节；长谱面自动多页分页（首页完整谱头，续页显示标题与页码）；升降号、高音点、装饰音分层排布（避免窄音符重叠）；和弦仅输出文字，无编辑边框
-- **MIDI 导出**
-  - 主旋律按简谱时值与调号导出；装饰音展开为额外 MIDI 音符或延长时值
-  - 和弦按拍位起止时间导出柱式和弦（如 `D`、`Bm7`、`G/D`）
-  - 速度由 BPM 控制（与谱面「速度」文字独立）
-- **MIDI 导入（Spike）**
-  - **文件 → 导入 MIDI... (Spike)**：从 `.mid` 生成可编辑简谱
-  - 自动检测调号（含 `1=B` 等）、十六分音符量化、4/4 小节规范化（拆分过长小节、补齐休止符）
-  - 同一时刻的多个音符合并为同时音槽位，不再丢失和弦音
-  - 半音音高映射为 `.5` 表示（如 `1.5` = `#1`，`2.5` = `b3`），画布 / 播放 / MIDI 导出保持一致
-- **谱面播放**
-  - 工具栏「播放 / 停止」，按 BPM 实时播放主旋律与和弦
-  - 可拖动蓝色进度条跳转；演奏逻辑与 MIDI 导出共用调度（含装饰音展开）
+- **Chord suggestion (v2.0 #31)**
+  - Menu "Edit → Chord Suggestion..."
+  - Single measure: recommends 1–3 chords based on the key signature and melody pitch (e.g., I / V / vi in C major)
+  - Consecutive measures: combines the melody's bass notes and harmonic direction to recommend 1–3 chord progressions (e.g., I–IV–V–I), writable to each measure with one click
+  - Purely local rule-based logic, no external LLM
+  - Updates the score's key signature field in sync; the main melody's numbered Jianpu digits are not transposed
+  - Supports key signature formats such as `C`, `1=G`, `F#`, `Bb`, `D major`, etc.
+- **Lyrics**
+  - Click the lyric row to edit the entire `LyricText` line inline
+  - **Bulk edit lyrics**: Menu **Edit → Bulk Edit Lyrics...** lists each row's lyrics by measure range, allowing multiple measures to be modified at once
+  - Optional **Re-align current range**: maps lyrics to main melody notes by syllable (skipping rests and tie-continuation notes), writing to `LyricSyllables`
+  - After alignment, the canvas displays each syllable under its corresponding note; when not aligned, the full lyric line is still shown
+  - Bulk changes are merged into a single undo record (**Ctrl+Z** restores it in one step)
+- **Three-row layout**: main melody, chord markers, lyrics
+- **Measure operations**
+  - Create a new measure; **Edit → Add Measure (with placeholders)** (**Ctrl+Shift+N**) pre-fills 4 quarter-note placeholders
+  - **View → Fill placeholders by default for new measures** makes a regular "Add Measure" include placeholders too
+  - Set the "From / To" measure numbers in the toolbar, then copy the measure range
+- **File**: Save/open in JSON format
+- **PDF export**: A4 portrait, 4 measures per row; long scores are automatically paginated across multiple pages (the first page has the full header, subsequent pages show the title and page number); accidentals, octave dots, and ornaments are laid out in layers (to avoid overlap on narrow notes); chords are output as plain text with no editing border
+- **MIDI export**
+  - The main melody is exported according to Jianpu durations and the key signature; ornaments are expanded into extra MIDI notes or extended durations
+  - Chords are exported as block chords according to their beat start/end times (e.g., `D`, `Bm7`, `G/D`)
+  - Tempo is controlled by BPM (independent of the score's "Tempo" text)
+- **MIDI import (Spike)**
+  - **File → Import MIDI... (Spike)**: Generates an editable Jianpu score from a `.mid` file
+  - Automatically detects the key signature (including `1=B` etc.), quantizes to sixteenth notes, and normalizes to 4/4 measures (splitting overly long measures, filling in rests)
+  - Multiple notes at the same instant are merged into a simultaneous-note slot, so chord notes are no longer lost
+  - Chromatic pitches are represented with `.5` (e.g., `1.5` = `#1`, `2.5` = `b3`), kept consistent across the canvas, playback, and MIDI export
+- **Score playback**
+  - Toolbar "Play / Stop" plays the main melody and chords in real time according to BPM
+  - The blue progress bar can be dragged to seek; playback logic shares scheduling with MIDI export (including ornament expansion)
 
-## 环境要求
+## Requirements
 
 - Windows
-- [.NET Framework 4.7.2](https://dotnet.microsoft.com/download/dotnet-framework/net472) 或更高
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)（用于单元测试；仓库根目录 `global.json` 指定版本）
-- Rider 运行测试需安装 **.NET 8 x86 运行时**（32 位 ReSharper Test Runner 使用 `Program Files (x86)\dotnet`）；升级 TFM 后请 **Build → Rebuild Solution** 并清除旧的 `bin/Debug/net6.0` 缓存
-- 播放功能需要系统可用的 MIDI 合成器（如 Microsoft GS Wavetable Synth）
+- [.NET Framework 4.7.2](https://dotnet.microsoft.com/download/dotnet-framework/net472) or higher
+- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) (used for unit tests; the version is specified by `global.json` in the repository root)
+- Running tests in Rider requires the **.NET 8 x86 runtime** (the 32-bit ReSharper Test Runner uses `Program Files (x86)\dotnet`); after upgrading the TFM, please **Build → Rebuild Solution** and clear the old `bin/Debug/net6.0` cache
+- Playback requires a MIDI synthesizer available on the system (such as Microsoft GS Wavetable Synth)
 
-## 构建与运行
+## Build and Run
 
 ```powershell
 dotnet build JianpuEditor.sln -c Debug
-dotnet test JianpuEditor.sln -c Debug   # 需要 .NET 8 SDK
-.\scripts\check-format.ps1             # 代码格式检查（CI 同款）
-dotnet format JianpuEditor/JianpuEditor.csproj   # 自动修复格式
+dotnet test JianpuEditor.sln -c Debug   # Requires .NET 8 SDK
+.\scripts\check-format.ps1             # Code format check (same as CI)
+dotnet format JianpuEditor/JianpuEditor.csproj   # Auto-fix formatting
 
-构建时会自动运行 Roslyn 分析器（`Microsoft.CodeAnalysis.NetAnalyzers`，Recommended 规则集），规则见根目录 `Directory.Build.props` 与 `.editorconfig`。
+The build automatically runs the Roslyn analyzers (`Microsoft.CodeAnalysis.NetAnalyzers`, Recommended rule set); rules are defined in `Directory.Build.props` and `.editorconfig` in the repository root.
 .\JianpuEditor\bin\Debug\net472\JianpuEditor.exe
 ```
 
-Release 构建：
+Release build:
 
 ```powershell
 dotnet build JianpuEditor.sln -c Release
 .\JianpuEditor\bin\Release\net472\JianpuEditor.exe
 ```
 
-## 安装包
+## Installer
 
-使用 Inno Setup 构建 Windows 安装程序：
+Build a Windows installer using Inno Setup:
 
 ```powershell
 .\scripts\build-installer.ps1
 ```
 
-输出文件：`installer/output/JianpuEditor-Setup-1.2.0.exe`
+Output file: `installer/output/JianpuEditor-Setup-1.2.0.exe`
 
 ## CI/CD
 
-GitHub Actions 工作流位于 `.github/workflows/`：
+GitHub Actions workflows are located at `.github/workflows/`:
 
-| 工作流 | 触发 | 说明 |
+| Workflow | Trigger | Description |
 |--------|------|------|
-| **CI** | `main` 分支 push / PR | `dotnet format` 检查 + Roslyn 分析器 + Release 构建 + 单元测试 + MIDI 冒烟测试（含 NuGet / .NET 缓存） |
-| **Release** | 推送标签 `v*` 或手动运行 | 构建安装包（`.exe` + `.zip`），标签发布时自动创建 GitHub Release |
+| **CI** | Push / PR to the `main` branch | `dotnet format` check + Roslyn analyzers + Release build + unit tests + MIDI smoke test (with NuGet / .NET caching) |
+| **Release** | Pushing a `v*` tag or manual run | Builds the installer package (`.exe` + `.zip`); automatically creates a GitHub Release when triggered by a tag |
 
-### 发布新版本
+### Publishing a New Version
 
 ```powershell
 git tag v1.2.0
 git push origin v1.2.0
 ```
 
-也可在 GitHub **Actions → Release → Run workflow** 中手动指定版本号，仅生成安装包 artifact（不创建 Release）。
+You can also manually specify a version number in GitHub under **Actions → Release → Run workflow**, which only generates the installer artifact (without creating a Release).
 
-## 基本操作
+## Basic Operations
 
-| 操作 | 说明 |
+| Action | Description |
 |------|------|
-| 点击音符 | 选中并修改时值、八度、附点等 |
-| Ctrl / Shift + 点击音符 | 多选音符；跨小节时同步高亮小节范围 |
-| 点击音符间隙 | 在该位置插入新音符 |
-| 点击谱头字段 | 内联编辑标题、调号、速度、BPM、作曲者 |
-| 点击和弦标识 | 选中并内联编辑；工具栏「和弦」框同步 |
-| 点击副旋律空白拍位 | 在该拍位添加和弦标识 |
-| 点击歌词行 | 行内编辑整行歌词 |
-| 批量编辑歌词 | **编辑 → 批量编辑歌词...**；可勾选重新对齐，对齐后逐字显示在音符下 |
-| 增时+ / 减时- | 六档时值循环（1/16 至延 3 拍） |
-| 升 key / 降 key | 在当前调内升降选中音符音高 |
-| 拆分 / 合并 | 拆分或合并选中音符时值 |
-| 工具栏「从 / 到」+ 复制小节 | 复制指定范围的小节 |
-| 连音线 | 点「连音线」→ 选起始/结束音符；点击弧线选中，Delete 删除 |
-| 装饰音 | 选中音符后点工具栏「倚音 / 颤音 / 回音 / 延长」；再次点击同按钮取消 |
-| 撤回 / 重做 | **编辑 → 撤回 / 重做** 或 **Ctrl+Z** / **Ctrl+Y** |
-| 播放 / 停止 | 按 BPM 播放谱面；拖动蓝色进度条可跳转 |
-| 转调 | 菜单「编辑 → 和弦转调...」；仅转调和弦标识 |
-| 导出 PDF / MIDI | 菜单「文件」导出 |
-| 导入 MIDI | **文件 → 导入 MIDI... (Spike)** |
-| 深色模式 | 菜单 **视图 → 深色模式**（设置会保存到本地，PDF 导出仍为浅色纸面） |
+| Click a note | Select it and modify duration, octave, dot, etc. |
+| Ctrl / Shift + click a note | Multi-select notes; syncs the highlighted measure range when spanning measures |
+| Click between notes | Insert a new note at that position |
+| Click a header field | Edit the title, key signature, tempo, BPM, or composer inline |
+| Click a chord marker | Select and edit it inline; the toolbar's "Chord" box stays in sync |
+| Click an empty beat position in the secondary melody row | Add a chord marker at that beat position |
+| Click a lyric row | Edit the entire lyric line inline |
+| Bulk edit lyrics | **Edit → Bulk Edit Lyrics...**; you can check "re-align", after which each syllable is shown under its note |
+| Increase (+) / Decrease (-) duration | Cycles through six duration levels (1/16 to extend 3 beats) |
+| Key up / Key down | Raises or lowers the pitch of selected notes within the current key |
+| Split / Merge | Splits or merges the duration of selected notes |
+| Toolbar "From / To" + Copy Measures | Copies measures within the specified range |
+| Tie | Click "Tie" → select the start/end note; click the arc to select it, Delete to remove |
+| Ornaments | Select a note, then click "Grace Note / Trill / Turn / Fermata" in the toolbar; click the same button again to remove it |
+| Undo / Redo | **Edit → Undo / Redo** or **Ctrl+Z** / **Ctrl+Y** |
+| Play / Stop | Plays the score according to BPM; drag the blue progress bar to seek |
+| Transpose | Menu "Edit → Chord Transpose..."; transposes chord markers only |
+| Export PDF / MIDI | Export from the "File" menu |
+| Import MIDI | **File → Import MIDI... (Spike)** |
+| Dark mode | Menu **View → Dark Mode** (the setting is saved locally; PDF export still uses a light paper background) |
 
-启动后自动加载《欢乐颂》示例曲谱。`sample/` 目录提供更多示例（如《卡农》），可通过 **文件 → 示例曲库** 或工具栏 **曲库** 加载。
+On startup, the "Ode to Joy" sample score is loaded automatically. The `sample/` directory provides more examples (such as "Canon"), which can be loaded via **File → Sample Library** or the toolbar's **Library** button.
 
-## 和弦标识
+## Chord Markers
 
-每小节最多 4 个标识，每个包含自由文本与拍位（`BeatPosition`，0 为第 1 拍）。
+Up to 4 markers per measure, each containing free text and a beat position (`BeatPosition`, where 0 is beat 1).
 
-编辑界面示例（第 1 小节两个和弦）：
+Example editing UI (two chords in measure 1):
 
 ```
-拍位: 0      2
+Beat: 0      2
       C      G
 ```
 
-播放与 MIDI 导出时，仅解析合法和弦符号；非和弦文字保留显示但不发声。
+During playback and MIDI export, only valid chord symbols are parsed; non-chord text is still displayed but produces no sound.
 
-支持和弦类型：大三、小三、`7`、`maj7`、`m7`、转位（如 `G/D`）等常见写法。
+Supported chord types: major, minor, `7`, `maj7`, `m7`, inversions (e.g., `G/D`), and other common notations.
 
-### 和弦转调
+### Chord Transpose
 
-从当前调号（如 `1=C`）转到目标调号（如 `G` 或 `1=G`）时，遍历各小节 `ChordMarkers`，仅对 `ChordParser` 识别为和弦符号的文本做半音转调；自由文字（如「间奏」）保持不变。转调后调号字段更新为 `1=目标音名` 格式。
+When transposing from the current key signature (e.g., `1=C`) to a target key signature (e.g., `G` or `1=G`), each measure's `ChordMarkers` is traversed, and only text recognized as a chord symbol by `ChordParser` is transposed by semitone; free text (such as "Interlude") is left unchanged. After transposing, the key signature field is updated to the `1=<target note name>` format.
 
-主旋律简谱数字（1–7）不参与转调；若需移调旋律，请手动编辑。
+The main melody's Jianpu digits (1–7) are not transposed; to transpose the melody, edit it manually.
 
-## 歌词与对齐
+## Lyrics and Alignment
 
-每小节歌词有两种表示：
+Each measure's lyrics have two representations:
 
-- **`LyricText`**：整行文本，点击歌词行可直接编辑
-- **`LyricSyllables`**：音节列表，每个音节绑定一个主旋律音符索引
+- **`LyricText`**: The full line of text; click the lyric row to edit it directly
+- **`LyricSyllables`**: A list of syllables, each bound to a main melody note index
 
-**重新对齐**规则：
+**Re-alignment** rules:
 
-- 中文按字、英文按空格分词，依次映射到可对齐的旋律音符
-- 休止符、连音线延续音（tie 终点）不参与对齐
-- 歌词字数与音符数不一致时，对齐尽可能多的音节并在状态中提示超出 / 剩余
+- Chinese text is split by character and English text by spaces, then mapped in order to alignable melody notes
+- Rests and tie-continuation notes (tie endpoints) do not participate in alignment
+- When the number of lyric characters doesn't match the number of notes, as many syllables as possible are aligned, and the status shows the excess/remainder
 
-**批量编辑歌词**对话框支持指定「从第 N 到第 M 小节」，初始范围取自当前选中小节；修改后可选重新对齐，所有变更作为一条操作可撤回。
+The **Bulk Edit Lyrics** dialog supports specifying "from measure N to measure M"; the initial range is taken from the currently selected measures. After editing, you can optionally re-align, and all changes are undoable as a single operation.
 
-## 曲谱文件格式
+## Score File Format
 
-曲谱保存为 JSON（`.json` / `.jianpu`），主要字段：
+Scores are saved as JSON (`.json` / `.jianpu`), with the main fields:
 
-- `Title`、`KeySignature`、`Tempo`、`Bpm`、`Composer`
-- `Measures[]`：每小节含 `MelodyNotes`、`Chords`、`ChordMarkers`、`LyricText`、`LyricSyllables`、`Ornaments`
-- `Ties[]`：连音线（起始/结束小节与音符索引）
+- `Title`, `KeySignature`, `Tempo`, `Bpm`, `Composer`
+- `Measures[]`: Each measure contains `MelodyNotes`, `Chords`, `ChordMarkers`, `LyricText`, `LyricSyllables`, `Ornaments`
+- `Ties[]`: Ties (start/end measure and note indices)
 
-小节字段说明：
+Measure field descriptions:
 
-| 字段 | 说明 |
+| Field | Description |
 |------|------|
-| `MelodyNotes[]` | 主旋律槽位（每拍一个主音视图）；`Pitch` 为 `1`–`7` 或 `1.5` / `2.5` 等半音（配合 `Accidental`） |
-| `Chords[]` | 同时音槽位：`{ "BeatPosition": 0, "Notes": [ ... ], "Text": "" }`；`Notes` 可含多个同时发声的音符 |
-| `ChordMarkers[]` | `{ "Text": "C", "BeatPosition": 0 }`（副旋律行和弦符号，与 `Chords` 不同） |
-| `LyricText` | 歌词整行文本 |
-| `LyricSyllables[]` | 逐音节歌词，`{ "Text": "你", "NoteIndex": 0, "BeatPosition": 0 }`；有数据时画布按音符逐字绘制 |
-| `Ornaments[]` | 装饰音，`{ "Type": "Trill", "NoteIndex": 0, "BeatPosition": 0 }`；`Type` 为枚举名（如 `GraceNote`、`Trill`、`Turn`、`Fermata`） |
-| `Pitch` / `Accidental` | 自然音 `Pitch: 3`；半音如 `Pitch: 1.5, Accidental: "Sharp"`（显示 `#1`）或 `Pitch: 2.5, Accidental: "Flat"`（显示 `b3`） |
+| `MelodyNotes[]` | Main melody slots (one primary-note view per beat); `Pitch` is `1`–`7` or a chromatic value such as `1.5` / `2.5` (paired with `Accidental`) |
+| `Chords[]` | Simultaneous-note slots: `{ "BeatPosition": 0, "Notes": [ ... ], "Text": "" }`; `Notes` can contain multiple notes sounding at once |
+| `ChordMarkers[]` | `{ "Text": "C", "BeatPosition": 0 }` (chord symbols in the secondary melody row, distinct from `Chords`) |
+| `LyricText` | The full lyric line text |
+| `LyricSyllables[]` | Lyrics by syllable, `{ "Text": "Hi", "NoteIndex": 0, "BeatPosition": 0 }`; when present, the canvas draws each syllable under its note |
+| `Ornaments[]` | Ornaments, `{ "Type": "Trill", "NoteIndex": 0, "BeatPosition": 0 }`; `Type` is an enum name (e.g., `GraceNote`, `Trill`, `Turn`, `Fermata`) |
+| `Pitch` / `Accidental` | Natural pitch `Pitch: 3`; chromatic pitches such as `Pitch: 1.5, Accidental: "Sharp"` (displayed as `#1`) or `Pitch: 2.5, Accidental: "Flat"` (displayed as `b3`) |
 
-打开旧谱面时，若仅有 `LyricText` 而无 `LyricSyllables`，仍按整行显示；执行重新对齐或批量编辑并勾选对齐后，会生成音节数据。无 `Ornaments` 或 `Chords` 字段的旧文件可正常打开；加载时 `MelodyChordService` 会将 `MelodyNotes` 自动迁移为 `Chords`。
+When opening an older score that has only `LyricText` and no `LyricSyllables`, it is still displayed as a full line; performing re-alignment or bulk editing with alignment checked generates syllable data. Older files without `Ornaments` or `Chords` fields open normally; on load, `MelodyChordService` automatically migrates `MelodyNotes` into `Chords`.
 
-`Tempo` 为谱面显示用语（如「中速」），`Bpm` 为播放与 MIDI 使用的每分钟拍数（默认 120）。
+`Tempo` is the display term shown on the score (e.g., "Moderato"), while `Bpm` is the beats-per-minute value used for playback and MIDI (default 120).
 
-## 日志
+## Logs
 
-运行日志写入：
+Runtime logs are written to:
 
 ```
 %LocalAppData%\JianpuEditor\logs\jianpu-editor.log
 ```
 
-播放或 MIDI 相关出错时，错误弹窗会提示上述日志路径。
+When a playback- or MIDI-related error occurs, the error dialog will point to the log path above.
 
-## 架构（MVVM）
+## Architecture (MVVM)
 
-本项目采用 **CommunityToolkit.Mvvm** + **Microsoft.Extensions.DependencyInjection**，将 WinForms 界面与编辑逻辑分离：
+This project uses **CommunityToolkit.Mvvm** + **Microsoft.Extensions.DependencyInjection** to separate the WinForms UI from the editing logic:
 
-| 层次 | 目录 | 职责 |
+| Layer | Directory | Responsibility |
 |------|------|------|
-| **View** | `MainForm.cs`、`Views/`、`Controls/` | 菜单、工具栏、对话框；`ILayoutService` / `WinFormsLayoutService` 管理布局与 DPI；瘦 View 层仅处理 WinForms 与文件选择 |
-| **Glue** | `Glue/` | `MainFormViewBinder`（控件 ↔ ViewModel 双向绑定）、`ScoreCanvasGlue`（画布刷新与选择同步）、`ScoreSelectionMapper` |
-| **ViewModel** | `ViewModels/` | 编辑命令、谱面状态、选择协调；通过 `IAppMessenger` 发布 `ScoreEditedMessage` 等 |
-| **Model** | `Models/` | 纯 POCO：`JianpuScore`、小节、音符、和弦标识 |
-| **Core** | `Core/Abstractions/`、`Core/Messaging/` | 服务接口（`IScoreFileService`、`IScoreUndoService`、`IPdfExportService` 等）与消息总线 |
-| **Services** | `Services/` | 静态业务实现 + DI 适配器；含 `MelodyChordService`（同时音槽位与迁移）、`EditCommandHistory`（撤回 / 重做）、`OrnamentService`、`OrnamentPlaybackService`、`LyricAlignmentService`、`BulkLyricEditService`、`NoteSplitMergeService`、`JianpuPitchService` 等 |
-| **Rendering** | `Rendering/` | 布局、绘制、`AppTheme`（浅色/深色主题） |
+| **View** | `MainForm.cs`, `Views/`, `Controls/` | Menus, toolbar, dialogs; `ILayoutService` / `WinFormsLayoutService` manages layout and DPI; the thin View layer only handles WinForms and file selection |
+| **Glue** | `Glue/` | `MainFormViewBinder` (two-way control ↔ ViewModel binding), `ScoreCanvasGlue` (canvas refresh and selection sync), `ScoreSelectionMapper` |
+| **ViewModel** | `ViewModels/` | Edit commands, score state, selection coordination; publishes messages such as `ScoreEditedMessage` via `IAppMessenger` |
+| **Model** | `Models/` | Pure POCOs: `JianpuScore`, measures, notes, chord markers |
+| **Core** | `Core/Abstractions/`, `Core/Messaging/` | Service interfaces (`IScoreFileService`, `IScoreUndoService`, `IPdfExportService`, etc.) and the message bus |
+| **Services** | `Services/` | Static business logic + DI adapters; includes `MelodyChordService` (simultaneous-note slots and migration), `EditCommandHistory` (undo/redo), `OrnamentService`, `OrnamentPlaybackService`, `LyricAlignmentService`, `BulkLyricEditService`, `NoteSplitMergeService`, `JianpuPitchService`, etc. |
+| **Rendering** | `Rendering/` | Layout, drawing, `AppTheme` (light/dark theme) |
 
-**数据流**：用户操作 → `MainForm` 调用 ViewModel 方法 → 返回 `ScoreEditResult` → `ScoreCanvasGlue` 更新画布 → `MainFormViewBinder` 同步控件。
+**Data flow**: User action → `MainForm` calls a ViewModel method → returns `ScoreEditResult` → `ScoreCanvasGlue` updates the canvas → `MainFormViewBinder` syncs the controls.
 
-**依赖注入**（`AppBootstrapper.cs`）：所有 ViewModel 与 Service 接口注册为 Singleton，`MainForm` 为 Transient。
+**Dependency injection** (`AppBootstrapper.cs`): All ViewModels and Service interfaces are registered as Singleton, and `MainForm` is Transient.
 
-## 项目结构
+## Project Structure
 
 ```
 JianpuEditor/
-  Program.cs               # 启动、DI 容器、主题加载
-  AppBootstrapper.cs       # 服务与 ViewModel 注册
-  MainForm.cs              # 主界面（瘦 View 层）
-  Views/                   # ILayoutService、布局上下文
-  Glue/                    # View ↔ ViewModel 胶水层
-  ViewModels/              # MVVM ViewModel（10 个）
-  Core/                    # 接口抽象与消息
-  Controls/ScoreCanvas.cs  # 画布、选择、播放进度条、和弦内联编辑
-  Models/                  # 曲谱、小节、音符、连音线、和弦标识
-  Rendering/               # 布局、绘制、AppTheme
-  Services/                # JSON/PDF/MIDI、播放、和弦解析/转调、连音线维护
-  installer/               # Inno Setup 安装脚本
-  scripts/                 # 构建与测试脚本
-  sample/                  # 示例曲库（.jianpu / .json）
-JianpuEditor.Tests/        # xUnit 单元测试（248 个；服务、ViewModel、Glue、绘制）
+  Program.cs               # Startup, DI container, theme loading
+  AppBootstrapper.cs       # Service and ViewModel registration
+  MainForm.cs              # Main UI (thin View layer)
+  Views/                   # ILayoutService, layout context
+  Glue/                    # View ↔ ViewModel glue layer
+  ViewModels/              # MVVM ViewModels (10)
+  Core/                    # Interface abstractions and messaging
+  Controls/ScoreCanvas.cs  # Canvas, selection, playback progress bar, chord inline editing
+  Models/                  # Score, measures, notes, ties, chord markers
+  Rendering/               # Layout, drawing, AppTheme
+  Services/                # JSON/PDF/MIDI, playback, chord parsing/transpose, tie maintenance
+  installer/               # Inno Setup installer scripts
+  scripts/                 # Build and test scripts
+  sample/                  # Sample library (.jianpu / .json)
+JianpuEditor.Tests/        # xUnit unit tests (248; services, ViewModels, Glue, rendering)
 ```
 
-## 依赖
+## Dependencies
 
 - [CommunityToolkit.Mvvm](https://www.nuget.org/packages/CommunityToolkit.Mvvm) 8.4.0
 - [Microsoft.Extensions.DependencyInjection](https://www.nuget.org/packages/Microsoft.Extensions.DependencyInjection) 8.0.1
 - [Newtonsoft.Json](https://www.nuget.org/packages/Newtonsoft.Json) 13.0.3
 - [PDFsharp](https://www.nuget.org/packages/PDFsharp) 6.2.0
 
-MIDI 导出与谱面播放为自研实现，无第三方 MIDI 库。
+MIDI export and score playback are implemented in-house, with no third-party MIDI library.
 
-## 贡献
+## Contributing
 
-欢迎通过 Issue 与 Pull Request 参与改进。提交代码前请阅读 [贡献者许可协议（CLA）](CLA.md)，并在首个 PR 中确认同意。
+Contributions via Issues and Pull Requests are welcome. Before submitting code, please read the [Contributor License Agreement (CLA)](CLA.md) and confirm your agreement in your first PR.
 
-## 许可证
+## License
 
-本项目采用 [Apache License 2.0](LICENSE) 开源协议。
+This project is licensed under the [Apache License 2.0](LICENSE).

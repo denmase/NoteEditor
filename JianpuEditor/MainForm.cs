@@ -48,7 +48,7 @@ namespace JianpuEditor
         private bool _isExecutingHistoryChange;
 
         private const string NoteButtonToolTip =
-            "点击：在选中位置插入或修改音符\r\n按住 Ctrl 点击：追加到当前小节末尾\r\n按住 Ctrl+Shift 点击：追加并复制上一音符时值/八度";
+            "Click: insert or modify a note at the selected position\r\nCtrl+Click: append to the end of the current measure\r\nCtrl+Shift+Click: append and copy the previous note's duration/octave";
 
         public MainForm(
             MainViewModel viewModel,
@@ -192,14 +192,14 @@ namespace JianpuEditor
             ApplyDpiScaling();
             ApplyTheme();
 
-            AppLog.Info("简谱编辑器启动");
+            AppLog.Info("Jianpu Editor started");
 
             var demoResult = _viewModel.SampleLibrary.LoadDemoScore();
             _glue.ApplyEditResult(demoResult);
             _glue.ResetPlaybackHead();
             _binder.SyncHeaderFromDocument();
             _binder.SyncFromViewModels();
-            _viewModel.SetStatus("就绪 - 点击谱面标题/调号/速度/BPM/作曲直接编辑，点击歌词行编辑文字");
+            _viewModel.SetStatus("Ready - click the title/key/tempo/BPM/composer to edit directly, click a lyric line to edit its text");
         }
 
         private void OnFormResize(object sender, EventArgs e)
@@ -221,68 +221,68 @@ namespace JianpuEditor
 
         private void PopulateMenuStrip(MenuStrip menu)
         {
-            var fileMenu = new ToolStripMenuItem("文件");
-            fileMenu.DropDownItems.Add(CreateMenuItem("新建", Keys.Control | Keys.N, (s, e) => OnNewScore(s, e)));
-            fileMenu.DropDownItems.Add(CreateMenuItem("打开...", Keys.Control | Keys.O, OnOpenScore));
-            fileMenu.DropDownItems.Add(CreateMenuItem("保存", Keys.Control | Keys.S, OnSaveScore));
-            fileMenu.DropDownItems.Add(CreateMenuItem("另存为...", Keys.Control | Keys.Shift | Keys.S, OnSaveScoreAs));
+            var fileMenu = new ToolStripMenuItem("File");
+            fileMenu.DropDownItems.Add(CreateMenuItem("New", Keys.Control | Keys.N, (s, e) => OnNewScore(s, e)));
+            fileMenu.DropDownItems.Add(CreateMenuItem("Open...", Keys.Control | Keys.O, OnOpenScore));
+            fileMenu.DropDownItems.Add(CreateMenuItem("Save", Keys.Control | Keys.S, OnSaveScore));
+            fileMenu.DropDownItems.Add(CreateMenuItem("Save As...", Keys.Control | Keys.Shift | Keys.S, OnSaveScoreAs));
             fileMenu.DropDownItems.Add(new ToolStripSeparator());
-            fileMenu.DropDownItems.Add(CreateMenuItem("导出 PDF...", Keys.Control | Keys.P, OnExportPdf));
-            fileMenu.DropDownItems.Add(CreateMenuItem("导出 MIDI...", Keys.None, OnExportMidi));
-            fileMenu.DropDownItems.Add(CreateMenuItem("导入 MIDI... (Spike)", Keys.None, OnImportMidi));
+            fileMenu.DropDownItems.Add(CreateMenuItem("Export PDF...", Keys.Control | Keys.P, OnExportPdf));
+            fileMenu.DropDownItems.Add(CreateMenuItem("Export MIDI...", Keys.None, OnExportMidi));
+            fileMenu.DropDownItems.Add(CreateMenuItem("Import MIDI... (Spike)", Keys.None, OnImportMidi));
             fileMenu.DropDownItems.Add(new ToolStripSeparator());
-            var sampleMenu = new ToolStripMenuItem("示例曲库");
+            var sampleMenu = new ToolStripMenuItem("Sample Library");
             sampleMenu.DropDownOpening += (s, e) => PopulateSampleLibraryMenu(sampleMenu.DropDownItems);
             PopulateSampleLibraryMenu(sampleMenu.DropDownItems);
             fileMenu.DropDownItems.Add(sampleMenu);
             fileMenu.DropDownItems.Add(new ToolStripSeparator());
-            fileMenu.DropDownItems.Add(CreateMenuItem("退出", Keys.None, (s, e) => Close()));
+            fileMenu.DropDownItems.Add(CreateMenuItem("Exit", Keys.None, (s, e) => Close()));
 
-            var editMenu = new ToolStripMenuItem("编辑");
-            _undoMenuItem = CreateMenuItem("撤回", Keys.Control | Keys.Z, (s, e) => ExecuteUndo());
+            var editMenu = new ToolStripMenuItem("Edit");
+            _undoMenuItem = CreateMenuItem("Undo", Keys.Control | Keys.Z, (s, e) => ExecuteUndo());
             _undoMenuItem.Enabled = false;
             editMenu.DropDownItems.Add(_undoMenuItem);
-            _redoMenuItem = CreateMenuItem("重做", Keys.Control | Keys.Y, (s, e) => ExecuteRedo());
+            _redoMenuItem = CreateMenuItem("Redo", Keys.Control | Keys.Y, (s, e) => ExecuteRedo());
             _redoMenuItem.Enabled = false;
             editMenu.DropDownItems.Add(_redoMenuItem);
-            editMenu.DropDownItems.Add(CreateMenuItem("新增小节", Keys.None, (s, e) => ExecuteAddMeasure()));
+            editMenu.DropDownItems.Add(CreateMenuItem("Add Measure", Keys.None, (s, e) => ExecuteAddMeasure()));
             editMenu.DropDownItems.Add(CreateMenuItem(
-                "新增小节（含占位符）",
+                "Add Measure (with placeholders)",
                 Keys.Control | Keys.Shift | Keys.N,
                 (s, e) => ExecuteAddMeasureWithPlaceholders()));
-            editMenu.DropDownItems.Add(CreateMenuItem("复制小节", Keys.None, (s, e) => ExecuteDuplicateMeasures()));
-            editMenu.DropDownItems.Add(CreateMenuItem("和弦转调...", Keys.None, (s, e) => ShowTransposeDialog()));
-            editMenu.DropDownItems.Add(CreateMenuItem("和弦建议...", Keys.None, (s, e) => ShowHarmonySuggestionDialog()));
-            editMenu.DropDownItems.Add(CreateMenuItem("批量编辑歌词...", Keys.None, (s, e) => ShowBulkLyricEditDialog()));
-            var ornamentMenu = new ToolStripMenuItem("装饰音");
+            editMenu.DropDownItems.Add(CreateMenuItem("Duplicate Measure(s)", Keys.None, (s, e) => ExecuteDuplicateMeasures()));
+            editMenu.DropDownItems.Add(CreateMenuItem("Chord Transpose...", Keys.None, (s, e) => ShowTransposeDialog()));
+            editMenu.DropDownItems.Add(CreateMenuItem("Chord Suggestion...", Keys.None, (s, e) => ShowHarmonySuggestionDialog()));
+            editMenu.DropDownItems.Add(CreateMenuItem("Bulk Edit Lyrics...", Keys.None, (s, e) => ShowBulkLyricEditDialog()));
+            var ornamentMenu = new ToolStripMenuItem("Ornaments");
             ornamentMenu.DropDownItems.Add(CreateMenuItem(
-                "倚音",
+                "Grace Note",
                 Keys.None,
                 (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.GraceNote))));
             ornamentMenu.DropDownItems.Add(CreateMenuItem(
-                "颤音",
+                "Trill",
                 Keys.None,
                 (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Trill))));
             ornamentMenu.DropDownItems.Add(CreateMenuItem(
-                "回音",
+                "Turn",
                 Keys.None,
                 (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Turn))));
             ornamentMenu.DropDownItems.Add(CreateMenuItem(
-                "延长",
+                "Fermata",
                 Keys.None,
                 (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Fermata))));
             editMenu.DropDownItems.Add(ornamentMenu);
-            editMenu.DropDownItems.Add(CreateMenuItem("清空谱面", Keys.None, OnClearScore));
+            editMenu.DropDownItems.Add(CreateMenuItem("Clear Score", Keys.None, OnClearScore));
 
-            var viewMenu = new ToolStripMenuItem("视图");
-            _darkModeMenuItem = new ToolStripMenuItem("深色模式")
+            var viewMenu = new ToolStripMenuItem("View");
+            _darkModeMenuItem = new ToolStripMenuItem("Dark Mode")
             {
                 CheckOnClick = true,
                 Checked = AppTheme.IsDarkMode
             };
             _darkModeMenuItem.CheckedChanged += OnDarkModeToggled;
             viewMenu.DropDownItems.Add(_darkModeMenuItem);
-            _fillPlaceholdersMenuItem = new ToolStripMenuItem("新增小节默认填充占位符")
+            _fillPlaceholdersMenuItem = new ToolStripMenuItem("Fill placeholders by default when adding measures")
             {
                 CheckOnClick = true,
                 Checked = AppTheme.FillMeasurePlaceholdersOnAdd
@@ -290,7 +290,7 @@ namespace JianpuEditor
             _fillPlaceholdersMenuItem.CheckedChanged += OnFillPlaceholdersToggled;
             viewMenu.DropDownItems.Add(_fillPlaceholdersMenuItem);
             viewMenu.DropDownItems.Add(new ToolStripSeparator());
-            viewMenu.DropDownItems.Add(CreateMenuItem("重置布局", Keys.None, (s, e) => RestoreLayout()));
+            viewMenu.DropDownItems.Add(CreateMenuItem("Reset Layout", Keys.None, (s, e) => RestoreLayout()));
 
             menu.Items.Add(fileMenu);
             menu.Items.Add(editMenu);
@@ -306,66 +306,66 @@ namespace JianpuEditor
                 AutoScroll = false
             };
 
-            _playButton = CreateToolButton("播放", OnPlayScore);
-            _stopButton = CreateToolButton("停止", OnStopPlayback);
+            _playButton = CreateToolButton("Play", OnPlayScore);
+            _stopButton = CreateToolButton("Stop", OnStopPlayback);
             _stopButton.Enabled = false;
             panel.Controls.Add(_playButton);
             panel.Controls.Add(_stopButton);
             panel.Controls.Add(CreateSeparator());
 
-            panel.Controls.Add(new Label { Text = "音符:", AutoSize = true, Margin = new Padding(0, 10, 6, 0) });
+            panel.Controls.Add(new Label { Text = "Notes:", AutoSize = true, Margin = new Padding(0, 10, 6, 0) });
             for (var pitch = 1; pitch <= 7; pitch++)
             {
                 panel.Controls.Add(CreateNoteButton(pitch));
             }
 
             panel.Controls.Add(CreateRestButton());
-            panel.Controls.Add(CreateToolButton("新小节", ExecuteAddMeasure));
+            panel.Controls.Add(CreateToolButton("New Measure", ExecuteAddMeasure));
             panel.Controls.Add(CreateSeparator());
 
-            panel.Controls.Add(new Label { Text = "修饰:", AutoSize = true, Margin = new Padding(0, 10, 6, 0) });
-            panel.Controls.Add(CreateToolButton("高音·", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.SetOctave(1))));
-            panel.Controls.Add(CreateToolButton("低音·", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.SetOctave(-1))));
-            panel.Controls.Add(CreateToolButton("升key", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.TransposePitch(1))));
-            panel.Controls.Add(CreateToolButton("降key", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.TransposePitch(-1))));
-            panel.Controls.Add(CreateToolButton("拆分", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.SplitSelectedNotes())));
-            panel.Controls.Add(CreateToolButton("合并", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.MergeSelectedNotes())));
-            panel.Controls.Add(CreateToolButton("附点", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.ToggleDotted())));
-            panel.Controls.Add(CreateToolButton("增时+", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.IncreaseDuration())));
-            panel.Controls.Add(CreateToolButton("减时-", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.DecreaseDuration())));
-            _tieButton = CreateToolButton("连音线", () => _viewModel.TieEditor.ToggleTieModeCommand.Execute(null));
+            panel.Controls.Add(new Label { Text = "Modify:", AutoSize = true, Margin = new Padding(0, 10, 6, 0) });
+            panel.Controls.Add(CreateToolButton("High Octave", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.SetOctave(1))));
+            panel.Controls.Add(CreateToolButton("Low Octave", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.SetOctave(-1))));
+            panel.Controls.Add(CreateToolButton("Transpose Up", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.TransposePitch(1))));
+            panel.Controls.Add(CreateToolButton("Transpose Down", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.TransposePitch(-1))));
+            panel.Controls.Add(CreateToolButton("Split", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.SplitSelectedNotes())));
+            panel.Controls.Add(CreateToolButton("Merge", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.MergeSelectedNotes())));
+            panel.Controls.Add(CreateToolButton("Dotted", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.ToggleDotted())));
+            panel.Controls.Add(CreateToolButton("Extend+", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.IncreaseDuration())));
+            panel.Controls.Add(CreateToolButton("Shorten-", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.DecreaseDuration())));
+            _tieButton = CreateToolButton("Tie", () => _viewModel.TieEditor.ToggleTieModeCommand.Execute(null));
             panel.Controls.Add(_tieButton);
             panel.Controls.Add(CreateSeparator());
 
-            panel.Controls.Add(new Label { Text = "装饰:", AutoSize = true, Margin = new Padding(0, 10, 6, 0) });
-            panel.Controls.Add(CreateToolButton("倚音", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.GraceNote))));
-            panel.Controls.Add(CreateToolButton("颤音", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Trill))));
-            panel.Controls.Add(CreateToolButton("回音", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Turn))));
-            panel.Controls.Add(CreateToolButton("延长", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Fermata))));
+            panel.Controls.Add(new Label { Text = "Ornament:", AutoSize = true, Margin = new Padding(0, 10, 6, 0) });
+            panel.Controls.Add(CreateToolButton("Grace Note", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.GraceNote))));
+            panel.Controls.Add(CreateToolButton("Trill", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Trill))));
+            panel.Controls.Add(CreateToolButton("Turn", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Turn))));
+            panel.Controls.Add(CreateToolButton("Fermata", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Fermata))));
             panel.Controls.Add(CreateSeparator());
 
-            panel.Controls.Add(new Label { Text = "当前小节:", AutoSize = true, Margin = new Padding(0, 10, 6, 0) });
+            panel.Controls.Add(new Label { Text = "Current Measure:", AutoSize = true, Margin = new Padding(0, 10, 6, 0) });
             _measureSelector.Minimum = 1;
             _measureSelector.Maximum = 1;
             _measureSelector.Width = 56;
             _measureSelector.ValueChanged += OnMeasureSelectorChanged;
             panel.Controls.Add(_measureSelector);
 
-            panel.Controls.Add(new Label { Text = "从:", AutoSize = true, Margin = new Padding(0, 10, 6, 0) });
+            panel.Controls.Add(new Label { Text = "From:", AutoSize = true, Margin = new Padding(0, 10, 6, 0) });
             _measureRangeFrom.Minimum = 1;
             _measureRangeFrom.Maximum = 1;
             _measureRangeFrom.Width = 56;
             _measureRangeFrom.ValueChanged += OnMeasureRangeChanged;
             panel.Controls.Add(_measureRangeFrom);
 
-            panel.Controls.Add(new Label { Text = "到:", AutoSize = true, Margin = new Padding(0, 10, 6, 0) });
+            panel.Controls.Add(new Label { Text = "To:", AutoSize = true, Margin = new Padding(0, 10, 6, 0) });
             _measureRangeTo.Minimum = 1;
             _measureRangeTo.Maximum = 1;
             _measureRangeTo.Width = 56;
             _measureRangeTo.ValueChanged += OnMeasureRangeChanged;
             panel.Controls.Add(_measureRangeTo);
 
-            panel.Controls.Add(CreateToolButton("复制小节", ExecuteDuplicateMeasures));
+            panel.Controls.Add(CreateToolButton("Duplicate Measure(s)", ExecuteDuplicateMeasures));
             panel.Controls.Add(CreateSeparator());
 
             _chordBox.Width = 120;
@@ -373,10 +373,10 @@ namespace JianpuEditor
             panel.Controls.Add(_chordBox);
 
             panel.Controls.Add(CreateSeparator());
-            panel.Controls.Add(CreateToolButton("删除", ExecuteDelete));
+            panel.Controls.Add(CreateToolButton("Delete", ExecuteDelete));
             _sampleLibraryMenu = new ContextMenuStrip();
             _sampleLibraryMenu.Opening += (s, e) => PopulateSampleLibraryMenu(_sampleLibraryMenu.Items);
-            var sampleButton = CreateToolButton("曲库", () => { });
+            var sampleButton = CreateToolButton("Sample Library", () => { });
             sampleButton.Click += (s, e) => _sampleLibraryMenu.Show(sampleButton, new Point(0, sampleButton.Height));
             panel.Controls.Add(sampleButton);
 
@@ -615,7 +615,7 @@ namespace JianpuEditor
             ExecuteHistoryChange(() =>
             {
                 _commandHistory.Undo();
-                _viewModel.SetStatus("已撤回");
+                _viewModel.SetStatus("Undone");
             });
         }
 
@@ -629,7 +629,7 @@ namespace JianpuEditor
             ExecuteHistoryChange(() =>
             {
                 _commandHistory.Redo();
-                _viewModel.SetStatus("已重做");
+                _viewModel.SetStatus("Redone");
             });
         }
 
@@ -646,8 +646,8 @@ namespace JianpuEditor
             }
             catch (Exception ex)
             {
-                AppLog.Exception("撤销/重做失败", ex);
-                _viewModel.SetStatus("撤销/重做失败: " + ex.Message);
+                AppLog.Exception("Undo/redo failed", ex);
+                _viewModel.SetStatus("Undo/redo failed: " + ex.Message);
             }
             finally
             {
@@ -807,7 +807,7 @@ namespace JianpuEditor
         {
             if (!_suppressCanvasMutationTracking)
             {
-                CommitCanvasMutationCommand("已更新和弦标识");
+                CommitCanvasMutationCommand("Updated chord marker");
             }
 
             _viewModel.ChordEditor.SyncFromSelection();
@@ -818,7 +818,7 @@ namespace JianpuEditor
         {
             if (!_suppressCanvasMutationTracking)
             {
-                CommitCanvasMutationCommand("已更新小节文字");
+                CommitCanvasMutationCommand("Updated measure text");
             }
             if (_canvas.SelectedMeasureIndex >= 0)
             {
@@ -875,7 +875,7 @@ namespace JianpuEditor
 
         private void OnClearScore(object sender, EventArgs e)
         {
-            if (MessageBox.Show("确定清空当前谱面吗？", "确认", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+            if (MessageBox.Show("Are you sure you want to clear the current score?", "Confirm", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
             {
                 return;
             }
@@ -908,7 +908,7 @@ namespace JianpuEditor
             _viewModel.TieEditor.CancelTieMode();
             using (var dialog = new OpenFileDialog
             {
-                Filter = "MIDI 文件 (*.mid)|*.mid|所有文件 (*.*)|*.*"
+                Filter = "MIDI Files (*.mid)|*.mid|All Files (*.*)|*.*"
             })
             {
                 if (dialog.ShowDialog() != DialogResult.OK)
@@ -928,8 +928,8 @@ namespace JianpuEditor
                 }
                 catch (Exception ex)
                 {
-                    AppLog.Exception("导入 MIDI 失败: " + dialog.FileName, ex);
-                    MessageBox.Show("导入 MIDI 失败: " + ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    AppLog.Exception("MIDI import failed: " + dialog.FileName, ex);
+                    MessageBox.Show("MIDI import failed: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
         }
@@ -940,7 +940,7 @@ namespace JianpuEditor
             _viewModel.TieEditor.CancelTieMode();
             using (var dialog = new OpenFileDialog
             {
-                Filter = "简谱文件 (*.jianpu)|*.jianpu|JSON 文件 (*.json)|*.json|所有文件 (*.*)|*.*"
+                Filter = "Jianpu Files (*.jianpu)|*.jianpu|JSON Files (*.json)|*.json|All Files (*.*)|*.*"
             })
             {
                 if (dialog.ShowDialog() != DialogResult.OK)
@@ -953,7 +953,7 @@ namespace JianpuEditor
                 _glue.ResetPlaybackHead();
                 _binder.SyncHeaderFromDocument();
                 _binder.SyncFromViewModels();
-                _viewModel.SetStatus("已打开: " + dialog.FileName);
+                _viewModel.SetStatus("Opened: " + dialog.FileName);
             }
         }
 
@@ -966,16 +966,16 @@ namespace JianpuEditor
             }
 
             _viewModel.Document.SaveToFile(_viewModel.Document.CurrentFilePath);
-            _viewModel.SetStatus("已保存: " + _viewModel.Document.CurrentFilePath);
+            _viewModel.SetStatus("Saved: " + _viewModel.Document.CurrentFilePath);
         }
 
         private void OnSaveScoreAs(object sender, EventArgs e)
         {
             using (var dialog = new SaveFileDialog
             {
-                Filter = "简谱文件 (*.jianpu)|*.jianpu|JSON 文件 (*.json)|*.json",
+                Filter = "Jianpu Files (*.jianpu)|*.jianpu|JSON Files (*.json)|*.json",
                 FileName = string.IsNullOrWhiteSpace(_viewModel.Document.Title)
-                    ? "新乐曲.jianpu"
+                    ? "New Score.jianpu"
                     : _viewModel.Document.Title + ".jianpu"
             })
             {
@@ -986,7 +986,7 @@ namespace JianpuEditor
 
                 _viewModel.Document.SaveToFile(dialog.FileName);
                 _binder.SyncHeaderFromDocument();
-                _viewModel.SetStatus("已保存: " + dialog.FileName);
+                _viewModel.SetStatus("Saved: " + dialog.FileName);
             }
         }
 
@@ -994,9 +994,9 @@ namespace JianpuEditor
         {
             using (var dialog = new SaveFileDialog
             {
-                Filter = "PDF 文件 (*.pdf)|*.pdf",
+                Filter = "PDF Files (*.pdf)|*.pdf",
                 FileName = string.IsNullOrWhiteSpace(_viewModel.Document.Title)
-                    ? "简谱.pdf"
+                    ? "Score.pdf"
                     : _viewModel.Document.Title + ".pdf"
             })
             {
@@ -1008,11 +1008,11 @@ namespace JianpuEditor
                 try
                 {
                     _viewModel.ExportPdf(dialog.FileName, Math.Max(Width - 40, 900));
-                    MessageBox.Show("PDF 导出成功。", "完成", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show("PDF exported successfully.", "Done", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
         }
@@ -1021,9 +1021,9 @@ namespace JianpuEditor
         {
             using (var dialog = new SaveFileDialog
             {
-                Filter = "MIDI 文件 (*.mid)|*.mid",
+                Filter = "MIDI Files (*.mid)|*.mid",
                 FileName = string.IsNullOrWhiteSpace(_viewModel.Document.Title)
-                    ? "简谱.mid"
+                    ? "Score.mid"
                     : _viewModel.Document.Title + ".mid"
             })
             {
@@ -1035,11 +1035,11 @@ namespace JianpuEditor
                 try
                 {
                     _viewModel.ExportMidi(dialog.FileName);
-                    MessageBox.Show("MIDI 导出成功。", "完成", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show("MIDI exported successfully.", "Done", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
         }
@@ -1047,13 +1047,13 @@ namespace JianpuEditor
         private void PopulateSampleLibraryMenu(ToolStripItemCollection items)
         {
             items.Clear();
-            items.Add(CreateMenuItem("欢乐颂（内置）", Keys.None, (s, e) => LoadDemoScore()));
+            items.Add(CreateMenuItem("Ode to Joy (built-in)", Keys.None, (s, e) => LoadDemoScore()));
             items.Add(new ToolStripSeparator());
 
             _viewModel.SampleLibrary.RefreshSamples();
             if (!_viewModel.SampleLibrary.HasSamples)
             {
-                items.Add(new ToolStripMenuItem("(sample 目录暂无文件)") { Enabled = false });
+                items.Add(new ToolStripMenuItem("(no files in the sample directory yet)") { Enabled = false });
                 return;
             }
 
@@ -1080,8 +1080,8 @@ namespace JianpuEditor
             }
             catch (Exception ex)
             {
-                AppLog.Exception("加载示例曲谱失败: " + path, ex);
-                MessageBox.Show("加载示例曲谱失败: " + ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                AppLog.Exception("Failed to load sample score: " + path, ex);
+                MessageBox.Show("Failed to load sample score: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -1106,8 +1106,8 @@ namespace JianpuEditor
             }
             catch (Exception ex)
             {
-                AppLog.Exception("用户点击播放失败", ex);
-                ShowPlaybackError("播放失败", ex);
+                AppLog.Exception("Play button click failed", ex);
+                ShowPlaybackError("Playback failed", ex);
             }
         }
 
@@ -1128,8 +1128,8 @@ namespace JianpuEditor
             }
             catch (Exception ex)
             {
-                AppLog.Exception("拖动播放进度失败", ex);
-                ShowPlaybackError("播放跳转失败", ex);
+                AppLog.Exception("Dragging playback position failed", ex);
+                ShowPlaybackError("Playback seek failed", ex);
             }
         }
 
@@ -1139,13 +1139,13 @@ namespace JianpuEditor
                 ? title
                 : title + Environment.NewLine + Environment.NewLine +
                   ex.Message + Environment.NewLine + Environment.NewLine +
-                  "详细日志:" + Environment.NewLine + AppLog.LogFilePath;
-            MessageBox.Show(message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                  "Detailed log:" + Environment.NewLine + AppLog.LogFilePath;
+            MessageBox.Show(message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         private void OnFormClosed(object sender, FormClosedEventArgs e)
         {
-            AppLog.Info("简谱编辑器退出");
+            AppLog.Info("Jianpu Editor exiting");
             _glue?.Dispose();
             _binder?.Dispose();
             _viewModel.Dispose();
@@ -1172,7 +1172,7 @@ namespace JianpuEditor
             var suggestions = _viewModel.ChordEditor.GetHarmonySuggestions(measureIndex, beatPosition);
             if (suggestions == null || suggestions.Count == 0)
             {
-                MessageBox.Show("当前位置无法生成和弦建议。", "和弦建议", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("No chord suggestions can be generated at the current position.", "Chord Suggestion", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
@@ -1199,7 +1199,7 @@ namespace JianpuEditor
             var suggestions = _viewModel.ChordEditor.GetHarmonyProgressionSuggestions(fromIndex, toIndex);
             if (suggestions == null || suggestions.Count == 0)
             {
-                MessageBox.Show("当前选区无法生成和弦进行建议。", "和弦建议", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("No chord progression suggestions can be generated for the current selection.", "Chord Suggestion", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
@@ -1251,7 +1251,7 @@ namespace JianpuEditor
         {
             using (var dialog = new Form())
             {
-                dialog.Text = "和弦转调";
+                dialog.Text = "Chord Transpose";
                 dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
                 dialog.StartPosition = FormStartPosition.CenterParent;
                 dialog.MinimizeBox = false;
@@ -1260,14 +1260,14 @@ namespace JianpuEditor
                 dialog.ClientSize = new Size(380, 156);
                 dialog.Font = Font;
 
-                var sourceLabel = new Label { Text = "当前调号：", Location = new Point(16, 18), AutoSize = true };
+                var sourceLabel = new Label { Text = "Current Key:", Location = new Point(16, 18), AutoSize = true };
                 var sourceValue = new Label
                 {
                     Text = _viewModel.Document.KeySignature ?? "1=C",
                     Location = new Point(108, 18),
                     AutoSize = true
                 };
-                var targetLabel = new Label { Text = "目标调号：", Location = new Point(16, 54), AutoSize = true };
+                var targetLabel = new Label { Text = "Target Key:", Location = new Point(16, 54), AutoSize = true };
                 var targetBox = new TextBox
                 {
                     Location = new Point(108, 50),
@@ -1276,13 +1276,13 @@ namespace JianpuEditor
                 };
                 var hintLabel = new Label
                 {
-                    Text = "支持格式：G、1=G、F#、Bb、D大调。仅转调副旋律中的和弦标识。",
+                    Text = "Supported formats: G, 1=G, F#, Bb, D major. Only transposes chord markers in the secondary melody.",
                     Location = new Point(16, 84),
                     Size = new Size(348, 32),
                     ForeColor = Color.DimGray
                 };
-                var okButton = new Button { Text = "转换", DialogResult = DialogResult.OK, Location = new Point(192, 118), Width = 76 };
-                var cancelButton = new Button { Text = "取消", DialogResult = DialogResult.Cancel, Location = new Point(276, 118), Width = 76 };
+                var okButton = new Button { Text = "Convert", DialogResult = DialogResult.OK, Location = new Point(192, 118), Width = 76 };
+                var cancelButton = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, Location = new Point(276, 118), Width = 76 };
 
                 dialog.Controls.Add(sourceLabel);
                 dialog.Controls.Add(sourceValue);
@@ -1302,7 +1302,7 @@ namespace JianpuEditor
                 var targetKey = targetBox.Text?.Trim();
                 if (string.IsNullOrEmpty(targetKey))
                 {
-                    MessageBox.Show("请输入目标调号。", "转调", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show("Please enter a target key.", "Transpose", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return;
                 }
 
@@ -1311,7 +1311,7 @@ namespace JianpuEditor
                 {
                     if (!string.IsNullOrEmpty(result.Message))
                     {
-                        MessageBox.Show(result.Message, "转调失败", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        MessageBox.Show(result.Message, "Transpose Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     }
 
                     return;

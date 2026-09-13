@@ -17,7 +17,7 @@ namespace JianpuEditor.Tests.ViewModels
             Assert.Equal(@"C:\out\test.pdf", pdfExport.LastPath);
             Assert.Equal(900, pdfExport.LastPageWidth);
             Assert.Same(main.Document.Score, pdfExport.LastScore);
-            Assert.Contains("PDF 已导出", main.StatusMessage);
+            Assert.Contains("PDF exported", main.StatusMessage);
         }
 
         [Fact]
@@ -31,7 +31,7 @@ namespace JianpuEditor.Tests.ViewModels
 
             Assert.Equal(@"C:\out\test.mid", midiExport.LastPath);
             Assert.Same(main.Document.Score, midiExport.LastScore);
-            Assert.Contains("MIDI 已导出", main.StatusMessage);
+            Assert.Contains("MIDI exported", main.StatusMessage);
         }
     }
 }

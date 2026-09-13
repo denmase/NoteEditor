@@ -74,17 +74,17 @@ namespace JianpuEditor.ViewModels
             {
                 var quarter = startQuarter >= 0 ? startQuarter : PlaybackPositionQuarter;
                 AppLog.Info(
-                    "播放请求: bpm=" + _document.Bpm +
+                    "Play request: bpm=" + _document.Bpm +
                     ", startQuarter=" + quarter.ToString("0.###") +
                     ", measures=" + (_document.Score.Measures?.Count ?? 0));
                 _playbackService.Play(_document.Score, _document.Bpm, quarter);
                 IsPlaying = true;
                 PlaybackPositionQuarter = quarter;
-                _messenger.Send(new StatusChangedMessage("正在播放..."));
+                _messenger.Send(new StatusChangedMessage("Playing..."));
             }
             catch (Exception ex)
             {
-                AppLog.Exception("播放失败", ex);
+                AppLog.Exception("Playback failed", ex);
                 IsPlaying = false;
                 PlaybackError?.Invoke(ex);
             }
@@ -94,7 +94,7 @@ namespace JianpuEditor.ViewModels
         {
             _playbackService.StopPlayback();
             IsPlaying = false;
-            _messenger.Send(new StatusChangedMessage("播放已停止"));
+            _messenger.Send(new StatusChangedMessage("Playback stopped"));
         }
 
         public void Seek(double quarterBeat)
@@ -110,7 +110,7 @@ namespace JianpuEditor.ViewModels
             }
             catch (Exception ex)
             {
-                AppLog.Exception("播放跳转失败", ex);
+                AppLog.Exception("Playback seek failed", ex);
                 PlaybackError?.Invoke(ex);
             }
         }
@@ -141,7 +141,7 @@ namespace JianpuEditor.ViewModels
         private void OnPlaybackFinished()
         {
             IsPlaying = false;
-            _messenger.Send(new StatusChangedMessage("播放完成"));
+            _messenger.Send(new StatusChangedMessage("Playback finished"));
             PlaybackFinished?.Invoke();
         }
 

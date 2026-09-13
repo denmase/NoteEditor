@@ -59,7 +59,7 @@ namespace JianpuEditor.ViewModels
         public ScoreEditResult LoadDemoScore()
         {
             _document.LoadDemoScore();
-            var message = "已加载示例谱面《欢乐颂》";
+            var message = "Loaded sample score \"Ode to Joy\"";
             _messenger.Send(new ScoreEditedMessage(message, markDirty: false));
             _messenger.Send(new ScoreLoadedMessage(_document.Score, null));
             return new ScoreEditResult
@@ -77,7 +77,7 @@ namespace JianpuEditor.ViewModels
             {
                 _document.LoadSample(path);
                 var displayName = _sampleLibraryService.GetDisplayName(path);
-                var message = "已加载示例曲谱：" + _document.Score.Title;
+                var message = "Loaded sample score: " + _document.Score.Title;
                 _messenger.Send(new ScoreEditedMessage(message, markDirty: false));
                 _messenger.Send(new ScoreLoadedMessage(_document.Score, path));
                 return new ScoreEditResult
@@ -90,7 +90,7 @@ namespace JianpuEditor.ViewModels
             }
             catch (Exception ex)
             {
-                AppLog.Exception("加载示例曲谱失败: " + path, ex);
+                AppLog.Exception("Failed to load sample score: " + path, ex);
                 throw;
             }
         }
@@ -104,15 +104,15 @@ namespace JianpuEditor.ViewModels
         {
             if (!string.IsNullOrWhiteSpace(_document.CurrentFilePath))
             {
-                return "简谱编辑器 - " + Path.GetFileName(_document.CurrentFilePath);
+                return "Jianpu Editor - " + Path.GetFileName(_document.CurrentFilePath);
             }
 
             if (!string.IsNullOrWhiteSpace(samplePath))
             {
-                return "简谱编辑器 - " + _sampleLibraryService.GetDisplayName(samplePath);
+                return "Jianpu Editor - " + _sampleLibraryService.GetDisplayName(samplePath);
             }
 
-            return "简谱编辑器";
+            return "Jianpu Editor";
         }
     }
 }

@@ -115,7 +115,7 @@ namespace JianpuEditor.Tests.ViewModels
         public void TransposeChords_ReturnsErrorWhenServiceFails()
         {
             var (document, selection, messenger, history) = ViewModelTestHelper.CreateDocumentWithSelection();
-            var transpose = new FakeChordTransposeService { ShouldSucceed = false, ErrorMessage = "无效调号" };
+            var transpose = new FakeChordTransposeService { ShouldSucceed = false, ErrorMessage = "Invalid key signature" };
             var navigation = ViewModelTestHelper.CreateMeasureNavigation(document, selection, messenger, history);
             var chordEditor = ViewModelTestHelper.CreateChordEditor(document, selection, navigation, messenger, transpose, history: history);
             document.EnsureMeasures();
@@ -124,7 +124,7 @@ namespace JianpuEditor.Tests.ViewModels
             var result = chordEditor.TransposeChords("1=Z");
 
             Assert.False(result.Changed);
-            Assert.Equal("无效调号", result.Message);
+            Assert.Equal("Invalid key signature", result.Message);
             Assert.Equal("1=C", document.KeySignature);
         }
     }

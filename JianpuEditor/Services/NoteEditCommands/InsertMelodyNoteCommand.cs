@@ -76,7 +76,7 @@ namespace JianpuEditor.Services.NoteEditCommands
         {
             var measure = _score.Measures[_measureIndex];
             MelodyChordService.RemoveSlot(measure, _insertIndex);
-            PublishEdit("已撤回: " + Description);
+            PublishEdit("Undone: " + Description);
         }
 
         private void PublishEdit(string message)

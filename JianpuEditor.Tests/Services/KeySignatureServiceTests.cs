@@ -11,7 +11,7 @@ namespace JianpuEditor.Tests.Services
         [InlineData("1=G", 7)]
         [InlineData("F#", 6)]
         [InlineData("Bb", 10)]
-        [InlineData("D大调", 2)]
+        [InlineData("D major", 2)]
         public void TryParseTonicPitchClass_ParsesCommonFormats(string input, int expectedPitchClass)
         {
             var ok = KeySignatureService.TryParseTonicPitchClass(input, out var pitchClass);

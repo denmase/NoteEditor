@@ -12,7 +12,7 @@ namespace JianpuEditor.Services
         private IntPtr _handle = IntPtr.Zero;
         private int _deviceId = MidiMapper;
         private bool _disposed;
-        private string _deviceName = "未打开";
+        private string _deviceName = "Not opened";
 
         public void NoteOn(int channel, int note, int velocity)
         {
@@ -44,7 +44,7 @@ namespace JianpuEditor.Services
                 return;
             }
 
-            AppLog.Info("正在打开 MIDI 输出设备...");
+            AppLog.Info("Opening MIDI output device...");
             var lastError = MmsyserrNoerror;
             if (TryOpenDevice(MidiMapper, "MIDI Mapper", out lastError))
             {
@@ -52,7 +52,7 @@ namespace JianpuEditor.Services
             }
 
             var deviceCount = midiOutGetNumDevs();
-            AppLog.Info("MIDI Mapper 打开失败，错误码=" + lastError + "，本机设备数=" + deviceCount);
+            AppLog.Info("Failed to open MIDI Mapper, error code=" + lastError + ", local device count=" + deviceCount);
             for (var deviceId = 0; deviceId < deviceCount; deviceId++)
             {
                 var name = GetDeviceName(deviceId);
@@ -61,13 +61,13 @@ namespace JianpuEditor.Services
                     return;
                 }
 
-                AppLog.Error("打开 MIDI 设备失败: id=" + deviceId + ", name=" + name + ", error=" + lastError);
+                AppLog.Error("Failed to open MIDI device: id=" + deviceId + ", name=" + name + ", error=" + lastError);
             }
 
             throw new InvalidOperationException(
-                "无法打开 MIDI 输出设备。错误码=" + lastError +
-                "。请确认系统已启用 MIDI 合成器（如 Microsoft GS Wavetable Synth）。" +
-                " 日志: " + AppLog.LogFilePath);
+                "Unable to open MIDI output device. Error code=" + lastError +
+                ". Please make sure a MIDI synthesizer is enabled on this system (e.g. Microsoft GS Wavetable Synth)." +
+                " Log: " + AppLog.LogFilePath);
         }
 
         private bool TryOpenDevice(int deviceId, string deviceLabel, out int errorCode)
@@ -81,7 +81,7 @@ namespace JianpuEditor.Services
             _handle = handle;
             _deviceId = deviceId;
             _deviceName = deviceLabel;
-            AppLog.Info("MIDI 输出设备已打开: id=" + deviceId + ", name=" + deviceLabel);
+            AppLog.Info("MIDI output device opened: id=" + deviceId + ", name=" + deviceLabel);
             return true;
         }
 
@@ -111,7 +111,7 @@ namespace JianpuEditor.Services
             if (result != MmsyserrNoerror)
             {
                 var text = string.Format(
-                    "MIDI 发送失败: action={0}, device={1}, status=0x{2:X2}, note={3}, velocity={4}, error={5}",
+                    "Failed to send MIDI message: action={0}, device={1}, status=0x{2:X2}, note={3}, velocity={4}, error={5}",
                     action,
                     _deviceName,
                     status,
@@ -119,7 +119,7 @@ namespace JianpuEditor.Services
                     data2,
                     result);
                 AppLog.Error(text);
-                throw new InvalidOperationException(text + "。日志: " + AppLog.LogFilePath);
+                throw new InvalidOperationException(text + ". Log: " + AppLog.LogFilePath);
             }
         }
 
@@ -139,17 +139,17 @@ namespace JianpuEditor.Services
                 }
                 catch (Exception ex)
                 {
-                    AppLog.Exception("关闭 MIDI 前发送 AllNotesOff 失败", ex);
+                    AppLog.Exception("Failed to send AllNotesOff before closing MIDI", ex);
                 }
 
                 var result = midiOutClose(_handle);
                 if (result != MmsyserrNoerror)
                 {
-                    AppLog.Error("关闭 MIDI 设备失败: error=" + result + ", device=" + _deviceName);
+                    AppLog.Error("Failed to close MIDI device: error=" + result + ", device=" + _deviceName);
                 }
                 else
                 {
-                    AppLog.Info("MIDI 输出设备已关闭: " + _deviceName);
+                    AppLog.Info("MIDI output device closed: " + _deviceName);
                 }
 
                 _handle = IntPtr.Zero;

@@ -29,7 +29,7 @@ namespace JianpuEditor.Services
         {
             _timer = new Timer { Interval = 15 };
             _timer.Tick += OnTimerTick;
-            AppLog.Info("ScorePlaybackService 已初始化");
+            AppLog.Info("ScorePlaybackService initialized");
         }
 
         public bool IsPlaying => _isPlaying;
@@ -55,12 +55,12 @@ namespace JianpuEditor.Services
                 SkipTimelineTo(PositionQuarter);
                 PositionChanged?.Invoke(PositionQuarter);
                 AppLog.Info(
-                    "播放准备完成: startQuarter=" + PositionQuarter.ToString("0.###") +
+                    "Playback prepared: startQuarter=" + PositionQuarter.ToString("0.###") +
                     ", totalQuarter=" + _totalQuarterLength.ToString("0.###"));
             }
             catch (Exception ex)
             {
-                AppLog.Exception("Prepare 失败", ex);
+                AppLog.Exception("Prepare failed", ex);
                 throw;
             }
         }
@@ -86,7 +86,7 @@ namespace JianpuEditor.Services
                 _timer.Start();
                 PositionChanged?.Invoke(PositionQuarter);
                 AppLog.Info(
-                    "开始播放: bpm=" + _currentBpm +
+                    "Playback started: bpm=" + _currentBpm +
                     ", startQuarter=" + PositionQuarter.ToString("0.###") +
                     ", totalQuarter=" + _totalQuarterLength.ToString("0.###") +
                     ", events=" + _timeline.Count);
@@ -94,14 +94,14 @@ namespace JianpuEditor.Services
             catch (Exception ex)
             {
                 StopInternal(resetPosition: false);
-                AppLog.Exception("Play 失败", ex);
+                AppLog.Exception("Play failed", ex);
                 throw;
             }
         }
 
         public void StopPlayback()
         {
-            AppLog.Info("停止播放: positionQuarter=" + PositionQuarter.ToString("0.###"));
+            AppLog.Info("Playback stopped: positionQuarter=" + PositionQuarter.ToString("0.###"));
             StopInternal(resetPosition: false);
         }
 
@@ -134,11 +134,11 @@ namespace JianpuEditor.Services
                 }
 
                 PositionChanged?.Invoke(PositionQuarter);
-                AppLog.Info("播放跳转: quarter=" + PositionQuarter.ToString("0.###") + ", playing=" + wasPlaying);
+                AppLog.Info("Playback seek: quarter=" + PositionQuarter.ToString("0.###") + ", playing=" + wasPlaying);
             }
             catch (Exception ex)
             {
-                AppLog.Exception("Seek 失败", ex);
+                AppLog.Exception("Seek failed", ex);
                 HandlePlaybackError(ex);
                 throw;
             }
@@ -151,7 +151,7 @@ namespace JianpuEditor.Services
             _timeline = BuildTimeline(schedule.Notes);
             _nextEventIndex = 0;
             AppLog.Info(
-                "加载播放时间线: melody+chord notes=" + schedule.Notes.Count +
+                "Playback timeline loaded: melody+chord notes=" + schedule.Notes.Count +
                 ", timelineEvents=" + _timeline.Count +
                 ", totalQuarter=" + _totalQuarterLength.ToString("0.###"));
         }
@@ -174,7 +174,7 @@ namespace JianpuEditor.Services
                     PositionQuarter = _totalQuarterLength;
                     PositionChanged?.Invoke(PositionQuarter);
                     StopInternal(resetPosition: false);
-                    AppLog.Info("播放完成");
+                    AppLog.Info("Playback finished");
                     PlaybackFinished?.Invoke();
                     return;
                 }
@@ -185,7 +185,7 @@ namespace JianpuEditor.Services
             }
             catch (Exception ex)
             {
-                AppLog.Exception("OnTimerTick 失败", ex);
+                AppLog.Exception("OnTimerTick failed", ex);
                 HandlePlaybackError(ex);
             }
         }
@@ -236,7 +236,7 @@ namespace JianpuEditor.Services
             }
             catch (Exception ex)
             {
-                AppLog.Exception("StopInternal AllNotesOff 失败", ex);
+                AppLog.Exception("StopInternal AllNotesOff failed", ex);
             }
 
             _activeNotes.Clear();
@@ -328,7 +328,7 @@ namespace JianpuEditor.Services
             StopInternal(resetPosition: true);
             _timer.Dispose();
             _synthesizer.Dispose();
-            AppLog.Info("ScorePlaybackService 已释放");
+            AppLog.Info("ScorePlaybackService disposed");
         }
 
         private sealed class PlaybackTimelineEvent

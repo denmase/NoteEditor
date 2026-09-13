@@ -187,7 +187,7 @@ namespace JianpuEditor.Tests.ViewModels
 
             var atMax = editor.IncreaseDuration();
             Assert.Equal(3, note.Dashes);
-            Assert.Contains("已达最长时值", atMax.Message);
+            Assert.Contains("Already at the longest duration", atMax.Message);
         }
 
         [Fact]
@@ -236,7 +236,7 @@ namespace JianpuEditor.Tests.ViewModels
 
             var atMin = editor.DecreaseDuration();
             Assert.Equal(2, note.Underlines);
-            Assert.Contains("已达最短时值", atMin.Message);
+            Assert.Contains("Already at the shortest duration", atMin.Message);
         }
     }
 }

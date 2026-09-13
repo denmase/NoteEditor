@@ -4,13 +4,13 @@ namespace JianpuEditor.Models
 {
     public class JianpuScore
     {
-        public string Title { get; set; } = "未命名乐曲";
+        public string Title { get; set; } = "Untitled Score";
 
         public string KeySignature { get; set; } = "1=C";
 
-        public string Tempo { get; set; } = "中速";
+        public string Tempo { get; set; } = "Moderato";
 
-        /// <summary>每分钟拍数，用于 MIDI 导出。</summary>
+        /// <summary>Beats per minute, used for MIDI export.</summary>
         public int Bpm { get; set; } = 120;
 
         public string Composer { get; set; } = string.Empty;

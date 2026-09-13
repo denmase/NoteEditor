@@ -42,9 +42,9 @@ namespace JianpuEditor.Services
             {
                 return new[]
                 {
-                    BuildSuggestion("I", tonicPitchClass, "默认主和弦"),
-                    BuildSuggestion("IV", tonicPitchClass, "常见下属和弦"),
-                    BuildSuggestion("V", tonicPitchClass, "常见属和弦")
+                    BuildSuggestion("I", tonicPitchClass, "Default tonic chord"),
+                    BuildSuggestion("IV", tonicPitchClass, "Common subdominant chord"),
+                    BuildSuggestion("V", tonicPitchClass, "Common dominant chord")
                 };
             }
 
@@ -133,7 +133,7 @@ namespace JianpuEditor.Services
         private static string BuildReason(IReadOnlyList<int> melodyDegrees, string roman)
         {
             var degreeText = string.Join("/", melodyDegrees.Select(degree => degree.ToString()));
-            return "旋律音 " + degreeText + " → " + roman;
+            return "Melody note " + degreeText + " → " + roman;
         }
 
         private static List<int> CollectMelodyDegrees(JianpuMeasure measure, double beatPosition)

@@ -1,4 +1,4 @@
-#define MyAppName "简谱编辑器"
+#define MyAppName "Jianpu Editor"
 #define MyAppNameEn "JianpuEditor"
 #define MyAppVersion "1.2.0"
 #define MyAppPublisher "loootte"
@@ -62,9 +62,9 @@ begin
   Result := True;
   if not NetFramework472Installed then
   begin
-    MsgBox('本程序需要 .NET Framework 4.7.2 或更高版本。' + #13#10 +
-      '请先安装 .NET Framework 4.7.2 后再运行安装程序。' + #13#10#13#10 +
-      '下载地址：https://dotnet.microsoft.com/download/dotnet-framework/net472',
+    MsgBox('This program requires .NET Framework 4.7.2 or later.' + #13#10 +
+      'Please install .NET Framework 4.7.2 first, then run this installer again.' + #13#10#13#10 +
+      'Download: https://dotnet.microsoft.com/download/dotnet-framework/net472',
       mbError, MB_OK);
     Result := False;
   end;

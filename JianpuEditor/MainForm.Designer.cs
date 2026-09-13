@@ -14,7 +14,7 @@ namespace JianpuEditor
             MinimumSize = new Size(960, 640);
             Name = "MainForm";
             StartPosition = FormStartPosition.CenterScreen;
-            Text = "简谱编辑器";
+            Text = "Jianpu Editor";
             Font = new Font("Microsoft YaHei", 9f);
             KeyPreview = true;
             ResumeLayout(false);

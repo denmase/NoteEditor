@@ -63,7 +63,7 @@ namespace JianpuEditor.Tests.ViewModels
     {
         public bool ShouldSucceed { get; set; } = true;
 
-        public string ErrorMessage { get; set; } = "转调失败";
+        public string ErrorMessage { get; set; } = "Transpose failed";
 
         public int TransposedCount { get; set; } = 1;
 

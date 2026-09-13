@@ -46,8 +46,8 @@ namespace JianpuEditor.Tests.Services
         public void SaveAndLoad_RoundTripsLyricSyllables()
         {
             var measure = ScoreTestHelper.MeasureWithLyrics(
-                "欢乐女神",
-                new[] { "欢", "乐", "女", "神" },
+                "Ode to joy song",
+                new[] { "Ode", "to", "joy", "song" },
                 new[] { 0, 1, 2, 3 },
                 ScoreTestHelper.Note(1),
                 ScoreTestHelper.Note(2),
@@ -61,9 +61,9 @@ namespace JianpuEditor.Tests.Services
                 ScoreFileService.Save(score, path);
                 var loaded = ScoreFileService.Load(path);
 
-                Assert.Equal("欢乐女神", loaded.Measures[0].LyricText);
+                Assert.Equal("Ode to joy song", loaded.Measures[0].LyricText);
                 Assert.Equal(4, loaded.Measures[0].LyricSyllables.Count);
-                Assert.Equal("欢", loaded.Measures[0].LyricSyllables[0].Text);
+                Assert.Equal("Ode", loaded.Measures[0].LyricSyllables[0].Text);
                 Assert.Equal(0, loaded.Measures[0].LyricSyllables[0].NoteIndex);
                 Assert.Equal(3, loaded.Measures[0].LyricSyllables[3].NoteIndex);
             }
@@ -126,7 +126,7 @@ namespace JianpuEditor.Tests.Services
   ""Measures"": [
     {
       ""MelodyNotes"": [{ ""Pitch"": 1 }, { ""Pitch"": 2 }],
-      ""LyricText"": ""测试""
+      ""LyricText"": ""test""
     }
   ]
 }";
@@ -159,7 +159,7 @@ namespace JianpuEditor.Tests.Services
   ""Measures"": [
     {
       ""MelodyNotes"": [{ ""Pitch"": 1 }, { ""Pitch"": 2 }],
-      ""LyricText"": ""测试""
+      ""LyricText"": ""test""
     }
   ]
 }";
@@ -191,7 +191,7 @@ namespace JianpuEditor.Tests.Services
   ""Measures"": [
     {
       ""MelodyNotes"": [{ ""Pitch"": 1 }, { ""Pitch"": 2 }],
-      ""LyricText"": ""照大地""
+      ""LyricText"": ""shines on the earth""
     }
   ]
 }";
@@ -201,9 +201,9 @@ namespace JianpuEditor.Tests.Services
                 File.WriteAllText(path, json);
                 var loaded = ScoreFileService.Load(path);
 
-                Assert.Equal("照大地", loaded.Measures[0].LyricText);
+                Assert.Equal("shines on the earth", loaded.Measures[0].LyricText);
                 Assert.Empty(loaded.Measures[0].LyricSyllables);
-                Assert.Equal("照大地", LyricSyllableService.GetDisplayText(loaded.Measures[0]));
+                Assert.Equal("shines on the earth", LyricSyllableService.GetDisplayText(loaded.Measures[0]));
             }
             finally
             {
