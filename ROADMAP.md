@@ -69,6 +69,7 @@ Genuinely new, higher-risk/experimental territory:
 - Resizable/dockable panels instead of the current fixed toolbar + canvas layout.
 - Live note preview under the cursor while entering notes.
 - User-customizable keyboard shortcuts (today's shortcuts are hardcoded).
+- **Rendering engine**: polishing the current GDI+ renderer (shared geometry model for draw/hit-test, zoom/DPI support, generalized drag) and adding [alphaTab](https://github.com/CoderLine/alphaTab) as a second, user-selectable renderer (research, feature-coverage spike, and milestone plan already done — see [`RENDERER_PLAN.md`](RENDERER_PLAN.md)).
 
 ## Other suggested features
 

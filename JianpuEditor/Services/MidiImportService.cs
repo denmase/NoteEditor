@@ -121,7 +121,6 @@ namespace JianpuEditor.Services
             }
 
             return notes
-                .Where(item => item.Channel == ScoreMidiSchedule.MelodyChannel)
                 .OrderBy(item => item.StartQuarter)
                 .ThenBy(item => item.MidiNote)
                 .ToList();
