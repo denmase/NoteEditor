@@ -1,3 +1,4 @@
+using System.Text;
 using JianpuEditor.Models;
 using JianpuEditor.Rendering;
 using JianpuEditor.Services;
@@ -148,5 +149,105 @@ namespace JianpuEditor.Tests.Services
             Assert.Throws<FileNotFoundException>(() =>
                 MidiImportService.Import(Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".mid")));
         }
+
+        [Fact]
+        public void Import_MelodyOnNonZeroChannelAlongsideDrumTrack_IsImported()
+        {
+            // Regression test: real-world MIDI files (e.g. exported from a DAW) routinely put the
+            // melody on a channel other than 0, and a separate track on the reserved drum channel (9).
+            // MelodyChannel=0 is only this app's own export/playback convention, not a general MIDI
+            // rule, so import must not assume the melody track's notes sit on channel 0.
+            var bytes = BuildMinimalMultiTrackMidi();
+            var path = Path.Combine(Path.GetTempPath(), "jianpu-import-nonzero-channel-" + Guid.NewGuid() + ".mid");
+            try
+            {
+                File.WriteAllBytes(path, bytes);
+                var imported = MidiImportService.Import(path);
+
+                var noteCount = imported.Measures.Sum(measure =>
+                    measure.MelodyNotes.Count(note => note.Type == NoteType.Note));
+                Assert.Equal(4, noteCount);
+            }
+            finally
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+        }
+
+        private static byte[] BuildMinimalMultiTrackMidi()
+        {
+            const int ticksPerQuarter = 96;
+
+            var drumTrack = BuildTrackChunk(BuildNoteEvents(channel: 9, notes: new[] { 36, 36, 36, 36 }, ticksPerQuarter));
+            var melodyTrack = BuildTrackChunk(BuildNoteEvents(channel: 5, notes: new[] { 60, 62, 64, 65 }, ticksPerQuarter));
+
+            var bytes = new List<byte>();
+            bytes.AddRange(Encoding.ASCII.GetBytes("MThd"));
+            bytes.AddRange(BigEndianUInt32(6));
+            bytes.AddRange(BigEndianUInt16(1));
+            bytes.AddRange(BigEndianUInt16(2));
+            bytes.AddRange(BigEndianUInt16(ticksPerQuarter));
+            bytes.AddRange(drumTrack);
+            bytes.AddRange(melodyTrack);
+            return bytes.ToArray();
+        }
+
+        private static List<byte> BuildNoteEvents(int channel, int[] notes, int ticksPerQuarter)
+        {
+            var events = new List<byte>();
+            foreach (var note in notes)
+            {
+                events.AddRange(VariableLength(0));
+                events.Add((byte)(0x90 | channel));
+                events.Add((byte)note);
+                events.Add(100);
+
+                events.AddRange(VariableLength(ticksPerQuarter));
+                events.Add((byte)(0x80 | channel));
+                events.Add((byte)note);
+                events.Add(0);
+            }
+
+            events.AddRange(VariableLength(0));
+            events.Add(0xFF);
+            events.Add(0x2F);
+            events.Add(0x00);
+            return events;
+        }
+
+        private static List<byte> BuildTrackChunk(List<byte> events)
+        {
+            var chunk = new List<byte>();
+            chunk.AddRange(Encoding.ASCII.GetBytes("MTrk"));
+            chunk.AddRange(BigEndianUInt32((uint)events.Count));
+            chunk.AddRange(events);
+            return chunk;
+        }
+
+        private static IEnumerable<byte> VariableLength(int value)
+        {
+            var buffer = new List<byte> { (byte)(value & 0x7F) };
+            value >>= 7;
+            while (value > 0)
+            {
+                buffer.Insert(0, (byte)((value & 0x7F) | 0x80));
+                value >>= 7;
+            }
+
+            return buffer;
+        }
+
+        private static IEnumerable<byte> BigEndianUInt32(uint value) => new[]
+        {
+            (byte)(value >> 24), (byte)(value >> 16), (byte)(value >> 8), (byte)value
+        };
+
+        private static IEnumerable<byte> BigEndianUInt16(int value) => new[]
+        {
+            (byte)(value >> 8), (byte)value
+        };
     }
 }
