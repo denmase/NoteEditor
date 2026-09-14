@@ -295,6 +295,10 @@ namespace JianpuEditor
             _fillPlaceholdersMenuItem.CheckedChanged += OnFillPlaceholdersToggled;
             viewMenu.DropDownItems.Add(_fillPlaceholdersMenuItem);
             viewMenu.DropDownItems.Add(new ToolStripSeparator());
+            viewMenu.DropDownItems.Add(CreateMenuItem("Zoom In", Keys.Control | Keys.Oemplus, (s, e) => _canvas.ZoomIn()));
+            viewMenu.DropDownItems.Add(CreateMenuItem("Zoom Out", Keys.Control | Keys.OemMinus, (s, e) => _canvas.ZoomOut()));
+            viewMenu.DropDownItems.Add(CreateMenuItem("Reset Zoom", Keys.Control | Keys.D0, (s, e) => _canvas.ResetZoom()));
+            viewMenu.DropDownItems.Add(new ToolStripSeparator());
             viewMenu.DropDownItems.Add(CreateMenuItem("Reset Layout", Keys.None, (s, e) => RestoreLayout()));
 
             menu.Items.Add(fileMenu);
