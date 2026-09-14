@@ -135,6 +135,38 @@ namespace JianpuEditor.ViewModels
             }
         }
 
+        public int MelodyInstrument
+        {
+            get { return _score.MelodyInstrument; }
+            set
+            {
+                if (_score.MelodyInstrument == value)
+                {
+                    return;
+                }
+
+                _score.MelodyInstrument = value;
+                OnPropertyChanged(nameof(MelodyInstrument));
+                MarkDirty();
+            }
+        }
+
+        public int ChordInstrument
+        {
+            get { return _score.ChordInstrument; }
+            set
+            {
+                if (_score.ChordInstrument == value)
+                {
+                    return;
+                }
+
+                _score.ChordInstrument = value;
+                OnPropertyChanged(nameof(ChordInstrument));
+                MarkDirty();
+            }
+        }
+
         public string CurrentFilePath
         {
             get { return _currentFilePath; }
@@ -311,6 +343,18 @@ namespace JianpuEditor.ViewModels
                 newStringValue,
                 oldBpm,
                 newBpm));
+        }
+
+        public void ApplyInstrumentEdit(bool isChordInstrument, int newProgram)
+        {
+            newProgram = GeneralMidiInstruments.Clamp(newProgram);
+            var oldProgram = isChordInstrument ? ChordInstrument : MelodyInstrument;
+            if (oldProgram == newProgram)
+            {
+                return;
+            }
+
+            _history.Execute(new ModifyInstrumentCommand(this, _messenger, isChordInstrument, oldProgram, newProgram));
         }
 
         private string GetHeaderStringValue(ScoreHeaderField field)

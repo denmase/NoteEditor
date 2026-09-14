@@ -82,6 +82,9 @@ A Jianpu (numbered musical notation) editing tool built on C# WinForms, supporti
 - **Score playback**
   - Toolbar "Play / Stop" plays the main melody and chords in real time according to BPM
   - The blue progress bar can be dragged to seek; playback logic shares scheduling with MIDI export (including ornament expansion)
+- **Instrument selection**
+  - `Edit → Instruments...` (or the toolbar "Instruments..." button) picks a General MIDI instrument for the melody and for chords independently
+  - Applies to both live playback and MIDI export, so the exported file sounds the same as in-app playback; saved with the score (`MelodyInstrument`/`ChordInstrument`, default Acoustic Grand Piano)
 
 ## Requirements
 
