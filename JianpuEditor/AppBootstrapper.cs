@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using JianpuEditor.Core.Abstractions;
 using JianpuEditor.Core.Messaging;
+using JianpuEditor.Rendering;
 using JianpuEditor.Services;
 using JianpuEditor.ViewModels;
 using JianpuEditor.Views;
@@ -47,6 +48,19 @@ namespace JianpuEditor
 
         private static IMidiOutput CreateMidiOutput()
         {
+            var vstPluginPath = AppTheme.VstPluginPath;
+            if (!string.IsNullOrWhiteSpace(vstPluginPath))
+            {
+                try
+                {
+                    return new BassVstSynthesizer(vstPluginPath);
+                }
+                catch (Exception ex)
+                {
+                    AppLog.Exception("Failed to initialize BASSVST plugin '" + vstPluginPath + "', falling back to bundled SoundFont", ex);
+                }
+            }
+
             var soundFontPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "Soundfonts", "GeneralUser-GS.sf2");
             try
             {

@@ -1,8 +1,9 @@
 # Third-party native libraries
 
-This folder bundles the [BASS](https://www.un4seen.com/bass.html) and BASSMIDI audio libraries
-(`bass.dll`, `bassmidi.dll`, x86 and x64), used for SoundFont-based playback and MIDI export
-sound rendering (see `JianpuEditor/Services/BassMidiSynthesizer.cs`).
+This folder bundles the [BASS](https://www.un4seen.com/bass.html) audio library and its BASSMIDI
+and BASSVST add-ons (`bass.dll`, `bassmidi.dll`, `bass_vst.dll`, x86 and x64), used for
+SoundFont-based playback (`JianpuEditor/Services/BassMidiSynthesizer.cs`) and the optional VST2
+instrument-plugin playback engine (`JianpuEditor/Services/BassVstSynthesizer.cs`).
 
 **Licensing — read before distributing a build of this project:**
 

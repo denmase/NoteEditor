@@ -16,6 +16,9 @@ namespace JianpuEditor.Rendering
 
         public static bool FillMeasurePlaceholdersOnAdd { get; private set; } = true;
 
+        /// <summary>Path to a VST2 instrument plugin DLL to use for playback instead of the bundled SoundFont, or empty to use the SoundFont.</summary>
+        public static string VstPluginPath { get; private set; } = string.Empty;
+
         public static event Action ThemeChanged;
 
         public static void Load()
@@ -31,11 +34,13 @@ namespace JianpuEditor.Rendering
                 var settings = JsonConvert.DeserializeObject<ThemeSettings>(json);
                 IsDarkMode = settings?.DarkMode ?? false;
                 FillMeasurePlaceholdersOnAdd = settings?.FillMeasurePlaceholdersOnAdd ?? true;
+                VstPluginPath = settings?.VstPluginPath ?? string.Empty;
             }
             catch
             {
                 IsDarkMode = false;
                 FillMeasurePlaceholdersOnAdd = true;
+                VstPluginPath = string.Empty;
             }
         }
 
@@ -63,6 +68,21 @@ namespace JianpuEditor.Rendering
             }
 
             FillMeasurePlaceholdersOnAdd = enabled;
+            if (persist)
+            {
+                Save();
+            }
+        }
+
+        public static void SetVstPluginPath(string path, bool persist = true)
+        {
+            path = path ?? string.Empty;
+            if (VstPluginPath == path)
+            {
+                return;
+            }
+
+            VstPluginPath = path;
             if (persist)
             {
                 Save();
@@ -173,7 +193,8 @@ namespace JianpuEditor.Rendering
                     new ThemeSettings
                     {
                         DarkMode = IsDarkMode,
-                        FillMeasurePlaceholdersOnAdd = FillMeasurePlaceholdersOnAdd
+                        FillMeasurePlaceholdersOnAdd = FillMeasurePlaceholdersOnAdd,
+                        VstPluginPath = VstPluginPath
                     },
                     Formatting.Indented);
                 File.WriteAllText(SettingsPath, json);
@@ -189,6 +210,8 @@ namespace JianpuEditor.Rendering
             public bool DarkMode { get; set; }
 
             public bool FillMeasurePlaceholdersOnAdd { get; set; } = true;
+
+            public string VstPluginPath { get; set; } = string.Empty;
         }
     }
 }

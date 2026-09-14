@@ -86,6 +86,10 @@ A Jianpu (numbered musical notation) editing tool built on C# WinForms, supporti
 - **Instrument selection**
   - `Edit → Instruments...` (or the toolbar "Instruments..." button) picks a General MIDI instrument for the melody and for chords independently
   - Applies to both live playback and MIDI export, so the exported file sounds the same as in-app playback; saved with the score (`MelodyInstrument`/`ChordInstrument`, default Acoustic Grand Piano)
+- **VST instrument plugin (optional)**
+  - `Edit → Audio Engine...` can point playback at a VST2 instrument plugin DLL instead of the bundled SoundFont, hosted via BASSVST; both melody and chords are sent to the one loaded plugin
+  - This is a machine-local app preference (not saved in the score file, since a plugin path isn't portable between machines) and takes effect after restarting the app
+  - VST2 only, not VST3; MIDI export is unaffected (always raw MIDI regardless of playback engine)
 
 ## Requirements
 
