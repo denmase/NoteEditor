@@ -64,13 +64,40 @@ that stays load-bearing either way (Classic remains the default renderer for the
 future, and even under alphaTab this app still owns its own hit-testing for things alphaTab has no
 concept of — chord markers, this app's specific ornament set, structured lyrics).
 
-- **A1. Shared geometry model.** Extract one geometry object from `BuildLayout` that both
-  `JianpuRenderer.Draw*` and `ScoreCanvas`'s `HitTest*` consume, instead of two independently-coded
-  offset formulas (dash positions, tie Bézier points, ornament anchors) that can silently drift
-  apart. Stop rebuilding the *entire* layout on every mouse click/hover.
-- **A2. Zoom/DPI.** Systematically parameterize the magic-number pixel offsets so a scale factor
-  can be threaded through cleanly, instead of the current fixed-pixel assumptions baked into
-  `DrawNote`/`DrawBeatGroupUnderlines`/etc.
+- **A1. Shared geometry model — note/gap positioning done.** Found and fixed a real bug while
+  doing this: `JianpuRenderer` computed a note's on-screen X/width one way for drawing
+  (`GetNoteDrawBounds`, scaled by `MeasureLayout.MelodyScale` with a min-width floor and a
+  "stretch the last note to fill the measure" special case) and a *different*, unscaled way for
+  hit-testing (`HitTestMelodyRow` walking raw `GetNoteOffset`/`GetNoteWidth`). Because the app's
+  normal (non-paginated) layout sizes every measure's box to exactly fit its own content minus a
+  fixed 4px margin, `MelodyScale` ends up marginally below 1.0 for **any** non-empty measure — so
+  this wasn't a rare dense-measure edge case, it affected click accuracy on ordinary measures all
+  the time, worst near the last note in a measure (the stretch case). Fixed by moving the scaled
+  formula onto `MeasureLayout` itself (`GetNoteDrawBounds`/`GetNoteBounds`, now the single source
+  of truth) and routing both drawing and `HitTestMelodyRow` through it; also found and collapsed a
+  third independent copy of the same formula in `ChordMarkerLayout.cs`; made `GetInsertOffset`
+  (gap/caret positioning) scale-consistent the same way. Ties (`TryGetTieGeometry`) were already
+  correctly shared between draw and hit-test — no change needed there. 5 new regression tests in
+  `NoteHitTestingTests.cs`.
+  **Still open**: stop rebuilding the *entire* layout on every mouse click/hover (a perf concern,
+  not a correctness one — deferred, candidate to fold into A3 since drag/hover is where it'd
+  actually matter).
+- **A2. Zoom/DPI.** Done. Added `CanvasZoom` (`JianpuEditor/Controls/CanvasZoom.cs`), a small,
+  independently unit-tested (`CanvasZoomTests.cs`) class holding the scale factor (0.5x-2.5x,
+  0.25 step) and the `ToScreen`/`ToLogical` conversions. `JianpuRenderer`/`MeasureLayout`/
+  `PlaybackLayout`/`ChordMarkerLayout` were deliberately left untouched — they keep operating in
+  unscaled "logical" pixels exactly as A1 established. All the change is at `ScoreCanvas`'s
+  render/input boundary: `OnContentPaint` wraps the (still logically-rendered) score bitmap blit
+  and playback-head draw in a `Graphics.ScaleTransform`; every mouse handler converts its
+  screen-space point to logical via `_zoom.ToLogical` before hit-testing/dragging; every method
+  that positions a WinForms overlay controls (`_inlineEditor`/`_headerEditor`/`_chordInlineEditor`
+  bounds, `GetPlaybackHeadBounds`'s `Invalidate` rect) converts its logical bounds to screen via
+  `_zoom.ToScreen` before handing them to WinForms. `ZoomIn`/`ZoomOut`/`ResetZoom` are exposed as
+  public `ScoreCanvas` methods, wired to `View → Zoom In/Out/Reset Zoom` (Ctrl+/Ctrl-/Ctrl+0) in
+  `MainForm`, plus Ctrl+MouseWheel on the canvas itself. **Needs manual interactive verification**
+  before merge (click accuracy, drag, chord/header inline-editor positioning, and scrolling at
+  non-default zoom) — this is WinForms mouse/paint behavior that unit tests can't cover and CI only
+  proves compiles/existing tests still pass, not interactive correctness.
 - **A3. Generalize drag.** Today only chord-marker repositioning and playback-head seek have
   drag support, each its own bespoke `MouseDown/Move/Up` state machine. Once A1 exists, build one
   reusable drag mechanism on top of the shared geometry/hit-test model (note pitch/duration drag
@@ -82,6 +109,41 @@ concept of — chord markers, this app's specific ornament set, structured lyric
 
 **Milestones**: A1 → A3 → A2 → A4, in that order (A1 unblocks A3's reuse story; A2 and A4 are
 independently schedulable after A1).
+
+## Option: SkiaSharp as the Classic renderer's drawing backend
+
+A third path, distinct from both "polish GDI+ in place" (Track A) and "adopt alphaTab" (Track B).
+No literal drop-in replacement for GDI+ exists, but SkiaSharp is the closest realistic one: it
+targets `net472` (via netstandard2.0, no forced .NET 8 migration the way alphaTab requires),
+integrates into WinForms as a custom control, and keeps this app's own layout/geometry model and
+data model entirely intact — unlike Track B, there's no score-model translation and no "read-only
+renderer, rebuild the editing UI from scratch" tradeoff. It's a backend swap under the code Track A
+already owns, not a replacement for Track A's work.
+
+**What it would fix**: real anti-aliased vector rendering, better text shaping (matters for CJK
+lyrics and any future custom Jianpu glyph font), GPU-accelerated redraws, and — the most concretely
+valuable piece — a real vector PDF export path. `RenderPdfPageToBitmap` currently rasterizes each
+page to a `Bitmap` before embedding it in the PDF; SkiaSharp can draw directly to a PDF canvas,
+which would mean crisper printed output, smaller file sizes, and real selectable/searchable text
+in exported PDFs instead of a rasterized image of text.
+
+**What it would *not* fix**: A2's zoom/DPI problem. That's not a rendering-backend limitation —
+GDI+ already supports scaling via `Graphics.ScaleTransform`. The actual problem is that
+`MeasureLayout`'s note widths/offsets and `JianpuRenderer`'s magic-number pixel offsets are
+hardcoded `int`s with no scale factor threaded through, including in hit-testing (which takes raw
+mouse pixels). That refactor (A2) is required either way, so it should happen before, not after, a
+SkiaSharp port — porting ~2300 lines of `Graphics.DrawXxx` calls to `SKCanvas` equivalents while
+the layout math is simultaneously being made scale-aware would mean fighting two changes at once
+instead of one.
+
+**Cost**: porting every `Graphics.DrawString`/`DrawLine`/`FillEllipse`/`DrawBezier`/etc. call in
+`JianpuRenderer.cs` to `SKCanvas` equivalents — a real, nontrivial, but self-contained effort (no
+new data model, no framework migration, no editing-UI rebuild).
+
+**Sequencing recommendation**: A2 (zoom/DPI plumbing) first, on GDI+, since that work is needed
+regardless of backend and touches the same layout code a SkiaSharp port would touch. A SkiaSharp
+port is then a reasonable "Track A5" — or its own separately-scoped effort — once the layout math
+is scale-aware, so the port only has to change *how* pixels get drawn, not *where*.
 
 ## Track B — alphaTab as a selectable renderer
 

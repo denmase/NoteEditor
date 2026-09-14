@@ -48,10 +48,6 @@ namespace JianpuEditor.Services
                 return layout.X + (float)(beatPosition / duration * layout.Width);
             }
 
-            var melodyScale = layout.MelodyScale;
-            var minDrawWidth = melodyScale < 0.999
-                ? Math.Max(6, (int)Math.Round(JianpuRenderer.MinNoteWidth * melodyScale))
-                : JianpuRenderer.MinNoteWidth;
             var noteCount = notes.Count;
             var elapsed = 0.0;
 
@@ -65,12 +61,13 @@ namespace JianpuEditor.Services
 
                 if (elapsed >= beatPosition - 0.0001)
                 {
-                    return GetNoteStartAnchorX(layout, i, noteCount, melodyScale, minDrawWidth);
+                    layout.GetNoteDrawBounds(i, out var startNoteX, out _);
+                    return startNoteX;
                 }
 
                 if (elapsed + noteDuration > beatPosition + 0.0001)
                 {
-                    GetNoteDrawBounds(layout, i, noteCount, melodyScale, minDrawWidth, out var noteX, out var noteWidth);
+                    layout.GetNoteDrawBounds(i, out var noteX, out var noteWidth);
                     var fraction = (float)((beatPosition - elapsed) / noteDuration);
                     return noteX + noteWidth * fraction;
                 }
@@ -140,34 +137,6 @@ namespace JianpuEditor.Services
         {
             var top = layout.BlockTop + JianpuRenderer.MelodyRowHeight + JianpuRenderer.RowGap;
             return new Rectangle(layout.X, top, layout.Width, JianpuRenderer.SecondaryRowHeight);
-        }
-
-        private static float GetNoteStartAnchorX(
-            JianpuRenderer.MeasureLayout layout,
-            int noteIndex,
-            int noteCount,
-            double melodyScale,
-            int minDrawWidth)
-        {
-            GetNoteDrawBounds(layout, noteIndex, noteCount, melodyScale, minDrawWidth, out var noteX, out _);
-            return noteX;
-        }
-
-        private static void GetNoteDrawBounds(
-            JianpuRenderer.MeasureLayout layout,
-            int noteIndex,
-            int noteCount,
-            double melodyScale,
-            int minDrawWidth,
-            out int noteX,
-            out int noteWidth)
-        {
-            noteWidth = Math.Max(minDrawWidth, (int)Math.Round(layout.GetNoteWidth(noteIndex) * melodyScale));
-            noteX = layout.X + (int)Math.Round(layout.GetNoteOffset(noteIndex) * melodyScale);
-            if (melodyScale < 0.999 && noteIndex == noteCount - 1)
-            {
-                noteWidth = Math.Max(minDrawWidth, layout.X + layout.Width - noteX);
-            }
         }
     }
 }

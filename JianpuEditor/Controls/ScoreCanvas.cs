@@ -87,6 +87,8 @@ namespace JianpuEditor.Controls
         private int _playbackHeadHitZone = 12;
         private Bitmap _scoreBitmap;
         private bool _scoreBitmapDirty = true;
+        private readonly CanvasZoom _zoom = new CanvasZoom();
+        private Size _logicalContentSize = new Size(600, 360);
 
         public ScoreCanvas()
         {
@@ -107,8 +109,67 @@ namespace JianpuEditor.Controls
             _contentPanel.MouseDown += OnContentMouseDown;
             _contentPanel.MouseMove += OnContentMouseMove;
             _contentPanel.MouseUp += OnContentMouseUp;
+            _contentPanel.MouseWheel += OnContentMouseWheel;
             Controls.Add(_contentPanel);
             AppTheme.ThemeChanged += OnThemeChanged;
+        }
+
+        /// <summary>Current zoom factor; 1.0 is the unzoomed default. Score layout/hit-testing
+        /// always work in unscaled "logical" coordinates -- only rendering and mouse input cross
+        /// the logical/screen boundary, via <see cref="CanvasZoom"/>.</summary>
+        public double ZoomScale
+        {
+            get { return _zoom.Scale; }
+        }
+
+        public void ZoomIn()
+        {
+            _zoom.ZoomIn();
+            ApplyZoomChange();
+        }
+
+        public void ZoomOut()
+        {
+            _zoom.ZoomOut();
+            ApplyZoomChange();
+        }
+
+        public void ResetZoom()
+        {
+            _zoom.Reset();
+            ApplyZoomChange();
+        }
+
+        private void ApplyZoomChange()
+        {
+            if (!IsHandleCreated)
+            {
+                return;
+            }
+
+            _contentPanel.Size = _zoom.ToScreen(_logicalContentSize);
+            AutoScrollMinSize = _contentPanel.Size;
+            SyncChordInlineEditorBounds();
+            _contentPanel.Invalidate();
+        }
+
+        private void OnContentMouseWheel(object sender, MouseEventArgs e)
+        {
+            if ((Control.ModifierKeys & Keys.Control) != Keys.Control)
+            {
+                return;
+            }
+
+            if (e.Delta > 0)
+            {
+                ZoomIn();
+            }
+            else if (e.Delta < 0)
+            {
+                ZoomOut();
+            }
+
+            ((HandledMouseEventArgs)e).Handled = true;
         }
 
         public void ApplyTheme()
@@ -583,12 +644,20 @@ namespace JianpuEditor.Controls
         private void OnContentPaint(object sender, PaintEventArgs e)
         {
             EnsureScoreBitmap();
+
+            // The bitmap is rendered once at logical (unscaled) resolution; everything drawn in
+            // this transformed block -- the bitmap blit and the playback head -- ends up at the
+            // current zoom automatically, since JianpuRenderer/PlaybackLayout always produce
+            // logical coordinates regardless of zoom.
+            var scale = (float)_zoom.Scale;
+            e.Graphics.ScaleTransform(scale, scale);
             if (_scoreBitmap != null)
             {
                 e.Graphics.DrawImage(_scoreBitmap, 0, 0);
             }
 
             DrawPlaybackHead(e.Graphics);
+            e.Graphics.ResetTransform();
         }
 
         private void DrawPlaybackHead(Graphics graphics)
@@ -626,10 +695,11 @@ namespace JianpuEditor.Controls
                 return;
             }
 
+            var logicalLocation = _zoom.ToLogical(e.Location);
             if (_showPlaybackHead)
             {
                 var marker = PlaybackLayout.GetMarkerPosition(_playbackSegments, _playbackPositionQuarter);
-                if (marker.IsVisible && Math.Abs(e.X - marker.X) <= _playbackHeadHitZone)
+                if (marker.IsVisible && Math.Abs(logicalLocation.X - marker.X) <= _playbackHeadHitZone)
                 {
                     _draggingPlaybackHead = true;
                     _playbackHeadDragMoved = false;
@@ -638,7 +708,7 @@ namespace JianpuEditor.Controls
                 }
             }
 
-            var hit = _renderer.HitTest(_score, GetDrawWidth(), e.Location);
+            var hit = _renderer.HitTest(_score, GetDrawWidth(), logicalLocation);
             if (hit.HitType == ScoreHitType.ChordDragHandle)
             {
                 NotifyScoreMutationStarting();
@@ -654,18 +724,18 @@ namespace JianpuEditor.Controls
         {
             if (_draggingChordMarker)
             {
-                UpdateChordMarkerDrag(e.X);
+                UpdateChordMarkerDrag(_zoom.ToLogical(e.X));
                 return;
             }
 
             if (!_draggingPlaybackHead)
             {
-                UpdatePlaybackCursor(e.Location);
+                UpdatePlaybackCursor(_zoom.ToLogical(e.Location));
                 return;
             }
 
             _playbackHeadDragMoved = true;
-            var beat = PlaybackLayout.MapXToBeat(_playbackSegments, e.X);
+            var beat = PlaybackLayout.MapXToBeat(_playbackSegments, _zoom.ToLogical(e.X));
             SetPlaybackPosition(beat, showHead: true, ensureVisible: false);
             PlaybackSeeked?.Invoke(beat);
         }
@@ -676,7 +746,7 @@ namespace JianpuEditor.Controls
             {
                 _draggingChordMarker = false;
                 _contentPanel.Capture = false;
-                CommitChordMarkerDrag(e.X);
+                CommitChordMarkerDrag(_zoom.ToLogical(e.X));
                 return;
             }
 
@@ -687,11 +757,12 @@ namespace JianpuEditor.Controls
 
             _draggingPlaybackHead = false;
             _contentPanel.Capture = false;
-            var beat = PlaybackLayout.MapXToBeat(_playbackSegments, e.X);
+            var beat = PlaybackLayout.MapXToBeat(_playbackSegments, _zoom.ToLogical(e.X));
             SetPlaybackPosition(beat, showHead: true, ensureVisible: true);
             PlaybackSeeked?.Invoke(beat);
         }
 
+        /// <summary>location is in logical (unscaled) coordinates -- see CanvasZoom.</summary>
         private void UpdatePlaybackCursor(Point location)
         {
             if (!_showPlaybackHead)
@@ -736,7 +807,8 @@ namespace JianpuEditor.Controls
                 CommitHeaderInlineEdit();
             }
 
-            var hit = _renderer.HitTest(_score, GetDrawWidth(), e.Location);
+            var logicalLocation = _zoom.ToLogical(e.Location);
+            var hit = _renderer.HitTest(_score, GetDrawWidth(), logicalLocation);
             if (hit.HitType == ScoreHitType.None)
             {
                 return;
@@ -774,7 +846,7 @@ namespace JianpuEditor.Controls
                         var layout = layouts.FirstOrDefault(item => item.MeasureIndex == hit.MeasureIndex);
                         var beat = layout == null
                             ? 0
-                            : ChordMarkerService.MapXToBeat(layout.X, layout.Width, e.X, duration);
+                            : ChordMarkerService.MapXToBeat(layout.X, layout.Width, logicalLocation.X, duration);
                         TryAddChordToMeasure(hit.MeasureIndex, beat);
                     }
 
@@ -1067,6 +1139,7 @@ namespace JianpuEditor.Controls
             }
         }
 
+        /// <summary>bounds is in logical (unscaled) coordinates -- see CanvasZoom.</summary>
         private void StartHeaderInlineEdit(ScoreHeaderField field, Rectangle bounds)
         {
             CommitInlineEdit();
@@ -1082,7 +1155,7 @@ namespace JianpuEditor.Controls
 
             _headerEditor = new TextBox
             {
-                Bounds = bounds,
+                Bounds = _zoom.ToScreen(bounds),
                 Text = text ?? string.Empty,
                 BorderStyle = BorderStyle.FixedSingle,
                 Font = font,
@@ -1161,6 +1234,7 @@ namespace JianpuEditor.Controls
             _editingHeaderField = ScoreHeaderField.None;
         }
 
+        /// <summary>bounds is in logical (unscaled) coordinates -- see CanvasZoom.</summary>
         private void StartInlineEdit(int measureIndex, Rectangle bounds)
         {
             CommitInlineEdit();
@@ -1171,7 +1245,7 @@ namespace JianpuEditor.Controls
 
             _inlineEditor = new TextBox
             {
-                Bounds = bounds,
+                Bounds = _zoom.ToScreen(bounds),
                 Text = text ?? string.Empty,
                 BorderStyle = BorderStyle.FixedSingle,
                 Font = _inlineTextFont,
@@ -1284,19 +1358,22 @@ namespace JianpuEditor.Controls
 
         private void EnsureScoreBitmap()
         {
+            // Rendered at logical resolution, not _contentPanel's (zoomed) screen size -- OnContentPaint
+            // scales the blit, so this bitmap only needs to be regenerated when the score/layout
+            // itself changes, never just because the zoom factor changed.
             if (!_scoreBitmapDirty && _scoreBitmap != null &&
-                _scoreBitmap.Width == _contentPanel.Width && _scoreBitmap.Height == _contentPanel.Height)
+                _scoreBitmap.Width == _logicalContentSize.Width && _scoreBitmap.Height == _logicalContentSize.Height)
             {
                 return;
             }
 
-            if (_contentPanel.Width <= 0 || _contentPanel.Height <= 0)
+            if (_logicalContentSize.Width <= 0 || _logicalContentSize.Height <= 0)
             {
                 return;
             }
 
             _scoreBitmap?.Dispose();
-            _scoreBitmap = new Bitmap(_contentPanel.Width, _contentPanel.Height);
+            _scoreBitmap = new Bitmap(_logicalContentSize.Width, _logicalContentSize.Height);
             using (var graphics = Graphics.FromImage(_scoreBitmap))
             {
                 graphics.Clear(Color.White);
@@ -1328,6 +1405,9 @@ namespace JianpuEditor.Controls
                 new object[] { true });
         }
 
+        /// <summary>Returns bounds already converted to screen (zoomed) space, ready for
+        /// Control.Invalidate -- unlike most bounds-computing methods here, which return
+        /// logical coordinates.</summary>
         private Rectangle GetPlaybackHeadBounds(double quarterBeat, bool visible)
         {
             if (!visible)
@@ -1341,11 +1421,12 @@ namespace JianpuEditor.Controls
                 return Rectangle.Empty;
             }
 
-            return new Rectangle(
+            var logicalBounds = new Rectangle(
                 marker.X - _playbackHeadHitZone,
                 marker.Top - 14,
                 _playbackHeadHitZone * 2,
                 marker.Bottom - marker.Top + 16);
+            return _zoom.ToScreen(logicalBounds);
         }
 
         private void InvalidatePlaybackRegion(Rectangle oldBounds, Rectangle newBounds)
@@ -1365,7 +1446,8 @@ namespace JianpuEditor.Controls
         {
             var drawWidth = GetDrawWidth();
             var size = _renderer.MeasureScore(_score, drawWidth);
-            _contentPanel.Size = new Size(Math.Max(drawWidth, size.Width), Math.Max(360, size.Height));
+            _logicalContentSize = new Size(Math.Max(drawWidth, size.Width), Math.Max(360, size.Height));
+            _contentPanel.Size = _zoom.ToScreen(_logicalContentSize);
             AutoScrollMinSize = _contentPanel.Size;
             _playbackSegments = _renderer.BuildPlaybackSegments(_score, drawWidth);
             MarkScoreBitmapDirty();
@@ -1431,7 +1513,7 @@ namespace JianpuEditor.Controls
             _chordInlineUndoRecorded = false;
             _chordInlineEditor = new TextBox
             {
-                Bounds = bounds,
+                Bounds = _zoom.ToScreen(bounds),
                 Text = marker.Text ?? string.Empty,
                 BorderStyle = BorderStyle.FixedSingle,
                 Font = new Font("Arial", 11f, FontStyle.Bold),
@@ -1577,7 +1659,7 @@ namespace JianpuEditor.Controls
                 _editingChordMeasureIndex,
                 _editingChordMarkerIndex,
                 marker).TextBoxBounds;
-            _chordInlineEditor.Bounds = bounds;
+            _chordInlineEditor.Bounds = _zoom.ToScreen(bounds);
         }
 
         private void ClearChordEditors()
@@ -1604,6 +1686,10 @@ namespace JianpuEditor.Controls
                 return;
             }
 
+            var markerX = _zoom.ToScreen(marker.X);
+            var markerTop = _zoom.ToScreen(marker.Top);
+            var markerBottom = _zoom.ToScreen(marker.Bottom);
+
             var scrollX = -AutoScrollPosition.X;
             var scrollY = -AutoScrollPosition.Y;
             var viewWidth = Math.Max(0, ClientSize.Width - (VScroll ? SystemInformation.VerticalScrollBarWidth : 0));
@@ -1615,17 +1701,17 @@ namespace JianpuEditor.Controls
 
             const int horizontalMargin = 24;
             const int verticalMargin = 48;
-            var markerHorizontallyVisible = marker.X >= scrollX + horizontalMargin
-                && marker.X <= scrollX + viewWidth - horizontalMargin;
-            var markerVerticallyVisible = marker.Top >= scrollY + verticalMargin
-                && marker.Bottom <= scrollY + viewHeight - verticalMargin;
+            var markerHorizontallyVisible = markerX >= scrollX + horizontalMargin
+                && markerX <= scrollX + viewWidth - horizontalMargin;
+            var markerVerticallyVisible = markerTop >= scrollY + verticalMargin
+                && markerBottom <= scrollY + viewHeight - verticalMargin;
             if (markerHorizontallyVisible && markerVerticallyVisible)
             {
                 return;
             }
 
-            var targetX = markerHorizontallyVisible ? scrollX : marker.X - viewWidth / 3;
-            var targetY = markerVerticallyVisible ? scrollY : marker.Top - verticalMargin;
+            var targetX = markerHorizontallyVisible ? scrollX : markerX - viewWidth / 3;
+            var targetY = markerVerticallyVisible ? scrollY : markerTop - verticalMargin;
             var maxX = Math.Max(0, _contentPanel.Width - viewWidth);
             var maxY = Math.Max(0, _contentPanel.Height - viewHeight);
             AutoScrollPosition = new Point(

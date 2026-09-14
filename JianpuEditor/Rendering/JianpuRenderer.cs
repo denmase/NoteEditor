@@ -282,15 +282,15 @@ namespace JianpuEditor.Rendering
 
             for (var i = 0; i < noteCount; i++)
             {
-                var cellStart = measure.GetNoteOffset(i);
-                var cellEnd = cellStart + measure.GetNoteWidth(i);
+                measure.GetNoteDrawBounds(i, out var noteAbsX, out var noteWidth);
+                var cellStart = noteAbsX - measure.X;
+                var cellEnd = cellStart + noteWidth;
                 if (relX < cellStart || relX >= cellEnd)
                 {
                     continue;
                 }
 
                 var offset = relX - cellStart;
-                var noteWidth = measure.GetNoteWidth(i);
                 var edgeWidth = GetGapEdgeWidth(noteWidth);
                 if (offset < edgeWidth)
                 {
@@ -307,7 +307,7 @@ namespace JianpuEditor.Rendering
                     HitType = ScoreHitType.Note,
                     MeasureIndex = measure.MeasureIndex,
                     NoteIndex = i,
-                    Bounds = GetNoteBounds(measure, i).ToIntRect()
+                    Bounds = measure.GetNoteBounds(i).ToIntRect()
                 };
             }
 
@@ -485,15 +485,6 @@ namespace JianpuEditor.Rendering
             return bitmap;
         }
 
-        public static Rectangle GetNoteBounds(MeasureLayout measure, int noteIndex)
-        {
-            return new Rectangle(
-                measure.X + measure.GetNoteOffset(noteIndex),
-                measure.BlockTop,
-                measure.GetNoteWidth(noteIndex),
-                MelodyRowHeight);
-        }
-
         public static bool TryGetSyllableAnchorX(
             MeasureLayout layout,
             JianpuMeasure measure,
@@ -513,11 +504,7 @@ namespace JianpuEditor.Rendering
                 return false;
             }
 
-            var melodyScale = layout.MelodyScale;
-            var minDrawWidth = melodyScale < 0.999
-                ? Math.Max(6, (int)Math.Round(MinNoteWidth * melodyScale))
-                : MinNoteWidth;
-            GetNoteDrawBounds(layout, noteIndex, noteCount, melodyScale, minDrawWidth, out var noteX, out var noteWidth);
+            layout.GetNoteDrawBounds(noteIndex, out var noteX, out var noteWidth);
             centerX = GetNoteHeadCenterX(noteX, noteWidth);
             return true;
         }
@@ -541,11 +528,7 @@ namespace JianpuEditor.Rendering
                 return false;
             }
 
-            var melodyScale = layout.MelodyScale;
-            var minDrawWidth = melodyScale < 0.999
-                ? Math.Max(6, (int)Math.Round(MinNoteWidth * melodyScale))
-                : MinNoteWidth;
-            GetNoteDrawBounds(layout, noteIndex, noteCount, melodyScale, minDrawWidth, out var noteX, out var noteWidth);
+            layout.GetNoteDrawBounds(noteIndex, out var noteX, out var noteWidth);
             anchorX = GetOrnamentAnchorX(ornament.Type, noteX, noteWidth);
             return true;
         }
@@ -1120,19 +1103,8 @@ namespace JianpuEditor.Rendering
                 return false;
             }
 
-            var startScale = startLayout.MelodyScale;
-            var endScale = endLayout.MelodyScale;
-            var startMinWidth = startScale < 0.999
-                ? Math.Max(6, (int)Math.Round(MinNoteWidth * startScale))
-                : MinNoteWidth;
-            var endMinWidth = endScale < 0.999
-                ? Math.Max(6, (int)Math.Round(MinNoteWidth * endScale))
-                : MinNoteWidth;
-            var startCount = startMeasure.MelodyNotes.Count;
-            var endCount = endMeasure.MelodyNotes.Count;
-
-            GetNoteDrawBounds(startLayout, tie.StartNoteIndex, startCount, startScale, startMinWidth, out var startX, out var startWidth);
-            GetNoteDrawBounds(endLayout, tie.EndNoteIndex, endCount, endScale, endMinWidth, out var endX, out var endWidth);
+            startLayout.GetNoteDrawBounds(tie.StartNoteIndex, out var startX, out var startWidth);
+            endLayout.GetNoteDrawBounds(tie.EndNoteIndex, out var endX, out var endWidth);
 
             var x1 = GetNoteHeadCenterX(startX, startWidth);
             var x2 = GetNoteHeadCenterX(endX, endWidth);
@@ -1219,10 +1191,6 @@ namespace JianpuEditor.Rendering
                 DrawGapCaret(g, layout, selectedInsertIndex);
             }
 
-            var melodyScale = layout.MelodyScale;
-            var minDrawWidth = melodyScale < 0.999
-                ? Math.Max(6, (int)Math.Round(MinNoteWidth * melodyScale))
-                : MinNoteWidth;
             MelodyChordService.NormalizeMeasure(measure);
             var noteCount = measure.MelodyNotes.Count;
             for (var i = 0; i < noteCount; i++)
@@ -1230,7 +1198,7 @@ namespace JianpuEditor.Rendering
                 var isSelected = selectedNotes != null && selectedNotes.Count > 0
                     ? selectedNotes.Any(note => note.MeasureIndex == layout.MeasureIndex && note.NoteIndex == i)
                     : layout.MeasureIndex == selectedMeasureIndex && i == selectedNoteIndex;
-                GetNoteDrawBounds(layout, i, noteCount, melodyScale, minDrawWidth, out var noteX, out var noteWidth);
+                layout.GetNoteDrawBounds(i, out var noteX, out var noteWidth);
 
                 var slotNotes = MelodyChordService.GetNotesAtSlot(measure, i);
                 var melodyNotes = slotNotes.Where(note => note.Type == NoteType.Note).ToList();
@@ -1261,16 +1229,14 @@ namespace JianpuEditor.Rendering
                 }
             }
 
-            DrawBeatGroupUnderlines(g, measure, layout, melodyScale, minDrawWidth);
-            DrawOrnaments(g, measure, layout, melodyScale, minDrawWidth);
+            DrawBeatGroupUnderlines(g, measure, layout);
+            DrawOrnaments(g, measure, layout);
         }
 
         private void DrawOrnaments(
             Graphics g,
             JianpuMeasure measure,
-            MeasureLayout layout,
-            double melodyScale,
-            int minDrawWidth)
+            MeasureLayout layout)
         {
             OrnamentService.NormalizeMeasure(measure);
             if (measure.Ornaments == null || measure.Ornaments.Count == 0)
@@ -1290,7 +1256,7 @@ namespace JianpuEditor.Rendering
                 .OrderBy(group => group.Key);
             foreach (var group in grouped)
             {
-                GetNoteDrawBounds(layout, group.Key, noteCount, melodyScale, minDrawWidth, out var noteX, out var noteWidth);
+                layout.GetNoteDrawBounds(group.Key, out var noteX, out var noteWidth);
                 var noteOrnaments = NoteTopAnnotationPlanner.GetOrnamentsForNote(measure, group.Key);
                 NoteTopAnnotationLayout topLayout = null;
                 if (_activeLayoutOptions != null && _activeLayoutOptions.CompactAccidentalGlyphs)
@@ -1391,23 +1357,6 @@ namespace JianpuEditor.Rendering
             return noteX + headWidth / 2f;
         }
 
-        private static void GetNoteDrawBounds(
-            MeasureLayout layout,
-            int noteIndex,
-            int noteCount,
-            double melodyScale,
-            int minDrawWidth,
-            out int noteX,
-            out int noteWidth)
-        {
-            noteWidth = Math.Max(minDrawWidth, (int)Math.Round(layout.GetNoteWidth(noteIndex) * melodyScale));
-            noteX = layout.X + (int)Math.Round(layout.GetNoteOffset(noteIndex) * melodyScale);
-            if (melodyScale < 0.999 && noteIndex == noteCount - 1)
-            {
-                noteWidth = Math.Max(minDrawWidth, layout.X + layout.Width - noteX);
-            }
-        }
-
         private static List<List<int>> GroupNotesByQuarterBeat(List<JianpuNote> notes)
         {
             var groups = new List<List<int>>();
@@ -1451,9 +1400,7 @@ namespace JianpuEditor.Rendering
         private void DrawBeatGroupUnderlines(
             Graphics g,
             JianpuMeasure measure,
-            MeasureLayout layout,
-            double melodyScale,
-            int minDrawWidth)
+            MeasureLayout layout)
         {
             var notes = measure.MelodyNotes;
             if (notes == null || notes.Count == 0)
@@ -1463,7 +1410,6 @@ namespace JianpuEditor.Rendering
 
             var groups = GroupNotesByQuarterBeat(notes);
             var rowTop = layout.BlockTop;
-            var noteCount = notes.Count;
 
             foreach (var group in groups)
             {
@@ -1507,8 +1453,8 @@ namespace JianpuEditor.Rendering
                         continue;
                     }
 
-                    GetNoteDrawBounds(layout, spanStart, noteCount, melodyScale, minDrawWidth, out var startX, out _);
-                    GetNoteDrawBounds(layout, spanEnd, noteCount, melodyScale, minDrawWidth, out var endNoteX, out var endNoteWidth);
+                    layout.GetNoteDrawBounds(spanStart, out var startX, out _);
+                    layout.GetNoteDrawBounds(spanEnd, out var endNoteX, out var endNoteWidth);
                     var endX = endNoteX + endNoteWidth;
                     var lineY = rowTop + 62 + underlineIndex * 6;
                     g.DrawLine(Pens.Black, startX, lineY, endX, lineY);
@@ -1811,10 +1757,6 @@ namespace JianpuEditor.Rendering
                 }
             }
 
-            var melodyScale = layout.MelodyScale;
-            var minDrawWidth = melodyScale < 0.999
-                ? Math.Max(6, (int)Math.Round(MinNoteWidth * melodyScale))
-                : MinNoteWidth;
             var noteCount = measureData.MelodyNotes?.Count ?? 0;
             foreach (var syllable in measureData.LyricSyllables)
             {
@@ -1829,7 +1771,7 @@ namespace JianpuEditor.Rendering
                     continue;
                 }
 
-                GetNoteDrawBounds(layout, noteIndex, noteCount, melodyScale, minDrawWidth, out var noteX, out var noteWidth);
+                layout.GetNoteDrawBounds(noteIndex, out var noteX, out var noteWidth);
                 var centerX = GetNoteHeadCenterX(noteX, noteWidth);
                 var textWidth = (int)Math.Ceiling(g.MeasureString(syllable.Text, font).Width) + 4;
                 var syllableWidth = Math.Max(12, Math.Min(noteWidth, textWidth));
@@ -2356,10 +2298,42 @@ namespace JianpuEditor.Rendering
 
                 if (insertIndex >= _noteOffsets.Length)
                 {
-                    return _melodyContentWidth;
+                    return MelodyScale < 0.999 ? Width : _melodyContentWidth;
                 }
 
-                return _noteOffsets[insertIndex];
+                return MelodyScale < 0.999
+                    ? (int)Math.Round(_noteOffsets[insertIndex] * MelodyScale)
+                    : _noteOffsets[insertIndex];
+            }
+
+            /// <summary>
+            /// The single source of truth for where a melody note is actually drawn, including the
+            /// squeeze applied by <see cref="MelodyScale"/> when a measure's natural content doesn't
+            /// fit its allotted width. Hit-testing must go through this too (not just drawing) so a
+            /// click lands on the note the user actually sees, not on its unscaled position.
+            /// </summary>
+            public void GetNoteDrawBounds(int noteIndex, out int noteX, out int noteWidth)
+            {
+                var minDrawWidth = GetMinDrawWidth();
+                noteWidth = Math.Max(minDrawWidth, (int)Math.Round(GetNoteWidth(noteIndex) * MelodyScale));
+                noteX = X + (int)Math.Round(GetNoteOffset(noteIndex) * MelodyScale);
+                if (MelodyScale < 0.999 && noteIndex == _noteWidths.Length - 1)
+                {
+                    noteWidth = Math.Max(minDrawWidth, X + Width - noteX);
+                }
+            }
+
+            public Rectangle GetNoteBounds(int noteIndex)
+            {
+                GetNoteDrawBounds(noteIndex, out var noteX, out var noteWidth);
+                return new Rectangle(noteX, BlockTop, noteWidth, JianpuRenderer.MelodyRowHeight);
+            }
+
+            private int GetMinDrawWidth()
+            {
+                return MelodyScale < 0.999
+                    ? Math.Max(6, (int)Math.Round(JianpuRenderer.MinNoteWidth * MelodyScale))
+                    : JianpuRenderer.MinNoteWidth;
             }
         }
     }
