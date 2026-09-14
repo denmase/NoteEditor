@@ -1471,7 +1471,11 @@ namespace JianpuEditor.Rendering
                         && group.Contains(spanStart - 1) && notes[spanStart - 1].Dotted)
                     {
                         layout.GetNoteDrawBounds(spanStart - 1, out var prevX, out var prevWidth);
-                        startX = prevX + prevWidth;
+                        var prevHeadWidth = Math.Min(NoteCellWidth, prevWidth);
+                        // Match DrawNoteDottedAndDashes' above-mode dot position exactly, so the
+                        // beam's start lines up with (a hair before) the dot instead of the
+                        // following note's own edge.
+                        startX = (int)(prevX + (prevHeadWidth + prevWidth) / 2f - 2.5f);
                     }
                     // Both modes use a fixed mapping from underlineIndex to height -- NOT the
                     // per-group maxUnderlines -- so that every group's underlineIndex-0 (full-span)
@@ -2103,11 +2107,13 @@ namespace JianpuEditor.Rendering
         {
             if (note.Dotted)
             {
-                var dotX = Math.Min(x + headWidth - 8, headCenterX + 12);
-                // Below mode keeps the dot low, near the dash/duration-mark cluster. Above mode
-                // moves it inline with the digit (roughly its vertical center) instead of leaving it
-                // stranded far below a beam that's now drawn above the row -- matching the reference
-                // notation, where the augmentation dot sits parallel to the note, not underneath it.
+                // Below mode keeps the dot tucked close to the note's own glyph. Above mode moves it
+                // out to the midpoint between this note and the next -- roughly where the beam-above
+                // reference notation places it -- and inline with the digit (roughly its vertical
+                // center) instead of stranded far below a beam that's now drawn above the row.
+                var dotX = AppTheme.UnderlinesAbove
+                    ? x + (headWidth + noteWidth) / 2f - 2.5f
+                    : Math.Min(x + headWidth - 8, headCenterX + 12);
                 var dotY = AppTheme.UnderlinesAbove ? y + 24 : y + 42;
                 g.FillEllipse(ink, dotX, dotY, 5, 5);
             }
