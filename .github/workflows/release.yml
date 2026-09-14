@@ -108,6 +108,22 @@ jobs:
           "zip=$zip" >> $env:GITHUB_OUTPUT
           Write-Host "Installer: $($setup.FullName) ($([math]::Round($setup.Length / 1MB, 2)) MB)"
 
+      - name: Build portable package
+        id: portable
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.value }}"
+          $stagingName = "JianpuEditor-Portable-$version"
+          $staging = "installer/output/$stagingName"
+          New-Item -ItemType Directory -Path $staging -Force | Out-Null
+          Copy-Item "JianpuEditor/bin/Release/net472/*" -Destination $staging -Recurse -Force
+          Get-ChildItem -Path $staging -Filter "*.pdb" -Recurse | Remove-Item -Force
+          Set-Content -Path "$staging/portable.txt" -Value "This file marks JianpuEditor as running in portable mode: settings.json is kept in this folder instead of %LOCALAPPDATA%. Delete it to switch back to per-user settings." -NoNewline
+          $zip = "installer/output/$stagingName.zip"
+          Compress-Archive -Path "$staging/*" -DestinationPath $zip -Force
+          "zip=$zip" >> $env:GITHUB_OUTPUT
+          Write-Host "Portable package: $zip ($([math]::Round((Get-Item $zip).Length / 1MB, 2)) MB)"
+
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
@@ -115,6 +131,14 @@ jobs:
           path: |
             ${{ steps.artifact.outputs.setup }}
             ${{ steps.artifact.outputs.zip }}
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload portable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: JianpuEditor-Portable-${{ steps.version.outputs.value }}
+          path: ${{ steps.portable.outputs.zip }}
           if-no-files-found: error
           retention-days: 90
 
@@ -127,3 +151,4 @@ jobs:
           files: |
             ${{ steps.artifact.outputs.setup }}
             ${{ steps.artifact.outputs.zip }}
+            ${{ steps.portable.outputs.zip }}

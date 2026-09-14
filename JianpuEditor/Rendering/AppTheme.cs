@@ -7,10 +7,26 @@ namespace JianpuEditor.Rendering
 {
     public static class AppTheme
     {
-        private static readonly string SettingsPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "JianpuEditor",
-            "settings.json");
+        private static readonly string SettingsPath = ResolveSettingsPath();
+
+        /// <summary>
+        /// The portable build drops this marker file next to the exe so settings stay inside the
+        /// portable folder instead of the per-user profile (an installed copy has no such file).
+        /// </summary>
+        private static string ResolveSettingsPath()
+        {
+            var baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            var portableMarker = Path.Combine(baseDirectory, "portable.txt");
+            if (File.Exists(portableMarker))
+            {
+                return Path.Combine(baseDirectory, "settings.json");
+            }
+
+            return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "JianpuEditor",
+                "settings.json");
+        }
 
         public static bool IsDarkMode { get; private set; }
 

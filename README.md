@@ -129,6 +129,18 @@ Build a Windows installer using Inno Setup:
 
 Output file: `installer/output/JianpuEditor-Setup-1.2.0.exe`
 
+## Portable build
+
+No installation, no admin rights, no registry writes — just unzip and run `JianpuEditor.exe` from anywhere (a USB drive, a shared folder, etc.). It's the same Release build output as the installer (`JianpuEditor/bin/Release/net472/`), plus a `portable.txt` marker file that tells the app to keep `settings.json` next to the exe instead of `%LOCALAPPDATA%` — so the whole app, its settings, and (if you use one) your chosen VST plugin path all travel together. Delete `portable.txt` to fall back to per-user settings.
+
+The `Release` GitHub Actions workflow (see below) builds this automatically as `JianpuEditor-Portable-<version>.zip`, alongside the installer. To build one locally:
+
+```powershell
+.\scripts\build-portable.ps1
+```
+
+Output file: `installer/output/JianpuEditor-Portable.zip`
+
 ## CI/CD
 
 GitHub Actions workflows are located at `.github/workflows/`:
@@ -136,7 +148,7 @@ GitHub Actions workflows are located at `.github/workflows/`:
 | Workflow | Trigger | Description |
 |--------|------|------|
 | **CI** | Push / PR to the `main` branch | `dotnet format` check + Roslyn analyzers + Release build + unit tests + MIDI smoke test (with NuGet / .NET caching) |
-| **Release** | Pushing a `v*` tag or manual run | Builds the installer package (`.exe` + `.zip`); automatically creates a GitHub Release when triggered by a tag |
+| **Release** | Pushing a `v*` tag or manual run | Builds the installer package (`.exe` + `.zip`) and a portable `.zip`; automatically creates a GitHub Release with all three assets when triggered by a tag |
 
 ### Publishing a New Version
 
