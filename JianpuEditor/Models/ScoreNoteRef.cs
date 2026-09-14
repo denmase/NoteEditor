@@ -29,6 +29,16 @@ namespace JianpuEditor.Models
             return (MeasureIndex * 397) ^ NoteIndex;
         }
 
+        public static bool operator ==(ScoreNoteRef left, ScoreNoteRef right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(ScoreNoteRef left, ScoreNoteRef right)
+        {
+            return !left.Equals(right);
+        }
+
         public static int Compare(ScoreNoteRef left, ScoreNoteRef right)
         {
             var measureCompare = left.MeasureIndex.CompareTo(right.MeasureIndex);

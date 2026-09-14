@@ -14,9 +14,11 @@ namespace JianpuEditor.Tests.ViewModels
 
         public event Action<double> PositionChanged;
 
+#pragma warning disable CS0067 // Required by IScorePlaybackService; this fake never raises them.
         public event Action PlaybackFinished;
 
         public event Action<Exception> PlaybackError;
+#pragma warning restore CS0067
 
         public void Prepare(JianpuScore score, double startQuarter = 0)
         {

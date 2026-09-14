@@ -1,6 +1,8 @@
 using System;
+using System.IO;
 using JianpuEditor.Core.Abstractions;
 using JianpuEditor.Core.Messaging;
+using JianpuEditor.Rendering;
 using JianpuEditor.Services;
 using JianpuEditor.ViewModels;
 using JianpuEditor.Views;
@@ -18,6 +20,7 @@ namespace JianpuEditor
             services.AddSingleton<IScoreFileService, ScoreFileServiceAdapter>();
             services.AddSingleton<IScoreUndoService, ScoreUndoService>();
             services.AddSingleton<IEditCommandHistory, EditCommandHistory>();
+            services.AddSingleton<IMidiOutput>(_ => CreateMidiOutput());
             services.AddSingleton<IScorePlaybackService, ScorePlaybackService>();
             services.AddSingleton<IPdfExportService, PdfExportServiceAdapter>();
             services.AddSingleton<IMidiExportService, MidiExportServiceAdapter>();
@@ -41,6 +44,33 @@ namespace JianpuEditor
             services.AddTransient<MainForm>();
 
             return services.BuildServiceProvider();
+        }
+
+        private static IMidiOutput CreateMidiOutput()
+        {
+            var vstPluginPath = AppTheme.VstPluginPath;
+            if (!string.IsNullOrWhiteSpace(vstPluginPath))
+            {
+                try
+                {
+                    return new BassVstSynthesizer(vstPluginPath);
+                }
+                catch (Exception ex)
+                {
+                    AppLog.Exception("Failed to initialize BASSVST plugin '" + vstPluginPath + "', falling back to bundled SoundFont", ex);
+                }
+            }
+
+            var soundFontPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "Soundfonts", "GeneralUser-GS.sf2");
+            try
+            {
+                return new BassMidiSynthesizer(soundFontPath);
+            }
+            catch (Exception ex)
+            {
+                AppLog.Exception("Failed to initialize BASSMIDI SoundFont synthesizer, falling back to system MIDI device", ex);
+                return new WindowsMidiSynthesizer();
+            }
         }
     }
 }

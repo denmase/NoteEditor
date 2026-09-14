@@ -254,6 +254,8 @@ namespace JianpuEditor
             editMenu.DropDownItems.Add(CreateMenuItem("Chord Transpose...", Keys.None, (s, e) => ShowTransposeDialog()));
             editMenu.DropDownItems.Add(CreateMenuItem("Chord Suggestion...", Keys.None, (s, e) => ShowHarmonySuggestionDialog()));
             editMenu.DropDownItems.Add(CreateMenuItem("Bulk Edit Lyrics...", Keys.None, (s, e) => ShowBulkLyricEditDialog()));
+            editMenu.DropDownItems.Add(CreateMenuItem("Instruments...", Keys.None, (s, e) => ShowInstrumentDialog()));
+            editMenu.DropDownItems.Add(CreateMenuItem("Audio Engine...", Keys.None, (s, e) => ShowAudioEngineDialog()));
             var ornamentMenu = new ToolStripMenuItem("Ornaments");
             ornamentMenu.DropDownItems.Add(CreateMenuItem(
                 "Grace Note",
@@ -311,6 +313,7 @@ namespace JianpuEditor
             _stopButton.Enabled = false;
             panel.Controls.Add(_playButton);
             panel.Controls.Add(_stopButton);
+            panel.Controls.Add(CreateToolButton("Instruments...", ShowInstrumentDialog));
             panel.Controls.Add(CreateSeparator());
 
             panel.Controls.Add(new Label { Text = "Notes:", AutoSize = true, Margin = new Padding(0, 10, 6, 0) });
@@ -1320,6 +1323,50 @@ namespace JianpuEditor
                 _glue.ApplyEditResult(result);
                 _binder.SyncHeaderFromDocument();
                 _binder.SyncFromViewModels();
+            }
+        }
+
+        private void ShowInstrumentDialog()
+        {
+            using (var dialog = new InstrumentDialog(_viewModel.Document.MelodyInstrument, _viewModel.Document.ChordInstrument))
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+
+                _viewModel.Document.ApplyInstrumentEdit(false, dialog.SelectedMelodyInstrument);
+                _viewModel.Document.ApplyInstrumentEdit(true, dialog.SelectedChordInstrument);
+            }
+        }
+
+        private void ShowAudioEngineDialog()
+        {
+            using (var dialog = new AudioEngineDialog(AppTheme.VstPluginPath))
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+
+                var selectedPath = dialog.SelectedVstPluginPath;
+                if (!string.IsNullOrWhiteSpace(selectedPath) && !File.Exists(selectedPath))
+                {
+                    MessageBox.Show("VST plugin file not found: " + selectedPath, "Audio Engine", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                if (AppTheme.VstPluginPath == selectedPath)
+                {
+                    return;
+                }
+
+                AppTheme.SetVstPluginPath(selectedPath);
+                MessageBox.Show(
+                    "Audio engine setting saved. Restart Jianpu Editor for this to take effect.",
+                    "Audio Engine",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
             }
         }
     }

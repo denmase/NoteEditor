@@ -14,3 +14,7 @@ packages/
 *.nupkg
 *.log
 installer/output/
+
+# Bundled native BASS/BASSMIDI libraries (used for SoundFont-based playback), not build output
+!JianpuEditor/Native/
+!JianpuEditor/Native/**/*.dll

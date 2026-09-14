@@ -52,5 +52,51 @@ namespace JianpuEditor.Tests.ViewModels
 
             Assert.Single(viewModel.Score.Measures);
         }
+
+        [Fact]
+        public void ApplyInstrumentEdit_UpdatesMelodyAndChordInstrumentsAndSupportsUndo()
+        {
+            var messenger = ViewModelTestHelper.CreateMessenger();
+            var history = ViewModelTestHelper.CreateHistory(messenger);
+            var viewModel = ViewModelTestHelper.CreateDocument(messenger, history);
+
+            viewModel.ApplyInstrumentEdit(isChordInstrument: false, newProgram: 40);
+            viewModel.ApplyInstrumentEdit(isChordInstrument: true, newProgram: 24);
+
+            Assert.Equal(40, viewModel.MelodyInstrument);
+            Assert.Equal(24, viewModel.ChordInstrument);
+            Assert.True(history.CanUndo);
+
+            history.Undo();
+
+            Assert.Equal(40, viewModel.MelodyInstrument);
+            Assert.Equal(0, viewModel.ChordInstrument);
+
+            history.Undo();
+
+            Assert.Equal(0, viewModel.MelodyInstrument);
+        }
+
+        [Fact]
+        public void ApplyInstrumentEdit_ClampsOutOfRangeProgramNumbers()
+        {
+            var viewModel = ViewModelTestHelper.CreateDocument();
+
+            viewModel.ApplyInstrumentEdit(isChordInstrument: false, newProgram: 999);
+
+            Assert.Equal(127, viewModel.MelodyInstrument);
+        }
+
+        [Fact]
+        public void ApplyInstrumentEdit_NoOpWhenValueUnchanged()
+        {
+            var messenger = ViewModelTestHelper.CreateMessenger();
+            var history = ViewModelTestHelper.CreateHistory(messenger);
+            var viewModel = ViewModelTestHelper.CreateDocument(messenger, history);
+
+            viewModel.ApplyInstrumentEdit(isChordInstrument: false, newProgram: 0);
+
+            Assert.False(history.CanUndo);
+        }
     }
 }

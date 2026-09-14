@@ -9,6 +9,62 @@ namespace JianpuEditor.Tests.Services
     public class ScoreFileServiceTests
     {
         [Fact]
+        public void SaveAndLoad_RoundTripsInstrumentSelection()
+        {
+            var score = ScoreTestHelper.CreateScore(ScoreTestHelper.Measure(ScoreTestHelper.Note(1)));
+            score.MelodyInstrument = 40;
+            score.ChordInstrument = 24;
+            var path = Path.Combine(Path.GetTempPath(), "jianpu-instruments-" + Guid.NewGuid() + ".json");
+
+            try
+            {
+                ScoreFileService.Save(score, path);
+                var loaded = ScoreFileService.Load(path);
+
+                Assert.Equal(40, loaded.MelodyInstrument);
+                Assert.Equal(24, loaded.ChordInstrument);
+            }
+            finally
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+        }
+
+        [Fact]
+        public void Load_DefaultsInstrumentsToAcousticGrandPianoForLegacyScoresWithoutTheField()
+        {
+            var path = Path.Combine(Path.GetTempPath(), "jianpu-legacy-instruments-" + Guid.NewGuid() + ".json");
+            var json = @"{
+  ""Title"": ""Legacy Score"",
+  ""KeySignature"": ""1=C"",
+  ""Measures"": [
+    {
+      ""MelodyNotes"": [{ ""Pitch"": 1 }]
+    }
+  ]
+}";
+
+            try
+            {
+                File.WriteAllText(path, json);
+                var loaded = ScoreFileService.Load(path);
+
+                Assert.Equal(0, loaded.MelodyInstrument);
+                Assert.Equal(0, loaded.ChordInstrument);
+            }
+            finally
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+        }
+
+        [Fact]
         public void SaveAndLoad_RoundTripsScoreWithoutExtraMeasure()
         {
             var score = ScoreTestHelper.CreateScore(

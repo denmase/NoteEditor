@@ -1,9 +1,10 @@
 using System;
 using System.Runtime.InteropServices;
+using JianpuEditor.Core.Abstractions;
 
 namespace JianpuEditor.Services
 {
-    internal sealed class WindowsMidiSynthesizer : IDisposable
+    internal sealed class WindowsMidiSynthesizer : IMidiOutput
     {
         private const int MidiMapper = -1;
         private const int CallbackNull = 0;
@@ -22,6 +23,11 @@ namespace JianpuEditor.Services
         public void NoteOff(int channel, int note)
         {
             SendShortMessage("NoteOff", 0x80 | (channel & 0x0F), note, 0);
+        }
+
+        public void ProgramChange(int channel, int program)
+        {
+            SendShortMessage("ProgramChange", 0xC0 | (channel & 0x0F), program & 0x7F, 0);
         }
 
         public void AllNotesOff()

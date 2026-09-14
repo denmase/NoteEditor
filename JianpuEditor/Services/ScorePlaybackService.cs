@@ -13,7 +13,7 @@ namespace JianpuEditor.Services
         private const int MaxBpm = 300;
         private const int DefaultBpm = 120;
 
-        private readonly WindowsMidiSynthesizer _synthesizer = new WindowsMidiSynthesizer();
+        private readonly IMidiOutput _synthesizer;
         private readonly Timer _timer;
         private readonly Stopwatch _stopwatch = new Stopwatch();
         private readonly HashSet<long> _activeNotes = new HashSet<long>();
@@ -25,8 +25,9 @@ namespace JianpuEditor.Services
         private int _currentBpm = DefaultBpm;
         private bool _isPlaying;
 
-        public ScorePlaybackService()
+        public ScorePlaybackService(IMidiOutput midiOutput = null)
         {
+            _synthesizer = midiOutput ?? new WindowsMidiSynthesizer();
             _timer = new Timer { Interval = 15 };
             _timer.Tick += OnTimerTick;
             AppLog.Info("ScorePlaybackService initialized");
@@ -150,10 +151,18 @@ namespace JianpuEditor.Services
             _totalQuarterLength = schedule.TotalQuarterLength;
             _timeline = BuildTimeline(schedule.Notes);
             _nextEventIndex = 0;
+
+            var melodyInstrument = GeneralMidiInstruments.Clamp(score.MelodyInstrument);
+            var chordInstrument = GeneralMidiInstruments.Clamp(score.ChordInstrument);
+            _synthesizer.ProgramChange(ScoreMidiSchedule.MelodyChannel, melodyInstrument);
+            _synthesizer.ProgramChange(ScoreMidiSchedule.ChordChannel, chordInstrument);
+
             AppLog.Info(
                 "Playback timeline loaded: melody+chord notes=" + schedule.Notes.Count +
                 ", timelineEvents=" + _timeline.Count +
-                ", totalQuarter=" + _totalQuarterLength.ToString("0.###"));
+                ", totalQuarter=" + _totalQuarterLength.ToString("0.###") +
+                ", melodyInstrument=" + melodyInstrument +
+                ", chordInstrument=" + chordInstrument);
         }
 
         private void OnTimerTick(object sender, EventArgs e)

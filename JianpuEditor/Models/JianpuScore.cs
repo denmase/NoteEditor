@@ -15,6 +15,12 @@ namespace JianpuEditor.Models
 
         public string Composer { get; set; } = string.Empty;
 
+        /// <summary>General MIDI program number (0-127) used for the main melody during playback/MIDI export.</summary>
+        public int MelodyInstrument { get; set; }
+
+        /// <summary>General MIDI program number (0-127) used for chord markers during playback/MIDI export.</summary>
+        public int ChordInstrument { get; set; }
+
         public List<JianpuMeasure> Measures { get; set; } = new List<JianpuMeasure>();
 
         public List<JianpuTie> Ties { get; set; } = new List<JianpuTie>();

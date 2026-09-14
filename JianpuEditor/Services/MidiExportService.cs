@@ -28,7 +28,9 @@ namespace JianpuEditor.Services
             var schedule = ScoreMidiSchedule.Build(score);
             var noteEvents = ToTickEvents(schedule.Notes);
             var tempoBpm = ClampBpm(score.Bpm);
-            var track = BuildTrack(noteEvents, tempoBpm);
+            var melodyInstrument = GeneralMidiInstruments.Clamp(score.MelodyInstrument);
+            var chordInstrument = GeneralMidiInstruments.Clamp(score.ChordInstrument);
+            var track = BuildTrack(noteEvents, tempoBpm, melodyInstrument, chordInstrument);
             WriteMidiFile(path, track);
         }
 
@@ -65,11 +67,13 @@ namespace JianpuEditor.Services
             return Math.Max(MinBpm, Math.Min(MaxBpm, bpm));
         }
 
-        private static byte[] BuildTrack(List<MidiTickNoteEvent> noteEvents, int tempoBpm)
+        private static byte[] BuildTrack(List<MidiTickNoteEvent> noteEvents, int tempoBpm, int melodyInstrument, int chordInstrument)
         {
             var ordered = new List<RawMidiEvent>();
             var microsecondsPerQuarter = 60_000_000 / tempoBpm;
             ordered.Add(new RawMidiEvent(0, EventType.Tempo, microsecondsPerQuarter));
+            ordered.Add(new RawMidiEvent(0, EventType.ProgramChange, melodyInstrument, channel: ScoreMidiSchedule.MelodyChannel));
+            ordered.Add(new RawMidiEvent(0, EventType.ProgramChange, chordInstrument, channel: ScoreMidiSchedule.ChordChannel));
 
             foreach (var note in noteEvents)
             {
@@ -142,6 +146,10 @@ namespace JianpuEditor.Services
                     writer.Write((byte)evt.Data1);
                     writer.Write((byte)evt.Data2);
                     break;
+                case EventType.ProgramChange:
+                    writer.Write((byte)(0xC0 | (evt.Channel & 0x0F)));
+                    writer.Write((byte)evt.Data1);
+                    break;
             }
         }
 
@@ -206,8 +214,9 @@ namespace JianpuEditor.Services
         private enum EventType
         {
             Tempo = 0,
-            NoteOff = 1,
-            NoteOn = 2
+            ProgramChange = 1,
+            NoteOff = 2,
+            NoteOn = 3
         }
 
         private sealed class RawMidiEvent : IComparable<RawMidiEvent>
