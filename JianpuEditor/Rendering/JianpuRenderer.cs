@@ -1475,23 +1475,6 @@ namespace JianpuEditor.Rendering
                     layout.GetNoteNaturalDrawBounds(spanEnd, out var endNoteX, out var endNoteWidth);
                     var endX = endNoteX + endNoteWidth;
 
-                    if (AppTheme.UnderlinesAbove && underlineIndex == 0)
-                    {
-                        // A dotted note's augmentation dot already carries its "extra" duration
-                        // visually, so the primary (full-span) beam shouldn't keep going through
-                        // whatever deeper-subdivision note follows a dot -- cap it at the first
-                        // dotted note in the span instead.
-                        for (var idx = spanStart; idx <= spanEnd; idx++)
-                        {
-                            if (notes[idx].Dotted)
-                            {
-                                layout.GetNoteNaturalDrawBounds(idx, out var dottedX, out var dottedWidth);
-                                endX = dottedX + dottedWidth;
-                                break;
-                            }
-                        }
-                    }
-
                     // A dotted note "borrows" part of the next beat subdivision via its augmentation
                     // dot, so a shorter (higher-index) beam that starts right after a dotted note
                     // should extend back to cover that dot, not start at the following note's own
