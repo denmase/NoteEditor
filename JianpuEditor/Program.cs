@@ -16,6 +16,8 @@ namespace JianpuEditor
             Application.ThreadException += OnThreadException;
             AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
 
+            NativeDllLoader.AddNativeDependencyDirectory();
+
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             AppTheme.Load();

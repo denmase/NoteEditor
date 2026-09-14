@@ -82,6 +82,7 @@ A Jianpu (numbered musical notation) editing tool built on C# WinForms, supporti
 - **Score playback**
   - Toolbar "Play / Stop" plays the main melody and chords in real time according to BPM
   - The blue progress bar can be dragged to seek; playback logic shares scheduling with MIDI export (including ornament expansion)
+  - Rendered with a bundled SoundFont (BASSMIDI + [GeneralUser GS](JianpuEditor/Resources/Soundfonts/LICENSE.txt)), so playback sounds the same on every machine rather than depending on whatever GM device Windows happens to provide; falls back to the system MIDI device automatically if the bundled synth fails to initialize
 - **Instrument selection**
   - `Edit → Instruments...` (or the toolbar "Instruments..." button) picks a General MIDI instrument for the melody and for chords independently
   - Applies to both live playback and MIDI export, so the exported file sounds the same as in-app playback; saved with the score (`MelodyInstrument`/`ChordInstrument`, default Acoustic Grand Piano)
@@ -92,7 +93,8 @@ A Jianpu (numbered musical notation) editing tool built on C# WinForms, supporti
 - [.NET Framework 4.7.2](https://dotnet.microsoft.com/download/dotnet-framework/net472) or higher
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) (used for unit tests; the version is specified by `global.json` in the repository root)
 - Running tests in Rider requires the **.NET 8 x86 runtime** (the 32-bit ReSharper Test Runner uses `Program Files (x86)\dotnet`); after upgrading the TFM, please **Build → Rebuild Solution** and clear the old `bin/Debug/net6.0` cache
-- Playback requires a MIDI synthesizer available on the system (such as Microsoft GS Wavetable Synth)
+- Playback uses a bundled SoundFont synthesizer (BASSMIDI), so no external MIDI synthesizer setup is needed; if it fails to initialize for any reason, playback falls back to whatever GM device Windows provides (such as Microsoft GS Wavetable Synth)
+- **BASS/BASSMIDI licensing note:** free for individual, non-commercial use; a commercial fork/distribution needs its own license from [un4seen.com](https://www.un4seen.com/bass.html) — see `JianpuEditor/Native/NOTICE.md`
 
 ## Build and Run
 

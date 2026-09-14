@@ -4,20 +4,23 @@ This is a working list of planned features for JianpuEditor, kept as plain notes
 
 ## Now: instrument playback (top priority)
 
-**Status: Phase 1 implemented in this pass.**
+**Status: Phase 1 and Phase 2 implemented.**
 
-Until now, playback always used whatever General MIDI patch 0 (Acoustic Grand Piano) the system's default MIDI device happened to fall back to — there was no instrument selection anywhere in the app (playback or MIDI export).
+Until now, playback always used whatever General MIDI patch 0 (Acoustic Grand Piano) the system's default MIDI device happened to fall back to — there was no instrument selection anywhere in the app (playback or MIDI export), and sound quality/timbre depended entirely on whatever GM device Windows happened to provide.
 
-- **Phase 1 (done here):** Per-score instrument selection.
+- **Phase 1 (done):** Per-score instrument selection.
   - `JianpuScore` gained `MelodyInstrument` / `ChordInstrument` (General MIDI program numbers, 0-127), saved/loaded with the score, defaulting to 0 for full backward compatibility with existing files.
   - `Edit → Instruments...` (and a toolbar button next to Play/Stop) opens a dialog with two dropdowns listing all 128 GM instrument names.
   - Both **live playback** (`ScorePlaybackService`) and **MIDI export** (`MidiExportService`) now send a Program Change message for the melody and chord channels before notes play, so exported `.mid` files sound the same as in-app playback.
   - Instrument changes go through the existing undo/redo command stack, like other header edits.
   - `WindowsMidiSynthesizer` was extracted behind a new `IMidiOutput` interface so playback logic is unit-testable without a real MIDI device.
-- **Phase 2 (next):** Better sound quality than the OS's default synth (Microsoft GS Wavetable Synth is thin/dated). Options to evaluate:
-  - Bundle a SoundFont (`.sf2`) and a software synth (e.g. a NAudio-based SF2 player) so playback sounds the same on every machine, not just whatever the OS ships.
-  - This removes the dependency on `winmm.dll`'s MIDI mapper entirely for playback (keep raw MIDI export as-is).
-- **Phase 3 (later, bigger lift):** VSTi hosting — let users load a third-party VST/VST3 instrument plugin for real sample-library sound. Needs a VST hosting library (there's no first-party .NET VST host) and a plugin-scanning/settings UI. Treat as a separate, larger spike once Phase 2 ships.
+- **Phase 2 (done):** Consistent sound quality via a bundled SoundFont, replacing the OS's default synth for playback.
+  - Playback now goes through **BASSMIDI** (`JianpuEditor/Services/BassMidiSynthesizer.cs`, via the `ManagedBass`/`ManagedBass.Midi` NuGet wrappers) loading a bundled SoundFont (`JianpuEditor/Resources/Soundfonts/GeneralUser-GS.sf2`, permissively licensed), so playback sounds the same on every machine instead of depending on whatever GM device Windows happens to ship.
+  - Falls back to the old `WindowsMidiSynthesizer` (system MIDI mapper) automatically if BASSMIDI/the SoundFont fails to initialize for any reason.
+  - **Original plan was MeltySynth (pure C#, MIT) + NAudio**, but every MeltySynth release targets `netstandard2.1`+, which .NET Framework 4.7.2 (this app's TFM) cannot consume at all — not a licensing issue, a hard compatibility wall. Switched to BASSMIDI (native DLL via P/Invoke, framework-agnostic) instead.
+  - **Licensing note:** BASS/BASSMIDI is free only for individual, non-commercial use — see `JianpuEditor/Native/NOTICE.md` before distributing a commercial fork. `bass.dll`/`bassmidi.dll` (x86 + x64) are bundled directly since they can't be fetched via NuGet/package restore.
+  - MIDI export is untouched (still raw MIDI file writing, unaffected by which engine renders it).
+- **Phase 3 (later, bigger lift):** VSTi hosting — let users load a third-party VST/VST3 instrument plugin for real sample-library sound. This needs a real-time audio engine (today's playback is a simple MIDI-event dispatch loop, not audio rendering) plus either a native plugin bridge or an existing host. Two candidates worth a dedicated spike: BASS's own **BASSVST** add-on (same vendor/licensing as BASSMIDI, so no new licensing question), or hosting VST3 directly (its SDK is GPLv3-licensed unless you buy a commercial license from Steinberg — same kind of conflict with this project's Apache-2.0 license as before, needs resolving either way). Treat as a separate, larger spike.
 
 ## Plugin system (generalized from upstream #26)
 
