@@ -1459,13 +1459,18 @@ namespace JianpuEditor.Rendering
                     layout.GetNoteDrawBounds(spanStart, out var startX, out _);
                     layout.GetNoteDrawBounds(spanEnd, out var endNoteX, out var endNoteWidth);
                     var endX = endNoteX + endNoteWidth;
-                    // Below mode stacks lines outward starting just past the negative-octave-dot zone
-                    // (y+52+); above mode mirrors that by stacking upward starting clear of the
-                    // positive-octave-dot zone (dots only ever grow downward from y+4, so this can't
-                    // collide with them regardless of a note's octave), using the StaffBlockSpacing gap
-                    // between systems as headroom.
+                    // Below mode stacks the full-span (underlineIndex 0) beam closest to the row,
+                    // with shorter partial-span beams (higher underlineIndex, e.g. 16th-note level
+                    // within an 8th-note group) farther out, starting just past the
+                    // negative-octave-dot zone (y+52+).
+                    // Above mode uses the opposite stacking order -- shorter beams closest to the
+                    // row, the full-span beam farthest -- matching the Indonesian Jianpu convention
+                    // (see reference), stacked upward clear of the positive-octave-dot zone (dots
+                    // only ever grow downward from y+4, so this can't collide with them regardless
+                    // of a note's octave), using the StaffBlockSpacing gap between systems as
+                    // headroom.
                     var lineY = AppTheme.UnderlinesAbove
-                        ? rowTop - 8 - underlineIndex * 6
+                        ? rowTop - 8 - (maxUnderlines - 1 - underlineIndex) * 6
                         : rowTop + 62 + underlineIndex * 6;
                     g.DrawLine(Pens.Black, startX, lineY, endX, lineY);
                 }
