@@ -1470,8 +1470,21 @@ namespace JianpuEditor.Rendering
                         continue;
                     }
 
-                    layout.GetNoteDrawBounds(spanStart, out var startX, out var spanStartWidth);
-                    var spanStartHeadCenterX = startX + Math.Min(NoteCellWidth, spanStartWidth) / 2f;
+                    layout.GetNoteDrawBounds(spanStart, out var spanStartSlotX, out var spanStartWidth);
+                    var spanStartHeadWidth = Math.Min(NoteCellWidth, spanStartWidth);
+                    var spanStartHeadCenterX = spanStartSlotX + spanStartHeadWidth / 2f;
+                    // A note's slot is sized proportionally to its duration (so a dotted-eighth like
+                    // "1" gets a much wider slot than a following 16th like "6"), but the digit itself
+                    // is centered within that slot -- using the slot's raw left edge as the beam's
+                    // start leaves a visible gap of dead space before the digit for any note whose
+                    // slot is wider than its rendered text. Measure the actual glyph and start there
+                    // instead, matching DrawCenteredNoteText's own centering math exactly.
+                    var spanStartNote = notes[spanStart];
+                    var spanStartText = spanStartNote.Type == NoteType.Rest
+                        ? "0"
+                        : JianpuPitchCodec.GetPitchDisplayText(spanStartNote);
+                    var spanStartTextWidth = g.MeasureString(spanStartText, _noteFont).Width;
+                    var startX = (int)(spanStartSlotX + (spanStartHeadWidth - spanStartTextWidth) / 2f);
                     layout.GetNoteNaturalDrawBounds(spanEnd, out var endNoteX, out var endNoteWidth);
                     var endX = endNoteX + endNoteWidth;
 
