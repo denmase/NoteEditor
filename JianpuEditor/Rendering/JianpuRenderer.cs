@@ -1470,23 +1470,42 @@ namespace JianpuEditor.Rendering
                         continue;
                     }
 
-                    layout.GetNoteDrawBounds(spanStart, out var spanStartSlotX, out var spanStartWidth);
+                    layout.GetNoteDrawBounds(spanStart, out var startX, out var spanStartWidth);
                     var spanStartHeadWidth = Math.Min(NoteCellWidth, spanStartWidth);
-                    var spanStartHeadCenterX = spanStartSlotX + spanStartHeadWidth / 2f;
-                    // A note's slot is sized proportionally to its duration (so a dotted-eighth like
-                    // "1" gets a much wider slot than a following 16th like "6"), but the digit itself
-                    // is centered within that slot -- using the slot's raw left edge as the beam's
-                    // start leaves a visible gap of dead space before the digit for any note whose
-                    // slot is wider than its rendered text. Measure the actual glyph and start there
-                    // instead, matching DrawCenteredNoteText's own centering math exactly.
-                    var spanStartNote = notes[spanStart];
-                    var spanStartText = spanStartNote.Type == NoteType.Rest
-                        ? "0"
-                        : JianpuPitchCodec.GetPitchDisplayText(spanStartNote);
-                    var spanStartTextWidth = g.MeasureString(spanStartText, _noteFont).Width;
-                    var startX = (int)(spanStartSlotX + (spanStartHeadWidth - spanStartTextWidth) / 2f);
-                    layout.GetNoteNaturalDrawBounds(spanEnd, out var endNoteX, out var endNoteWidth);
-                    var endX = endNoteX + endNoteWidth;
+                    var spanStartHeadCenterX = startX + spanStartHeadWidth / 2f;
+                    if (AppTheme.UnderlinesAbove)
+                    {
+                        // A note's slot is sized proportionally to its duration (so a dotted-eighth
+                        // like "1" gets a much wider slot than a following 16th like "6"), but the
+                        // digit itself is centered within that slot -- using the slot's raw left edge
+                        // as the beam's start leaves a visible gap of dead space before the digit for
+                        // any note whose slot is wider than its rendered text. This exists in below
+                        // mode too, but that mode is the original/default Jianpu rendering and must
+                        // stay exactly as it was -- Indonesian style is an explicit opt-in via the
+                        // View menu toggle, not a replacement, so this fix is scoped to above mode
+                        // only. Measure the actual glyph and start there instead, matching
+                        // DrawCenteredNoteText's own centering math exactly.
+                        var spanStartNote = notes[spanStart];
+                        var spanStartText = spanStartNote.Type == NoteType.Rest
+                            ? "0"
+                            : JianpuPitchCodec.GetPitchDisplayText(spanStartNote);
+                        var spanStartTextWidth = g.MeasureString(spanStartText, _noteFont).Width;
+                        startX = (int)(startX + (spanStartHeadWidth - spanStartTextWidth) / 2f);
+                    }
+                    // The barline-crossing beam gap fix (using natural, un-stretched bounds for the
+                    // beam's end) is also scoped to above mode only, for the same reason as the
+                    // start-edge fix above -- below mode is the original renderer and must not change.
+                    int endX;
+                    if (AppTheme.UnderlinesAbove)
+                    {
+                        layout.GetNoteNaturalDrawBounds(spanEnd, out var endNoteX, out var endNoteWidth);
+                        endX = endNoteX + endNoteWidth;
+                    }
+                    else
+                    {
+                        layout.GetNoteDrawBounds(spanEnd, out var endNoteX, out var endNoteWidth);
+                        endX = endNoteX + endNoteWidth;
+                    }
 
                     // A dotted note "borrows" part of the next beat subdivision via its augmentation
                     // dot, so a shorter (higher-index) beam that starts right after a dotted note
