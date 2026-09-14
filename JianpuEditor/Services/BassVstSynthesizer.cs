@@ -21,6 +21,8 @@ namespace JianpuEditor.Services
         private readonly int _vstHandle;
         private bool _disposed;
 
+        public string EngineName { get; }
+
         public BassVstSynthesizer(string vstPluginPath)
         {
             if (string.IsNullOrWhiteSpace(vstPluginPath) || !File.Exists(vstPluginPath))
@@ -45,6 +47,7 @@ namespace JianpuEditor.Services
                 AppLog.Error("Failed to start BASSVST channel playback. Error: " + Bass.LastError);
             }
 
+            EngineName = "VST2: " + Path.GetFileName(vstPluginPath);
             AppLog.Info("BassVstSynthesizer initialized: " + vstPluginPath);
         }
 

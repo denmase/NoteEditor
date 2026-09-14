@@ -5,6 +5,8 @@ namespace JianpuEditor.Tests.Services
 {
     internal sealed class FakeMidiOutput : IMidiOutput
     {
+        public string EngineName => "Fake";
+
         public List<(int Channel, int Program)> ProgramChanges { get; } = new List<(int Channel, int Program)>();
 
         public List<(int Channel, int Note, int Velocity)> NotesOn { get; } = new List<(int Channel, int Note, int Velocity)>();

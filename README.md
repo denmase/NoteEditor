@@ -90,6 +90,7 @@ A Jianpu (numbered musical notation) editing tool built on C# WinForms, supporti
   - `Edit → Audio Engine...` can point playback at a VST2 instrument plugin DLL instead of the bundled SoundFont, hosted via BASSVST; both melody and chords are sent to the one loaded plugin
   - This is a machine-local app preference (not saved in the score file, since a plugin path isn't portable between machines) and takes effect after restarting the app
   - VST2 only, not VST3; MIDI export is unaffected (always raw MIDI regardless of playback engine)
+  - The toolbar shows an **"Engine: ..."** indicator (next to "Instruments...") naming whichever engine is actually active — click it to open `Edit → Audio Engine...`, which also lists the active engine at the top. If a configured VST plugin fails to load, playback silently falls back to the bundled SoundFont; the indicator and dialog reflect that fallback rather than the (non-functional) configured path
 
 ## Requirements
 

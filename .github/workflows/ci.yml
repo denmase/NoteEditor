@@ -60,8 +60,7 @@ jobs:
         with:
           name: JianpuEditor-${{ github.sha }}
           path: |
-            JianpuEditor/bin/Release/net472/JianpuEditor.exe
-            JianpuEditor/bin/Release/net472/*.dll
-            JianpuEditor/bin/Release/net472/JianpuEditor.exe.config
+            JianpuEditor/bin/Release/net472/**
+            !JianpuEditor/bin/Release/net472/**/*.pdb
           if-no-files-found: error
           retention-days: 14
