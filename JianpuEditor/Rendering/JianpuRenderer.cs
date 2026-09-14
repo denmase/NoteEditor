@@ -1459,7 +1459,14 @@ namespace JianpuEditor.Rendering
                     layout.GetNoteDrawBounds(spanStart, out var startX, out _);
                     layout.GetNoteDrawBounds(spanEnd, out var endNoteX, out var endNoteWidth);
                     var endX = endNoteX + endNoteWidth;
-                    var lineY = rowTop + 62 + underlineIndex * 6;
+                    // Below mode stacks lines outward starting just past the negative-octave-dot zone
+                    // (y+52+); above mode mirrors that by stacking upward starting clear of the
+                    // positive-octave-dot zone (dots only ever grow downward from y+4, so this can't
+                    // collide with them regardless of a note's octave), using the StaffBlockSpacing gap
+                    // between systems as headroom.
+                    var lineY = AppTheme.UnderlinesAbove
+                        ? rowTop - 8 - underlineIndex * 6
+                        : rowTop + 62 + underlineIndex * 6;
                     g.DrawLine(Pens.Black, startX, lineY, endX, lineY);
                 }
             }
@@ -1874,7 +1881,7 @@ namespace JianpuEditor.Rendering
             using (var chordFont = new Font(_noteFont.FontFamily, Math.Max(8f, _noteFont.Size * 0.72f), _noteFont.Style))
             {
                 var count = melodyNotes.Count;
-                var lineHeight = 14f;
+                var lineHeight = 17f;
                 var blockHeight = count * lineHeight;
                 var startY = y + 18f + Math.Max(0f, (36f - blockHeight) / 2f);
                 var headCenterX = x + headWidth / 2f;
@@ -2105,7 +2112,12 @@ namespace JianpuEditor.Rendering
 
         private static int GetMarginTop(ScoreLayoutOptions options)
         {
-            return options.HeaderMarginTop > 0 ? options.HeaderMarginTop : MarginTop;
+            var baseMargin = options.HeaderMarginTop > 0 ? options.HeaderMarginTop : MarginTop;
+            // Above-mode beam lines extend upward from the first system's melody row into this
+            // margin; without extra headroom here they collide with the header (title/key/tempo)
+            // text that occupies the same space. Later systems already clear the gap via
+            // StaffBlockSpacing, so this only needs to cover the first row.
+            return AppTheme.UnderlinesAbove ? baseMargin + 20 : baseMargin;
         }
 
         private ScoreLayout BuildLayout(JianpuScore score, int maxWidth, ScoreLayoutOptions options)
