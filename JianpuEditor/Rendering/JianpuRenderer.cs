@@ -1201,7 +1201,10 @@ namespace JianpuEditor.Rendering
                 layout.GetNoteDrawBounds(i, out var noteX, out var noteWidth);
 
                 var slotNotes = MelodyChordService.GetNotesAtSlot(measure, i);
-                var melodyNotes = slotNotes.Where(note => note.Type == NoteType.Note).ToList();
+                var melodyNotes = slotNotes
+                    .Where(note => note.Type == NoteType.Note)
+                    .OrderByDescending(note => note.Octave * 7 + note.Pitch)
+                    .ToList();
                 if (melodyNotes.Count > 1)
                 {
                     DrawSimultaneousNotes(
