@@ -1199,6 +1199,15 @@ namespace JianpuEditor.Rendering
                     ? selectedNotes.Any(note => note.MeasureIndex == layout.MeasureIndex && note.NoteIndex == i)
                     : layout.MeasureIndex == selectedMeasureIndex && i == selectedNoteIndex;
                 layout.GetNoteDrawBounds(i, out var noteX, out var noteWidth);
+                int nextNoteX;
+                if (i + 1 < noteCount)
+                {
+                    layout.GetNoteDrawBounds(i + 1, out nextNoteX, out _);
+                }
+                else
+                {
+                    nextNoteX = noteX + noteWidth;
+                }
 
                 var slotNotes = MelodyChordService.GetNotesAtSlot(measure, i);
                 var melodyNotes = slotNotes
@@ -1216,6 +1225,7 @@ namespace JianpuEditor.Rendering
                         noteX,
                         layout.BlockTop,
                         noteWidth,
+                        nextNoteX,
                         isSelected);
                 }
                 else
@@ -1228,6 +1238,7 @@ namespace JianpuEditor.Rendering
                         noteX,
                         layout.BlockTop,
                         noteWidth,
+                        nextNoteX,
                         isSelected);
                 }
             }
@@ -1457,8 +1468,26 @@ namespace JianpuEditor.Rendering
                     }
 
                     layout.GetNoteDrawBounds(spanStart, out var startX, out _);
+                    var spanStartX = startX;
                     layout.GetNoteNaturalDrawBounds(spanEnd, out var endNoteX, out var endNoteWidth);
                     var endX = endNoteX + endNoteWidth;
+
+                    if (AppTheme.UnderlinesAbove && underlineIndex == 0)
+                    {
+                        // A dotted note's augmentation dot already carries its "extra" duration
+                        // visually, so the primary (full-span) beam shouldn't keep going through
+                        // whatever deeper-subdivision note follows a dot -- cap it at the first
+                        // dotted note in the span instead.
+                        for (var idx = spanStart; idx <= spanEnd; idx++)
+                        {
+                            if (notes[idx].Dotted)
+                            {
+                                layout.GetNoteNaturalDrawBounds(idx, out var dottedX, out var dottedWidth);
+                                endX = dottedX + dottedWidth;
+                                break;
+                            }
+                        }
+                    }
 
                     // A dotted note "borrows" part of the next beat subdivision via its augmentation
                     // dot, so a shorter (higher-index) beam that starts right after a dotted note
@@ -1472,10 +1501,11 @@ namespace JianpuEditor.Rendering
                     {
                         layout.GetNoteDrawBounds(spanStart - 1, out var prevX, out var prevWidth);
                         var prevHeadWidth = Math.Min(NoteCellWidth, prevWidth);
-                        // Match DrawNoteDottedAndDashes' above-mode dot position exactly, so the
-                        // beam's start lines up with (a hair before) the dot instead of the
-                        // following note's own edge.
-                        startX = (int)(prevX + (prevHeadWidth + prevWidth) / 2f - 2.5f);
+                        // Match DrawNoteDottedAndDashes' above-mode dot position exactly (using the
+                        // real next-note position, spanStartX, not this note's own possibly-collapsed
+                        // slot width), so the beam's start lines up with (a hair before) the dot
+                        // instead of the following note's own edge.
+                        startX = (int)((prevX + prevHeadWidth + spanStartX) / 2f - 2.5f);
                     }
                     // Both modes use a fixed mapping from underlineIndex to height -- NOT the
                     // per-group maxUnderlines -- so that every group's underlineIndex-0 (full-span)
@@ -1888,6 +1918,7 @@ namespace JianpuEditor.Rendering
             int x,
             int y,
             int noteWidth,
+            int nextNoteX,
             bool isSelected)
         {
             var headWidth = Math.Min(NoteCellWidth, noteWidth);
@@ -1939,7 +1970,7 @@ namespace JianpuEditor.Rendering
                     }
                 }
 
-                DrawNoteDottedAndDashes(g, durationNote, x, y, noteWidth, headWidth, headCenterX, ink, inkPen);
+                DrawNoteDottedAndDashes(g, durationNote, x, y, noteWidth, headWidth, headCenterX, nextNoteX, ink, inkPen);
             }
         }
 
@@ -1951,6 +1982,7 @@ namespace JianpuEditor.Rendering
             int x,
             int y,
             int noteWidth,
+            int nextNoteX,
             bool isSelected)
         {
             var headWidth = Math.Min(NoteCellWidth, noteWidth);
@@ -2010,7 +2042,7 @@ namespace JianpuEditor.Rendering
                 {
                     DrawNoteOctaveDots(g, note, x, y, headCenterX, ink);
                 }
-                DrawNoteDottedAndDashes(g, note, x, y, noteWidth, headWidth, headCenterX, ink, inkPen);
+                DrawNoteDottedAndDashes(g, note, x, y, noteWidth, headWidth, headCenterX, nextNoteX, ink, inkPen);
             }
         }
 
@@ -2102,19 +2134,23 @@ namespace JianpuEditor.Rendering
             int noteWidth,
             int headWidth,
             float headCenterX,
+            int nextNoteX,
             Brush ink,
             Pen inkPen)
         {
             if (note.Dotted)
             {
                 // Below mode keeps the dot tucked close to the note's own glyph. Above mode moves it
-                // out to the midpoint between this note and the next -- roughly where the beam-above
-                // reference notation places it -- and inline with the digit (roughly its vertical
-                // center) instead of stranded far below a beam that's now drawn above the row.
+                // to the true midpoint between the end of this note's glyph and the start of the next
+                // note (nextNoteX, not this note's own slot width -- for a tightly packed measure the
+                // slot can be no wider than the glyph itself, which previously collapsed the "midpoint"
+                // to sit right on top of the next note) -- roughly where the beam-above reference
+                // notation places it -- and inline with the digit (its vertical center) instead of
+                // stranded far below a beam that's now drawn above the row.
                 var dotX = AppTheme.UnderlinesAbove
-                    ? x + (headWidth + noteWidth) / 2f - 2.5f
+                    ? (x + headWidth + nextNoteX) / 2f - 2.5f
                     : Math.Min(x + headWidth - 8, headCenterX + 12);
-                var dotY = AppTheme.UnderlinesAbove ? y + 24 : y + 42;
+                var dotY = AppTheme.UnderlinesAbove ? y + 30 : y + 42;
                 g.FillEllipse(ink, dotX, dotY, 5, 5);
             }
 
