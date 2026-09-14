@@ -64,10 +64,24 @@ that stays load-bearing either way (Classic remains the default renderer for the
 future, and even under alphaTab this app still owns its own hit-testing for things alphaTab has no
 concept of — chord markers, this app's specific ornament set, structured lyrics).
 
-- **A1. Shared geometry model.** Extract one geometry object from `BuildLayout` that both
-  `JianpuRenderer.Draw*` and `ScoreCanvas`'s `HitTest*` consume, instead of two independently-coded
-  offset formulas (dash positions, tie Bézier points, ornament anchors) that can silently drift
-  apart. Stop rebuilding the *entire* layout on every mouse click/hover.
+- **A1. Shared geometry model — note/gap positioning done.** Found and fixed a real bug while
+  doing this: `JianpuRenderer` computed a note's on-screen X/width one way for drawing
+  (`GetNoteDrawBounds`, scaled by `MeasureLayout.MelodyScale` with a min-width floor and a
+  "stretch the last note to fill the measure" special case) and a *different*, unscaled way for
+  hit-testing (`HitTestMelodyRow` walking raw `GetNoteOffset`/`GetNoteWidth`). Because the app's
+  normal (non-paginated) layout sizes every measure's box to exactly fit its own content minus a
+  fixed 4px margin, `MelodyScale` ends up marginally below 1.0 for **any** non-empty measure — so
+  this wasn't a rare dense-measure edge case, it affected click accuracy on ordinary measures all
+  the time, worst near the last note in a measure (the stretch case). Fixed by moving the scaled
+  formula onto `MeasureLayout` itself (`GetNoteDrawBounds`/`GetNoteBounds`, now the single source
+  of truth) and routing both drawing and `HitTestMelodyRow` through it; also found and collapsed a
+  third independent copy of the same formula in `ChordMarkerLayout.cs`; made `GetInsertOffset`
+  (gap/caret positioning) scale-consistent the same way. Ties (`TryGetTieGeometry`) were already
+  correctly shared between draw and hit-test — no change needed there. 5 new regression tests in
+  `NoteHitTestingTests.cs`.
+  **Still open**: stop rebuilding the *entire* layout on every mouse click/hover (a perf concern,
+  not a correctness one — deferred, candidate to fold into A3 since drag/hover is where it'd
+  actually matter).
 - **A2. Zoom/DPI.** Systematically parameterize the magic-number pixel offsets so a scale factor
   can be threaded through cleanly, instead of the current fixed-pixel assumptions baked into
   `DrawNote`/`DrawBeatGroupUnderlines`/etc.
