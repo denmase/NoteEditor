@@ -1457,8 +1457,22 @@ namespace JianpuEditor.Rendering
                     }
 
                     layout.GetNoteDrawBounds(spanStart, out var startX, out _);
-                    layout.GetNoteDrawBounds(spanEnd, out var endNoteX, out var endNoteWidth);
+                    layout.GetNoteNaturalDrawBounds(spanEnd, out var endNoteX, out var endNoteWidth);
                     var endX = endNoteX + endNoteWidth;
+
+                    // A dotted note "borrows" part of the next beat subdivision via its augmentation
+                    // dot, so a shorter (higher-index) beam that starts right after a dotted note
+                    // should extend back to cover that dot, not start at the following note's own
+                    // left edge -- otherwise the beam looks disconnected from the rhythm it's
+                    // describing. Only above mode repositions the dot near the beam (see
+                    // DrawNoteDottedAndDashes); below mode's dot sits far enough from its own beam
+                    // that this doesn't apply.
+                    if (AppTheme.UnderlinesAbove && underlineIndex > 0 && spanStart > 0
+                        && group.Contains(spanStart - 1) && notes[spanStart - 1].Dotted)
+                    {
+                        layout.GetNoteDrawBounds(spanStart - 1, out var prevX, out var prevWidth);
+                        startX = prevX + prevWidth;
+                    }
                     // Both modes use a fixed mapping from underlineIndex to height -- NOT the
                     // per-group maxUnderlines -- so that every group's underlineIndex-0 (full-span)
                     // beam lands at the same height across the whole row, regardless of whether a
@@ -2090,7 +2104,12 @@ namespace JianpuEditor.Rendering
             if (note.Dotted)
             {
                 var dotX = Math.Min(x + headWidth - 8, headCenterX + 12);
-                g.FillEllipse(ink, dotX, y + 42, 5, 5);
+                // Below mode keeps the dot low, near the dash/duration-mark cluster. Above mode
+                // moves it inline with the digit (roughly its vertical center) instead of leaving it
+                // stranded far below a beam that's now drawn above the row -- matching the reference
+                // notation, where the augmentation dot sits parallel to the note, not underneath it.
+                var dotY = AppTheme.UnderlinesAbove ? y + 24 : y + 42;
+                g.FillEllipse(ink, dotX, dotY, 5, 5);
             }
 
             var extensionWidth = noteWidth - headWidth;
@@ -2346,6 +2365,21 @@ namespace JianpuEditor.Rendering
                 {
                     noteWidth = Math.Max(minDrawWidth, X + Width - noteX);
                 }
+            }
+
+            /// <summary>
+            /// Same as <see cref="GetNoteDrawBounds"/> but without the last-note-in-measure stretch
+            /// (which pads the final note's clickable/fillable width out to the barline so a squeezed
+            /// measure doesn't leave an ugly visual gap). A beam's endpoint should follow the note's
+            /// actual glyph width, not that padding -- otherwise a beam ending on the measure's last
+            /// note runs straight through the barline into the next measure's beam with no visible
+            /// gap between them.
+            /// </summary>
+            public void GetNoteNaturalDrawBounds(int noteIndex, out int noteX, out int noteWidth)
+            {
+                var minDrawWidth = GetMinDrawWidth();
+                noteWidth = Math.Max(minDrawWidth, (int)Math.Round(GetNoteWidth(noteIndex) * MelodyScale));
+                noteX = X + (int)Math.Round(GetNoteOffset(noteIndex) * MelodyScale);
             }
 
             public Rectangle GetNoteBounds(int noteIndex)
