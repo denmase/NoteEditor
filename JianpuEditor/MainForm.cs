@@ -21,6 +21,7 @@ namespace JianpuEditor
         private readonly IAppMessenger _messenger;
         private readonly ILayoutService _layoutService;
         private readonly IEditCommandHistory _commandHistory;
+        private readonly IMidiOutput _midiOutput;
         private JianpuScore _mutationBeforeSnapshot;
         private int _mutationBeforeMeasureIndex = -1;
         private bool _suppressCanvasMutationTracking;
@@ -54,12 +55,14 @@ namespace JianpuEditor
             MainViewModel viewModel,
             IAppMessenger messenger,
             ILayoutService layoutService,
-            IEditCommandHistory commandHistory)
+            IEditCommandHistory commandHistory,
+            IMidiOutput midiOutput)
         {
             _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
             _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
             _layoutService = layoutService ?? throw new ArgumentNullException(nameof(layoutService));
             _commandHistory = commandHistory ?? throw new ArgumentNullException(nameof(commandHistory));
+            _midiOutput = midiOutput ?? throw new ArgumentNullException(nameof(midiOutput));
             _commandHistory.HistoryChanged += (s, e) => UpdateUndoMenuState();
 
             InitializeComponent();
@@ -314,6 +317,7 @@ namespace JianpuEditor
             panel.Controls.Add(_playButton);
             panel.Controls.Add(_stopButton);
             panel.Controls.Add(CreateToolButton("Instruments...", ShowInstrumentDialog));
+            panel.Controls.Add(CreateAudioEngineIndicator());
             panel.Controls.Add(CreateSeparator());
 
             panel.Controls.Add(new Label { Text = "Notes:", AutoSize = true, Margin = new Padding(0, 10, 6, 0) });
@@ -384,6 +388,22 @@ namespace JianpuEditor
             panel.Controls.Add(sampleButton);
 
             return panel;
+        }
+
+        private Label CreateAudioEngineIndicator()
+        {
+            var label = new Label
+            {
+                Text = "Engine: " + _midiOutput.EngineName,
+                AutoSize = true,
+                Margin = new Padding(0, 10, 6, 0),
+                Cursor = Cursors.Hand
+            };
+            _toolTip.SetToolTip(
+                label,
+                "Active playback engine (click to open Edit → Audio Engine...). Changes here take effect after restarting.");
+            label.Click += (s, e) => ShowAudioEngineDialog();
+            return label;
         }
 
         private void ConfigureStatusLabel()
@@ -1342,7 +1362,7 @@ namespace JianpuEditor
 
         private void ShowAudioEngineDialog()
         {
-            using (var dialog = new AudioEngineDialog(AppTheme.VstPluginPath))
+            using (var dialog = new AudioEngineDialog(AppTheme.VstPluginPath, _midiOutput.EngineName))
             {
                 if (dialog.ShowDialog(this) != DialogResult.OK)
                 {

@@ -15,6 +15,8 @@ namespace JianpuEditor.Services
         private bool _disposed;
         private string _deviceName = "Not opened";
 
+        public string EngineName => "System MIDI (fallback)";
+
         public void NoteOn(int channel, int note, int velocity)
         {
             SendShortMessage("NoteOn", 0x90 | (channel & 0x0F), note, velocity);

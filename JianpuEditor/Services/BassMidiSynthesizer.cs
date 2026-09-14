@@ -19,6 +19,8 @@ namespace JianpuEditor.Services
         private readonly int _fontHandle;
         private bool _disposed;
 
+        public string EngineName { get; }
+
         public BassMidiSynthesizer(string soundFontPath)
         {
             if (string.IsNullOrWhiteSpace(soundFontPath) || !File.Exists(soundFontPath))
@@ -57,6 +59,7 @@ namespace JianpuEditor.Services
                 AppLog.Error("Failed to start BASSMIDI stream playback. Error: " + Bass.LastError);
             }
 
+            EngineName = "SoundFont (" + Path.GetFileNameWithoutExtension(soundFontPath) + ")";
             AppLog.Info("BassMidiSynthesizer initialized: " + soundFontPath);
         }
 
