@@ -406,6 +406,21 @@ namespace JianpuEditor
                 sampleButton);
             panel.Controls.Add(other);
 
+            // Groups naturally size to their own row count (Modify/Measures hold two rows,
+            // the rest hold one), which left their bottoms -- and the caption row baseline --
+            // uneven. Give every group the tallest group's height so they all line up.
+            var groups = new[] { playback, notes, modify, ornaments, measures, chord, other };
+            var maxGroupHeight = 0;
+            foreach (var group in groups)
+            {
+                maxGroupHeight = Math.Max(maxGroupHeight, group.NaturalHeight);
+            }
+
+            foreach (var group in groups)
+            {
+                group.SetFixedHeight(maxGroupHeight);
+            }
+
             return panel;
         }
 
