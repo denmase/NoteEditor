@@ -958,7 +958,22 @@ namespace JianpuEditor
 
                 try
                 {
-                    var result = _viewModel.ImportMidi(dialog.FileName);
+                    int? trackIndex = null;
+                    var trackInfos = _viewModel.GetMidiTrackInfos(dialog.FileName);
+                    if (trackInfos.Count > 1)
+                    {
+                        using (var picker = new MidiTrackPickerDialog(trackInfos))
+                        {
+                            if (picker.ShowDialog(this) != DialogResult.OK)
+                            {
+                                return;
+                            }
+
+                            trackIndex = picker.SelectedTrackIndex;
+                        }
+                    }
+
+                    var result = _viewModel.ImportMidi(dialog.FileName, trackIndex);
                     Text = _viewModel.Document.WindowTitle;
                     _glue.ApplyEditResult(new ScoreEditResult { Changed = true, SelectMeasureIndex = 0 });
                     _glue.ResetPlaybackHead();

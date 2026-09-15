@@ -23,7 +23,15 @@ namespace JianpuEditor.Services
             ScoreFileService.Save(score, jianpuPath);
         }
 
-        public static JianpuScore Import(string path)
+        /// <summary>
+        /// Lists every track in the MIDI file with enough information (name, note count, how
+        /// polyphonic it is) for a user to pick the actual melody track themselves, plus which one
+        /// <see cref="Import"/> would pick automatically. Real-world multi-track files often don't
+        /// have a track that's unambiguously "the melody" -- a busy chordal accompaniment can easily
+        /// have more raw notes than the actual tune -- so this is meant to be shown to the user
+        /// before import, not just relied on silently.
+        /// </summary>
+        public static IReadOnlyList<MidiTrackInfo> GetTrackInfos(string path)
         {
             if (string.IsNullOrWhiteSpace(path))
             {
@@ -31,7 +39,53 @@ namespace JianpuEditor.Services
             }
 
             var file = MidiFileReader.Read(path);
-            var track = SelectMelodyTrack(file);
+            var recommended = file.Tracks.Count > 0 ? SelectMelodyTrackIndex(file) : -1;
+            var infos = new List<MidiTrackInfo>();
+            for (var i = 0; i < file.Tracks.Count; i++)
+            {
+                var track = file.Tracks[i];
+                var nonDrumNotes = track.NoteOnEvents.Where(item => item.Channel != DrumChannel).ToList();
+                if (nonDrumNotes.Count == 0)
+                {
+                    continue;
+                }
+
+                infos.Add(new MidiTrackInfo
+                {
+                    Index = i,
+                    Name = track.Name,
+                    NoteCount = nonDrumNotes.Count,
+                    MaxSimultaneousNotes = GetMaxSimultaneousNotes(track),
+                    IsRecommended = i == recommended
+                });
+            }
+
+            return infos;
+        }
+
+        public static JianpuScore Import(string path, int? trackIndex = null)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                throw new ArgumentException("Path is required.", nameof(path));
+            }
+
+            var file = MidiFileReader.Read(path);
+            ParsedTrack track;
+            if (trackIndex.HasValue)
+            {
+                if (trackIndex.Value < 0 || trackIndex.Value >= file.Tracks.Count)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(trackIndex), "Track index is out of range for this MIDI file.");
+                }
+
+                track = file.Tracks[trackIndex.Value];
+            }
+            else
+            {
+                track = SelectMelodyTrack(file);
+            }
+
             var notes = ExtractNotes(track, file.TicksPerQuarter);
             if (notes.Count == 0)
             {
@@ -46,6 +100,14 @@ namespace JianpuEditor.Services
             var measures = BuildMeasures(notes, tonicMidi, ScoreMidiSchedule.DefaultMeasureBeats);
             measures = MeasureNormalizationService.NormalizeMeasures(measures, ScoreMidiSchedule.DefaultMeasureBeats);
 
+            var hasPlayableNote = measures.Any(measure =>
+                measure.MelodyNotes != null && measure.MelodyNotes.Any(note => note.Type != NoteType.Rest));
+            if (!hasPlayableNote)
+            {
+                throw new InvalidOperationException(
+                    "This track's notes are too far outside the melodic range to import (e.g. a bass line pitched several octaves below the detected key). Try a different track.");
+            }
+
             return new JianpuScore
             {
                 Title = Path.GetFileNameWithoutExtension(path) ?? "MIDI Import",
@@ -58,26 +120,81 @@ namespace JianpuEditor.Services
             };
         }
 
+        private static readonly string[] MelodyNameHints = { "melody", "vocal", "lead", "voice", "solo", "tune" };
+
         private static ParsedTrack SelectMelodyTrack(MidiFileData file)
+        {
+            var index = SelectMelodyTrackIndex(file);
+            return index >= 0 ? file.Tracks[index] : file.Tracks[0];
+        }
+
+        /// <summary>
+        /// Picks the track most likely to be the melody. Raw note count alone is a poor signal --
+        /// a busy chordal accompaniment routinely has more note-on events than the actual tune (seen
+        /// in real-world files: a "Strings" backing track with 305 notes across up to 6 simultaneous
+        /// notes, versus the real 82-note, genuinely monophonic vocal line it accompanies). Score by
+        /// notes-per-simultaneous-voice instead, so a busy monophonic line beats a sparser chordal
+        /// one, and let an unambiguous name (e.g. "Melody", "Vocal") override the numeric score
+        /// entirely when present.
+        /// </summary>
+        private static int SelectMelodyTrackIndex(MidiFileData file)
         {
             if (file.Tracks.Count == 1)
             {
-                return file.Tracks[0];
+                return file.Tracks[0].NoteOnEvents.Count(item => item.Channel != DrumChannel) > 0 ? 0 : -1;
             }
 
-            ParsedTrack best = null;
-            var bestCount = -1;
-            foreach (var track in file.Tracks)
+            var bestIndex = -1;
+            var bestHasNameHint = false;
+            var bestScore = double.MinValue;
+            for (var i = 0; i < file.Tracks.Count; i++)
             {
+                var track = file.Tracks[i];
                 var count = track.NoteOnEvents.Count(item => item.Channel != DrumChannel);
-                if (count > bestCount)
+                if (count == 0)
                 {
-                    bestCount = count;
-                    best = track;
+                    continue;
+                }
+
+                var hasNameHint = MelodyNameHints.Any(hint =>
+                    track.Name.IndexOf(hint, StringComparison.OrdinalIgnoreCase) >= 0);
+                var maxSimultaneous = Math.Max(1, GetMaxSimultaneousNotes(track));
+                var score = (double)count / maxSimultaneous;
+
+                // A name hint always wins over one without, regardless of score; among tracks that
+                // agree on name-hint status, the higher density score wins.
+                if (bestIndex < 0
+                    || (hasNameHint && !bestHasNameHint)
+                    || (hasNameHint == bestHasNameHint && score > bestScore))
+                {
+                    bestIndex = i;
+                    bestHasNameHint = hasNameHint;
+                    bestScore = score;
                 }
             }
 
-            return best ?? file.Tracks[0];
+            return bestIndex;
+        }
+
+        private static int GetMaxSimultaneousNotes(ParsedTrack track)
+        {
+            var active = 0;
+            var max = 0;
+            foreach (var evt in track.Events.Where(item => item.Channel != DrumChannel).OrderBy(item => item.Ticks))
+            {
+                if (evt.Type == MidiTrackEventType.NoteOn && evt.Velocity > 0)
+                {
+                    active++;
+                    max = Math.Max(max, active);
+                }
+                else if (evt.Type == MidiTrackEventType.NoteOff
+                    || (evt.Type == MidiTrackEventType.NoteOn && evt.Velocity == 0))
+                {
+                    active = Math.Max(0, active - 1);
+                }
+            }
+
+            return max;
         }
 
         private static List<ImportedNote> ExtractNotes(ParsedTrack track, int ticksPerQuarter)
@@ -594,6 +711,8 @@ namespace JianpuEditor.Services
 
         private sealed class ParsedTrack
         {
+            public string Name { get; set; } = string.Empty;
+
             public List<MidiTrackEvent> Events { get; } = new List<MidiTrackEvent>();
 
             public List<NoteOnEvent> NoteOnEvents { get; } = new List<NoteOnEvent>();
@@ -717,6 +836,12 @@ namespace JianpuEditor.Services
                                     Bpm = Math.Max(30, Math.Min(300, 60_000_000 / usPerQuarter))
                                 });
                             }
+                        }
+                        else if ((metaType == 0x03 || metaType == 0x04) && string.IsNullOrEmpty(track.Name))
+                        {
+                            // 0x03 = track name, 0x04 = instrument name -- either is a useful label
+                            // for the track picker; keep whichever comes first.
+                            track.Name = Encoding.ASCII.GetString(reader.ReadBytes(length)).Trim();
                         }
                         else
                         {
