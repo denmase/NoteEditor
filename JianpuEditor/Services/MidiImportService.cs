@@ -141,7 +141,7 @@ namespace JianpuEditor.Services
         {
             if (file.Tracks.Count == 1)
             {
-                return file.Tracks[0].NoteOnEvents.Count(item => item.Channel != DrumChannel) > 0 ? 0 : -1;
+                return file.Tracks[0].NoteOnEvents.Any(item => item.Channel != DrumChannel) ? 0 : -1;
             }
 
             var bestIndex = -1;
