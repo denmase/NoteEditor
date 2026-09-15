@@ -3,6 +3,12 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net472</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
+    <!-- Microsoft.ML.OnnxRuntime ships no win-x86 native build (only win-x64/win-arm64), so the
+         process must not run 32-bit. This was previously unpinned, meaning it could land on
+         either architecture depending on the AnyCPU/Prefer32Bit default, crashing ONNX inference
+         on a 32-bit run. BASS already ships an x64 native build (Native\x64), so this doesn't
+         lose anything there. -->
+    <PlatformTarget>x64</PlatformTarget>
     <LangVersion>10</LangVersion>
     <AssemblyName>JianpuEditor</AssemblyName>
     <RootNamespace>JianpuEditor</RootNamespace>
