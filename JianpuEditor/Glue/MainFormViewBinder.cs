@@ -1,8 +1,7 @@
 using System;
 using System.ComponentModel;
-using System.Drawing;
 using System.Windows.Forms;
-using JianpuEditor.Rendering;
+using JianpuEditor.Controls;
 using JianpuEditor.ViewModels;
 
 namespace JianpuEditor.Glue
@@ -16,9 +15,9 @@ namespace JianpuEditor.Glue
         private readonly NumericUpDown _measureRangeFrom;
         private readonly NumericUpDown _measureRangeTo;
         private readonly Label _statusLabel;
-        private readonly Button _tieButton;
-        private readonly Button _playButton;
-        private readonly Button _stopButton;
+        private readonly RibbonButton _tieButton;
+        private readonly RibbonButton _playButton;
+        private readonly RibbonButton _stopButton;
         private bool _suppressMeasureTextSync;
         private bool _suppressMeasureRangeSync;
         private bool _suppressMeasureSelectorSync;
@@ -31,9 +30,9 @@ namespace JianpuEditor.Glue
             NumericUpDown measureRangeFrom,
             NumericUpDown measureRangeTo,
             Label statusLabel,
-            Button tieButton,
-            Button playButton,
-            Button stopButton)
+            RibbonButton tieButton,
+            RibbonButton playButton,
+            RibbonButton stopButton)
         {
             _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
             _form = form ?? throw new ArgumentNullException(nameof(form));
@@ -183,9 +182,7 @@ namespace JianpuEditor.Glue
                 return;
             }
 
-            _tieButton.BackColor = _viewModel.TieEditor.IsTieModeActive
-                ? AppTheme.TieModeButtonBackground
-                : AppTheme.IsDarkMode ? Color.FromArgb(58, 58, 64) : SystemColors.Control;
+            _tieButton.IsActive = _viewModel.TieEditor.IsTieModeActive;
         }
 
         private void UpdatePlaybackButtons()
