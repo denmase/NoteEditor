@@ -212,10 +212,11 @@ namespace JianpuEditor.Services.AudioToMidi
                 dims[i] = t.Dimensions[i];
             }
             var result = new DenseTensor<T>(dims);
-            var flatSource = t.ToArray();
-            for (var i = 0; i < flatSource.Length; i++)
+            var i2 = 0;
+            foreach (var value in t)
             {
-                result.Buffer.Span[i] = flatSource[i];
+                result.Buffer.Span[i2] = value;
+                i2++;
             }
             return result;
         }
