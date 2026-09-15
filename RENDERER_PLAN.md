@@ -114,10 +114,24 @@ concept of — chord markers, this app's specific ornament set, structured lyric
   refactor, not a features change. New drag gestures (e.g. note pitch/duration drag, matching
   `ROADMAP.md`'s "live note preview under the cursor" item) now only need a new `BeginDrag(...)`
   call site, not a new state machine.
-- **A4. Vertical-stacking generalization.** `NoteTopAnnotationPlanner`'s band-based overlap
-  avoidance for accidentals/octave-dots/ornaments works but is tuned by hand; make it a proper
-  "avoid collision" pass rather than fixed Y-bands, informed by how alphaTab's own v1.8 changelog
-  described reworking the identical problem for its numbered-notation dot/overflow calculations.
+- **A4. Vertical-stacking generalization — done.** `NoteTopAnnotationPlanner`'s ornament/fermata
+  placement (`PlaceOrnamentBands`) used to pick from a fixed table of hand-covered combinations: a
+  boolean "is anything else present" collapsed every case into one of two Y values, with no notion
+  of a fermata and a center ornament (trill/turn/mordent) sharing the same note -- both landed only
+  2px apart regardless of glyph size (real bug: `OrnamentService.TryAddOrnament` allows attaching
+  both to one note, they're independent ornament types). Replaced with real outward stacking: each
+  present layer (accidental/octave dots unchanged from A1/earlier tuning, then ornament, then
+  fermata) claims a fixed `AnnotationLayerClearance` (6px) above whatever's already been placed
+  closer to the note, so any combination gets real clearance instead of only the two the old table
+  explicitly handled. Verified three ways: (1) a standalone harness re-running the existing
+  `NoteTopAnnotationPlannerTests` math under Mono, all passing against hand-computed expected
+  values; (2) a new regression test (`Plan_FermataAndTrillTogether_...`) asserting the two layers
+  now sit a full `AnnotationLayerClearance` apart; (3) rendering a synthetic score through the real
+  `JianpuRenderer` with `ScoreLayoutOptions.Editor` (what `ScoreCanvas` actually uses) before and
+  after the change and diffing the PNGs pixel-by-pixel -- the diff bbox covered only the
+  fermata+trill note, confirming the three previously-covered combinations (accidental+octave+grace,
+  accidental+octave+trill, accidental+octave+fermata) render identically while the previously-broken
+  one now shows real separation.
 
 **Milestones**: A1 → A3 → A2 → A4, in that order (A1 unblocks A3's reuse story; A2 and A4 are
 independently schedulable after A1).

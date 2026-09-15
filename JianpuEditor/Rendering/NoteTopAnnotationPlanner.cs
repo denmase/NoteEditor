@@ -24,7 +24,7 @@ namespace JianpuEditor.Rendering
                 HeadCenterX = headCenterX,
                 OctaveDotCenterX = headCenterX - 3f,
                 OrnamentY = NoteTopAnnotationLayout.OrnamentBandYWithoutLowerLayers,
-                FermataY = NoteTopAnnotationLayout.FermataBandY
+                FermataY = NoteTopAnnotationLayout.OrnamentBandYWithoutLowerLayers
             };
 
             if (note == null || note.Type == NoteType.Rest)
@@ -138,21 +138,37 @@ namespace JianpuEditor.Rendering
             }
         }
 
+        /// <summary>
+        /// Stacks the outer annotation layers (center/grace ornament, then fermata) outward from
+        /// whatever occupies the space closer to the note, instead of picking a Y from a fixed
+        /// table of hand-covered combinations. Each present layer claims
+        /// <see cref="NoteTopAnnotationLayout.AnnotationLayerClearance"/> above the boundary set by
+        /// the layer(s) below it, so a combination the old table never accounted for -- e.g. a
+        /// fermata over a trill -- gets real clearance instead of landing almost on top of it.
+        /// </summary>
         private static void PlaceOrnamentBands(NoteTopAnnotationLayout layout)
         {
-            var hasUpperOrnament = layout.HasGraceOrnament || layout.HasCenterOrnament;
-            var hasLowerLayers = layout.HasAccidental || layout.HasHighOctaveDots;
+            var boundaryY = NoteTopAnnotationLayout.DigitTextY;
+            if (layout.HasAccidental)
+            {
+                boundaryY = Math.Min(boundaryY, layout.AccidentalY);
+            }
 
+            if (layout.HasHighOctaveDots)
+            {
+                boundaryY = Math.Min(boundaryY, layout.OctaveDotBaseY);
+            }
+
+            var hasUpperOrnament = layout.HasGraceOrnament || layout.HasCenterOrnament;
             if (hasUpperOrnament)
             {
-                layout.OrnamentY = hasLowerLayers || layout.HasFermata
-                    ? NoteTopAnnotationLayout.DefaultOrnamentBandY
-                    : NoteTopAnnotationLayout.OrnamentBandYWithoutLowerLayers;
+                layout.OrnamentY = boundaryY - NoteTopAnnotationLayout.AnnotationLayerClearance;
+                boundaryY = layout.OrnamentY;
             }
 
             if (layout.HasFermata)
             {
-                layout.FermataY = NoteTopAnnotationLayout.FermataBandY;
+                layout.FermataY = boundaryY - NoteTopAnnotationLayout.AnnotationLayerClearance;
             }
         }
     }

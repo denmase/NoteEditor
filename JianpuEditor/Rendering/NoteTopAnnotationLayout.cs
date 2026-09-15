@@ -12,11 +12,18 @@ namespace JianpuEditor.Rendering
 
         public const float OctaveDotBandYWithoutAccidental = 12f;
 
-        public const float DefaultOrnamentBandY = 2f;
-
         public const float OrnamentBandYWithoutLowerLayers = 12f;
 
-        public const float FermataBandY = 0f;
+        /// <summary>
+        /// Vertical clearance a stacked outer layer (center/grace ornament, then fermata) claims
+        /// above whatever sits directly below it -- accidental/octave dots, another ornament layer,
+        /// or the note itself. Layers are placed outward one at a time by subtracting this from
+        /// the Y of whatever's below, so any combination gets real clearance instead of the fixed,
+        /// hand-picked-per-combination bands this replaced (which had no notion of, e.g., a fermata
+        /// stacked above a center ornament -- both landed 2px apart regardless of what else was on
+        /// the note).
+        /// </summary>
+        public const float AnnotationLayerClearance = 6f;
 
         public const float OctaveDotDiameter = 6f;
 
