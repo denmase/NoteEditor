@@ -43,6 +43,7 @@ namespace JianpuEditor
         private ContextMenuStrip _sampleLibraryMenu;
         private ToolStripMenuItem _darkModeMenuItem;
         private ToolStripMenuItem _fillPlaceholdersMenuItem;
+        private ToolStripMenuItem _underlinesAboveMenuItem;
         private ToolStripMenuItem _undoMenuItem;
         private ToolStripMenuItem _redoMenuItem;
         private readonly ToolTip _toolTip = new ToolTip();
@@ -294,6 +295,13 @@ namespace JianpuEditor
             };
             _fillPlaceholdersMenuItem.CheckedChanged += OnFillPlaceholdersToggled;
             viewMenu.DropDownItems.Add(_fillPlaceholdersMenuItem);
+            _underlinesAboveMenuItem = new ToolStripMenuItem("Beams Above Notes (Indonesian Jianpu style)")
+            {
+                CheckOnClick = true,
+                Checked = AppTheme.UnderlinesAbove
+            };
+            _underlinesAboveMenuItem.CheckedChanged += OnUnderlinesAboveToggled;
+            viewMenu.DropDownItems.Add(_underlinesAboveMenuItem);
             viewMenu.DropDownItems.Add(new ToolStripSeparator());
             viewMenu.DropDownItems.Add(CreateMenuItem("Zoom In", Keys.Control | Keys.Oemplus, (s, e) => _canvas.ZoomIn()));
             viewMenu.DropDownItems.Add(CreateMenuItem("Zoom Out", Keys.Control | Keys.OemMinus, (s, e) => _canvas.ZoomOut()));
@@ -513,6 +521,11 @@ namespace JianpuEditor
         private void OnFillPlaceholdersToggled(object sender, EventArgs e)
         {
             AppTheme.SetFillMeasurePlaceholdersOnAdd(_fillPlaceholdersMenuItem.Checked);
+        }
+
+        private void OnUnderlinesAboveToggled(object sender, EventArgs e)
+        {
+            AppTheme.SetUnderlinesAbove(_underlinesAboveMenuItem.Checked);
         }
 
         private static ToolStripMenuItem CreateMenuItem(string text, Keys shortcut, EventHandler handler)

@@ -32,6 +32,11 @@ namespace JianpuEditor.Rendering
 
         public static bool FillMeasurePlaceholdersOnAdd { get; private set; } = true;
 
+        /// <summary>When true, beat-group duration underlines are drawn above the melody row instead
+        /// of below it -- the notation convention used in the Indonesian Jianpu variant, as opposed
+        /// to the Chinese/Western convention (lines below) this renderer defaults to.</summary>
+        public static bool UnderlinesAbove { get; private set; }
+
         /// <summary>Path to a VST2 instrument plugin DLL to use for playback instead of the bundled SoundFont, or empty to use the SoundFont.</summary>
         public static string VstPluginPath { get; private set; } = string.Empty;
 
@@ -51,12 +56,14 @@ namespace JianpuEditor.Rendering
                 IsDarkMode = settings?.DarkMode ?? false;
                 FillMeasurePlaceholdersOnAdd = settings?.FillMeasurePlaceholdersOnAdd ?? true;
                 VstPluginPath = settings?.VstPluginPath ?? string.Empty;
+                UnderlinesAbove = settings?.UnderlinesAbove ?? false;
             }
             catch
             {
                 IsDarkMode = false;
                 FillMeasurePlaceholdersOnAdd = true;
                 VstPluginPath = string.Empty;
+                UnderlinesAbove = false;
             }
         }
 
@@ -88,6 +95,22 @@ namespace JianpuEditor.Rendering
             {
                 Save();
             }
+        }
+
+        public static void SetUnderlinesAbove(bool enabled, bool persist = true)
+        {
+            if (UnderlinesAbove == enabled)
+            {
+                return;
+            }
+
+            UnderlinesAbove = enabled;
+            if (persist)
+            {
+                Save();
+            }
+
+            ThemeChanged?.Invoke();
         }
 
         public static void SetVstPluginPath(string path, bool persist = true)
@@ -210,7 +233,8 @@ namespace JianpuEditor.Rendering
                     {
                         DarkMode = IsDarkMode,
                         FillMeasurePlaceholdersOnAdd = FillMeasurePlaceholdersOnAdd,
-                        VstPluginPath = VstPluginPath
+                        VstPluginPath = VstPluginPath,
+                        UnderlinesAbove = UnderlinesAbove
                     },
                     Formatting.Indented);
                 File.WriteAllText(SettingsPath, json);
@@ -228,6 +252,8 @@ namespace JianpuEditor.Rendering
             public bool FillMeasurePlaceholdersOnAdd { get; set; } = true;
 
             public string VstPluginPath { get; set; } = string.Empty;
+
+            public bool UnderlinesAbove { get; set; }
         }
     }
 }

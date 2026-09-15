@@ -1199,9 +1199,24 @@ namespace JianpuEditor.Rendering
                     ? selectedNotes.Any(note => note.MeasureIndex == layout.MeasureIndex && note.NoteIndex == i)
                     : layout.MeasureIndex == selectedMeasureIndex && i == selectedNoteIndex;
                 layout.GetNoteDrawBounds(i, out var noteX, out var noteWidth);
+                int nextNoteX;
+                int nextNoteWidth;
+                if (i + 1 < noteCount)
+                {
+                    layout.GetNoteDrawBounds(i + 1, out nextNoteX, out nextNoteWidth);
+                }
+                else
+                {
+                    nextNoteX = noteX + noteWidth;
+                    nextNoteWidth = noteWidth;
+                }
+                var nextHeadCenterX = nextNoteX + Math.Min(NoteCellWidth, nextNoteWidth) / 2f;
 
                 var slotNotes = MelodyChordService.GetNotesAtSlot(measure, i);
-                var melodyNotes = slotNotes.Where(note => note.Type == NoteType.Note).ToList();
+                var melodyNotes = slotNotes
+                    .Where(note => note.Type == NoteType.Note)
+                    .OrderByDescending(note => note.Octave * 7 + note.Pitch)
+                    .ToList();
                 if (melodyNotes.Count > 1)
                 {
                     DrawSimultaneousNotes(
@@ -1213,6 +1228,7 @@ namespace JianpuEditor.Rendering
                         noteX,
                         layout.BlockTop,
                         noteWidth,
+                        nextHeadCenterX,
                         isSelected);
                 }
                 else
@@ -1225,6 +1241,7 @@ namespace JianpuEditor.Rendering
                         noteX,
                         layout.BlockTop,
                         noteWidth,
+                        nextHeadCenterX,
                         isSelected);
                 }
             }
@@ -1453,10 +1470,78 @@ namespace JianpuEditor.Rendering
                         continue;
                     }
 
-                    layout.GetNoteDrawBounds(spanStart, out var startX, out _);
-                    layout.GetNoteDrawBounds(spanEnd, out var endNoteX, out var endNoteWidth);
-                    var endX = endNoteX + endNoteWidth;
-                    var lineY = rowTop + 62 + underlineIndex * 6;
+                    layout.GetNoteDrawBounds(spanStart, out var startX, out var spanStartWidth);
+                    var spanStartHeadWidth = Math.Min(NoteCellWidth, spanStartWidth);
+                    var spanStartHeadCenterX = startX + spanStartHeadWidth / 2f;
+                    if (AppTheme.UnderlinesAbove)
+                    {
+                        // A note's slot is sized proportionally to its duration (so a dotted-eighth
+                        // like "1" gets a much wider slot than a following 16th like "6"), but the
+                        // digit itself is centered within that slot -- using the slot's raw left edge
+                        // as the beam's start leaves a visible gap of dead space before the digit for
+                        // any note whose slot is wider than its rendered text. This exists in below
+                        // mode too, but that mode is the original/default Jianpu rendering and must
+                        // stay exactly as it was -- Indonesian style is an explicit opt-in via the
+                        // View menu toggle, not a replacement, so this fix is scoped to above mode
+                        // only. Measure the actual glyph and start there instead, matching
+                        // DrawCenteredNoteText's own centering math exactly.
+                        var spanStartNote = notes[spanStart];
+                        var spanStartText = spanStartNote.Type == NoteType.Rest
+                            ? "0"
+                            : JianpuPitchCodec.GetPitchDisplayText(spanStartNote);
+                        var spanStartTextWidth = g.MeasureString(spanStartText, _noteFont).Width;
+                        startX = (int)(startX + (spanStartHeadWidth - spanStartTextWidth) / 2f);
+                    }
+                    // The barline-crossing beam gap fix (using natural, un-stretched bounds for the
+                    // beam's end) is also scoped to above mode only, for the same reason as the
+                    // start-edge fix above -- below mode is the original renderer and must not change.
+                    int endX;
+                    if (AppTheme.UnderlinesAbove)
+                    {
+                        layout.GetNoteNaturalDrawBounds(spanEnd, out var endNoteX, out var endNoteWidth);
+                        endX = endNoteX + endNoteWidth;
+                    }
+                    else
+                    {
+                        layout.GetNoteDrawBounds(spanEnd, out var endNoteX, out var endNoteWidth);
+                        endX = endNoteX + endNoteWidth;
+                    }
+
+                    // A dotted note "borrows" part of the next beat subdivision via its augmentation
+                    // dot, so a shorter (higher-index) beam that starts right after a dotted note
+                    // should extend back to cover that dot, not start at the following note's own
+                    // left edge -- otherwise the beam looks disconnected from the rhythm it's
+                    // describing. Only above mode repositions the dot near the beam (see
+                    // DrawNoteDottedAndDashes); below mode's dot sits far enough from its own beam
+                    // that this doesn't apply.
+                    if (AppTheme.UnderlinesAbove && underlineIndex > 0 && spanStart > 0
+                        && group.Contains(spanStart - 1) && notes[spanStart - 1].Dotted)
+                    {
+                        layout.GetNoteDrawBounds(spanStart - 1, out var prevX, out var prevWidth);
+                        var prevHeadCenterX = prevX + Math.Min(NoteCellWidth, prevWidth) / 2f;
+                        // Match DrawNoteDottedAndDashes' above-mode dot position exactly (glyph
+                        // center to glyph center, not slot edges), so the beam's start lines up with
+                        // (a hair before) the dot instead of the following note's own edge.
+                        startX = (int)((prevHeadCenterX + spanStartHeadCenterX) / 2f - 2.5f);
+                    }
+                    // Both modes use a fixed mapping from underlineIndex to height -- NOT the
+                    // per-group maxUnderlines -- so that every group's underlineIndex-0 (full-span)
+                    // beam lands at the same height across the whole row, regardless of whether a
+                    // neighboring group happens to have a deeper (16th-note) subdivision. Note.
+                    // Underlines is capped at 2 app-wide (see NoteEditorViewModel.GetDurationTier),
+                    // so underlineIndex only ever reaches 0 or 1.
+                    // Below mode stacks the full-span (underlineIndex 0) beam closest to the row,
+                    // with the shorter partial-span (underlineIndex 1, 16th-note level) beam farther
+                    // out, starting just past the negative-octave-dot zone (y+52+).
+                    // Above mode uses the opposite stacking order -- shorter beam closest to the
+                    // row, full-span beam farthest -- matching the Indonesian Jianpu convention (see
+                    // reference), stacked upward clear of the positive-octave-dot zone (dots only
+                    // ever grow downward from y+4, so this can't collide with them regardless of a
+                    // note's octave), using the StaffBlockSpacing gap between systems as headroom.
+                    const int maxUnderlineIndex = 1;
+                    var lineY = AppTheme.UnderlinesAbove
+                        ? rowTop - 8 - (maxUnderlineIndex - underlineIndex) * 6
+                        : rowTop + 62 + underlineIndex * 6;
                     g.DrawLine(Pens.Black, startX, lineY, endX, lineY);
                 }
             }
@@ -1850,6 +1935,7 @@ namespace JianpuEditor.Rendering
             int x,
             int y,
             int noteWidth,
+            float nextHeadCenterX,
             bool isSelected)
         {
             var headWidth = Math.Min(NoteCellWidth, noteWidth);
@@ -1871,7 +1957,7 @@ namespace JianpuEditor.Rendering
             using (var chordFont = new Font(_noteFont.FontFamily, Math.Max(8f, _noteFont.Size * 0.72f), _noteFont.Style))
             {
                 var count = melodyNotes.Count;
-                var lineHeight = 14f;
+                var lineHeight = 17f;
                 var blockHeight = count * lineHeight;
                 var startY = y + 18f + Math.Max(0f, (36f - blockHeight) / 2f);
                 var headCenterX = x + headWidth / 2f;
@@ -1901,7 +1987,7 @@ namespace JianpuEditor.Rendering
                     }
                 }
 
-                DrawNoteDottedAndDashes(g, durationNote, x, y, noteWidth, headWidth, headCenterX, ink, inkPen);
+                DrawNoteDottedAndDashes(g, durationNote, x, y, noteWidth, headWidth, headCenterX, nextHeadCenterX, ink, inkPen);
             }
         }
 
@@ -1913,6 +1999,7 @@ namespace JianpuEditor.Rendering
             int x,
             int y,
             int noteWidth,
+            float nextHeadCenterX,
             bool isSelected)
         {
             var headWidth = Math.Min(NoteCellWidth, noteWidth);
@@ -1972,7 +2059,7 @@ namespace JianpuEditor.Rendering
                 {
                     DrawNoteOctaveDots(g, note, x, y, headCenterX, ink);
                 }
-                DrawNoteDottedAndDashes(g, note, x, y, noteWidth, headWidth, headCenterX, ink, inkPen);
+                DrawNoteDottedAndDashes(g, note, x, y, noteWidth, headWidth, headCenterX, nextHeadCenterX, ink, inkPen);
             }
         }
 
@@ -2064,13 +2151,21 @@ namespace JianpuEditor.Rendering
             int noteWidth,
             int headWidth,
             float headCenterX,
+            float nextHeadCenterX,
             Brush ink,
             Pen inkPen)
         {
             if (note.Dotted)
             {
-                var dotX = Math.Min(x + headWidth - 8, headCenterX + 12);
-                g.FillEllipse(ink, dotX, y + 42, 5, 5);
+                // Below mode keeps the dot tucked close to the note's own glyph. Above mode moves it
+                // to the true midpoint between this note's glyph center and the next note's glyph
+                // center (not slot edges -- those don't track the visual character position and left
+                // the dot sitting almost on top of the next note instead of centered between the two).
+                var dotX = AppTheme.UnderlinesAbove
+                    ? (headCenterX + nextHeadCenterX) / 2f - 2.5f
+                    : Math.Min(x + headWidth - 8, headCenterX + 12);
+                var dotY = AppTheme.UnderlinesAbove ? y + 30 : y + 42;
+                g.FillEllipse(ink, dotX, dotY, 5, 5);
             }
 
             var extensionWidth = noteWidth - headWidth;
@@ -2102,7 +2197,12 @@ namespace JianpuEditor.Rendering
 
         private static int GetMarginTop(ScoreLayoutOptions options)
         {
-            return options.HeaderMarginTop > 0 ? options.HeaderMarginTop : MarginTop;
+            var baseMargin = options.HeaderMarginTop > 0 ? options.HeaderMarginTop : MarginTop;
+            // Above-mode beam lines extend upward from the first system's melody row into this
+            // margin; without extra headroom here they collide with the header (title/key/tempo)
+            // text that occupies the same space. Later systems already clear the gap via
+            // StaffBlockSpacing, so this only needs to cover the first row.
+            return AppTheme.UnderlinesAbove ? baseMargin + 20 : baseMargin;
         }
 
         private ScoreLayout BuildLayout(JianpuScore score, int maxWidth, ScoreLayoutOptions options)
@@ -2321,6 +2421,21 @@ namespace JianpuEditor.Rendering
                 {
                     noteWidth = Math.Max(minDrawWidth, X + Width - noteX);
                 }
+            }
+
+            /// <summary>
+            /// Same as <see cref="GetNoteDrawBounds"/> but without the last-note-in-measure stretch
+            /// (which pads the final note's clickable/fillable width out to the barline so a squeezed
+            /// measure doesn't leave an ugly visual gap). A beam's endpoint should follow the note's
+            /// actual glyph width, not that padding -- otherwise a beam ending on the measure's last
+            /// note runs straight through the barline into the next measure's beam with no visible
+            /// gap between them.
+            /// </summary>
+            public void GetNoteNaturalDrawBounds(int noteIndex, out int noteX, out int noteWidth)
+            {
+                var minDrawWidth = GetMinDrawWidth();
+                noteWidth = Math.Max(minDrawWidth, (int)Math.Round(GetNoteWidth(noteIndex) * MelodyScale));
+                noteX = X + (int)Math.Round(GetNoteOffset(noteIndex) * MelodyScale);
             }
 
             public Rectangle GetNoteBounds(int noteIndex)
