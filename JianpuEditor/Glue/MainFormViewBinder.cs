@@ -14,7 +14,7 @@ namespace JianpuEditor.Glue
         private readonly NumericUpDown _measureSelector;
         private readonly NumericUpDown _measureRangeFrom;
         private readonly NumericUpDown _measureRangeTo;
-        private readonly Label _statusLabel;
+        private readonly ScoreStatusBar _statusBar;
         private readonly RibbonButton _tieButton;
         private readonly RibbonButton _playButton;
         private readonly RibbonButton _stopButton;
@@ -29,7 +29,7 @@ namespace JianpuEditor.Glue
             NumericUpDown measureSelector,
             NumericUpDown measureRangeFrom,
             NumericUpDown measureRangeTo,
-            Label statusLabel,
+            ScoreStatusBar statusBar,
             RibbonButton tieButton,
             RibbonButton playButton,
             RibbonButton stopButton)
@@ -40,7 +40,7 @@ namespace JianpuEditor.Glue
             _measureSelector = measureSelector;
             _measureRangeFrom = measureRangeFrom;
             _measureRangeTo = measureRangeTo;
-            _statusLabel = statusLabel;
+            _statusBar = statusBar;
             _tieButton = tieButton;
             _playButton = playButton;
             _stopButton = stopButton;
@@ -79,7 +79,7 @@ namespace JianpuEditor.Glue
 
         public void SyncFromViewModels()
         {
-            _statusLabel.Text = _viewModel.StatusMessage ?? string.Empty;
+            _statusBar.SetMessage(_viewModel.StatusMessage);
             SyncMeasureControls();
             SyncMeasureTextBoxes();
             UpdatePlaybackButtons();
@@ -88,6 +88,10 @@ namespace JianpuEditor.Glue
 
         public void SyncMeasureControls()
         {
+            var score = _viewModel.Document.Score;
+            _statusBar.SetKeySignature(score?.KeySignature ?? string.Empty);
+            _statusBar.SetTempo(score != null ? score.Tempo + " · BPM " + score.Bpm : string.Empty);
+
             var measureCount = Math.Max(1, _viewModel.MeasureNavigation.MeasureCount);
             _suppressMeasureSelectorSync = true;
             _suppressMeasureRangeSync = true;
@@ -99,6 +103,7 @@ namespace JianpuEditor.Glue
                 _viewModel.MeasureNavigation.CurrentMeasureIndex,
                 measureCount - 1));
             _measureSelector.Value = Math.Max(1, Math.Min(measureCount, currentIndex + 1));
+            _statusBar.SetMeasure(currentIndex + 1, measureCount);
 
             var range = _viewModel.Selection.GetMeasureRangeIndices();
             var fromIndex = Math.Max(0, Math.Min(range.fromIndex, measureCount - 1));
@@ -130,7 +135,7 @@ namespace JianpuEditor.Glue
         {
             if (e.PropertyName == nameof(MainViewModel.StatusMessage))
             {
-                _statusLabel.Text = _viewModel.StatusMessage ?? string.Empty;
+                _statusBar.SetMessage(_viewModel.StatusMessage);
             }
         }
 

@@ -22,6 +22,6 @@ namespace JianpuEditor.Views
 
         public ScoreCanvas ScoreCanvas { get; set; }
 
-        public Label StatusLabel { get; set; }
+        public ScoreStatusBar ScoreStatusBar { get; set; }
     }
 }

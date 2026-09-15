@@ -24,6 +24,12 @@ namespace JianpuEditor.Controls
         Fermata,
         Duplicate,
         Delete,
-        Library
+        Library,
+        Key,
+        Tempo,
+        Measures,
+        Engine,
+        ZoomIn,
+        ZoomOut
     }
 }

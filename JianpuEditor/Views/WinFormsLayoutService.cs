@@ -162,7 +162,7 @@ namespace JianpuEditor.Views
                 || context.MenuStrip == null
                 || context.ToolbarPanel == null
                 || context.ScoreCanvas == null
-                || context.StatusLabel == null)
+                || context.ScoreStatusBar == null)
             {
                 throw new InvalidOperationException("MainFormLayoutContext is incomplete.");
             }

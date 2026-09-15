@@ -35,7 +35,7 @@ namespace JianpuEditor
         private readonly NumericUpDown _measureSelector = new NumericUpDown();
         private readonly NumericUpDown _measureRangeFrom = new NumericUpDown();
         private readonly NumericUpDown _measureRangeTo = new NumericUpDown();
-        private readonly Label _statusLabel = new Label();
+        private readonly ScoreStatusBar _statusBar = new ScoreStatusBar();
         private RibbonButton _tieButton;
         private RibbonButton _playButton;
         private RibbonButton _stopButton;
@@ -90,7 +90,7 @@ namespace JianpuEditor
                 _measureSelector,
                 _measureRangeFrom,
                 _measureRangeTo,
-                _statusLabel,
+                _statusBar,
                 _tieButton,
                 _playButton,
                 _stopButton);
@@ -129,7 +129,6 @@ namespace JianpuEditor
         {
             _menuStrip = BuildMenuStrip();
             var toolbarPanel = BuildToolbarPanel();
-            ConfigureStatusLabel();
 
             _chromeLayout = new TableLayoutPanel
             {
@@ -165,12 +164,18 @@ namespace JianpuEditor
 
             _canvas.Dock = DockStyle.Fill;
             _canvas.MinimumSize = new Size(200, 200);
-            _statusLabel.Dock = DockStyle.Fill;
-            _statusLabel.MinimumSize = new Size(0, MainFormLayoutContext.StatusRowHeight);
+            _statusBar.Dock = DockStyle.Fill;
+            _statusBar.MinimumSize = new Size(0, MainFormLayoutContext.StatusRowHeight);
+            _statusBar.ZoomInClicked += () => _canvas.ZoomIn();
+            _statusBar.ZoomOutClicked += () => _canvas.ZoomOut();
+            _statusBar.EngineClicked += (s, e) => ShowAudioEngineDialog();
+            _statusBar.SetEngine(_midiOutput.EngineName);
+            _statusBar.SetZoomPercent((int)System.Math.Round(_canvas.ZoomScale * 100));
+            _canvas.ZoomChanged += () => _statusBar.SetZoomPercent((int)System.Math.Round(_canvas.ZoomScale * 100));
 
             _mainLayout.Controls.Add(_chromeLayout, 0, 0);
             _mainLayout.Controls.Add(_canvas, 0, 1);
-            _mainLayout.Controls.Add(_statusLabel, 0, 2);
+            _mainLayout.Controls.Add(_statusBar, 0, 2);
 
             Controls.Clear();
             Controls.Add(_mainLayout);
@@ -184,7 +189,7 @@ namespace JianpuEditor
                 MenuStrip = _menuStrip,
                 ToolbarPanel = toolbarPanel,
                 ScoreCanvas = _canvas,
-                StatusLabel = _statusLabel
+                ScoreStatusBar = _statusBar
             };
             _layoutService.Attach(_layoutContext);
         }
@@ -398,8 +403,7 @@ namespace JianpuEditor
             sampleButton.Click += (s, e) => _sampleLibraryMenu.Show(sampleButton, new Point(0, sampleButton.Height));
             other.AddRow(
                 CreateRibbonButton(RibbonIcon.Delete, "Delete", ExecuteDelete, compact: true),
-                sampleButton,
-                CreateAudioEngineIndicator());
+                sampleButton);
             panel.Controls.Add(other);
 
             return panel;
@@ -423,28 +427,6 @@ namespace JianpuEditor
             };
         }
 
-        private Label CreateAudioEngineIndicator()
-        {
-            var label = new Label
-            {
-                Text = "Engine: " + _midiOutput.EngineName,
-                AutoSize = true,
-                Margin = new Padding(0, 10, 6, 0),
-                Cursor = Cursors.Hand
-            };
-            _toolTip.SetToolTip(
-                label,
-                "Active playback engine (click to open Edit → Audio Engine...). Changes here take effect after restarting.");
-            label.Click += (s, e) => ShowAudioEngineDialog();
-            return label;
-        }
-
-        private void ConfigureStatusLabel()
-        {
-            _statusLabel.Padding = new Padding(12, 6, 0, 0);
-            _statusLabel.TextAlign = ContentAlignment.MiddleLeft;
-            _statusLabel.Height = MainFormLayoutContext.StatusRowHeight;
-        }
 
         private DigitButton CreateNoteButton(int pitch)
         {

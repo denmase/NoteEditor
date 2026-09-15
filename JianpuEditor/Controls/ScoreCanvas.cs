@@ -122,6 +122,11 @@ namespace JianpuEditor.Controls
             get { return _zoom.Scale; }
         }
 
+        /// <summary>Raised after the zoom factor changes, from any of ZoomIn/ZoomOut/ResetZoom or
+        /// Ctrl+MouseWheel -- so UI reporting the current zoom (the status bar) doesn't need to
+        /// duplicate all four entry points.</summary>
+        public event Action ZoomChanged;
+
         public void ZoomIn()
         {
             _zoom.ZoomIn();
@@ -142,6 +147,7 @@ namespace JianpuEditor.Controls
 
         private void ApplyZoomChange()
         {
+            ZoomChanged?.Invoke();
             if (!IsHandleCreated)
             {
                 return;

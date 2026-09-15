@@ -49,11 +49,12 @@ namespace JianpuEditor.Glue
             {
                 ApplyControl(control, canvas);
 
-                // RibbonGroup and its buttons theme themselves off AppTheme.ThemeChanged; walking
-                // into its children would otherwise catch the group's internal (plain,
-                // unsubclassed) FlowLayoutPanel rows in the generic "is FlowLayoutPanel" branch
-                // below and stomp their transparent background back to FormBackground.
-                if (control.HasChildren && !(control is RibbonGroup))
+                // RibbonGroup/ScoreStatusBar and their children theme themselves off
+                // AppTheme.ThemeChanged; walking into them would otherwise catch their internal
+                // (plain, unsubclassed) Label/FlowLayoutPanel children in the generic "is Label"/
+                // "is FlowLayoutPanel" branches below and stomp their colors back to
+                // FormForeground/FormBackground.
+                if (control.HasChildren && !(control is RibbonGroup) && !(control is ScoreStatusBar))
                 {
                     ApplyControlTree(control.Controls, canvas);
                 }
@@ -68,7 +69,7 @@ namespace JianpuEditor.Glue
                 return;
             }
 
-            if (control is RibbonGroup)
+            if (control is RibbonGroup || control is ScoreStatusBar)
             {
                 return;
             }

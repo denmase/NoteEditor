@@ -171,6 +171,45 @@ namespace JianpuEditor.Controls
                     }
 
                     return;
+                case RibbonIcon.Key:
+                    g.DrawLine(pen, 7f, 4f, 7f, 15f);
+                    g.DrawLine(pen, 11.5f, 4f, 11.5f, 15f);
+                    g.DrawLine(pen, 4.5f, 9f, 7f, 8.2f);
+                    g.DrawLine(pen, 4.5f, 12f, 7f, 11.2f);
+                    g.DrawLine(pen, 11.5f, 8.2f, 14f, 9f);
+                    g.DrawLine(pen, 11.5f, 11.2f, 14f, 12f);
+                    return;
+                case RibbonIcon.Tempo:
+                    g.DrawPolygon(pen, new[] { new PointF(7f, 16f), new PointF(9.5f, 3f), new PointF(12f, 16f) });
+                    g.DrawLine(pen, 8f, 12.5f, 12.5f, 6f);
+                    return;
+                case RibbonIcon.Measures:
+                    g.DrawLine(pen, 4f, 4f, 4f, 16f);
+                    g.DrawLine(pen, 10f, 4f, 10f, 16f);
+                    g.DrawLine(pen, 16f, 4f, 16f, 16f);
+                    return;
+                case RibbonIcon.Engine:
+                    g.DrawRectangle(pen, 6f, 6f, 8f, 8f);
+                    g.DrawLine(pen, 9f, 6f, 9f, 3f);
+                    g.DrawLine(pen, 12f, 6f, 12f, 3f);
+                    g.DrawLine(pen, 9f, 17f, 9f, 14f);
+                    g.DrawLine(pen, 12f, 17f, 12f, 14f);
+                    g.DrawLine(pen, 3f, 9f, 6f, 9f);
+                    g.DrawLine(pen, 3f, 12f, 6f, 12f);
+                    g.DrawLine(pen, 17f, 9f, 14f, 9f);
+                    g.DrawLine(pen, 17f, 12f, 14f, 12f);
+                    return;
+                case RibbonIcon.ZoomIn:
+                    g.DrawEllipse(pen, 3.5f, 3.5f, 9f, 9f);
+                    g.DrawLine(pen, 12.5f, 12.5f, 17f, 17f);
+                    g.DrawLine(pen, 8f, 5.5f, 8f, 10.5f);
+                    g.DrawLine(pen, 5.5f, 8f, 10.5f, 8f);
+                    return;
+                case RibbonIcon.ZoomOut:
+                    g.DrawEllipse(pen, 3.5f, 3.5f, 9f, 9f);
+                    g.DrawLine(pen, 12.5f, 12.5f, 17f, 17f);
+                    g.DrawLine(pen, 5.5f, 8f, 10.5f, 8f);
+                    return;
             }
         }
 
