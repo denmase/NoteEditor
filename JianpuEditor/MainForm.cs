@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.IO;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using JianpuEditor.Controls;
 using JianpuEditor.Core.Abstractions;
@@ -976,7 +977,7 @@ namespace JianpuEditor
             }
         }
 
-        private void OnImportAudio(object sender, EventArgs e, AudioTranscriptionEngine engine)
+        private async void OnImportAudio(object sender, EventArgs e, AudioTranscriptionEngine engine)
         {
             _viewModel.Playback.Stop();
             _viewModel.TieEditor.CancelTieMode();
@@ -992,28 +993,44 @@ namespace JianpuEditor
                     return;
                 }
 
-                Cursor = Cursors.WaitCursor;
-                _viewModel.SetStatus("Transcribing audio (" + engineLabel + ")... this can take a few seconds");
-                Application.DoEvents();
-                try
+                var fileName = dialog.FileName;
+
+                // Transcription runs several seconds to a few minutes depending on the engine and
+                // clip length; running it on the UI thread froze the window ("Not Responding") for
+                // that whole time with no feedback. Task.Run keeps the UI pumping messages while
+                // Progress<string> (captures this thread's SynchronizationContext) marshals status
+                // updates back safely.
+                using (var progressDialog = new AudioImportProgressDialog("Import from Audio (" + engineLabel + ")"))
                 {
-                    var result = _viewModel.ImportAudio(dialog.FileName, engine);
-                    Text = _viewModel.Document.WindowTitle;
-                    _glue.ApplyEditResult(new ScoreEditResult { Changed = true, SelectMeasureIndex = 0 });
-                    _glue.ResetPlaybackHead();
-                    _binder.SyncHeaderFromDocument();
-                    _binder.SyncFromViewModels();
-                    _viewModel.SetStatus(result.Message);
-                }
-                catch (Exception ex)
-                {
-                    AppLog.Exception("Audio import failed: " + dialog.FileName, ex);
-                    _viewModel.SetStatus("Audio import failed");
-                    MessageBox.Show("Audio import failed: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-                finally
-                {
-                    Cursor = Cursors.Default;
+                    progressDialog.Show(this);
+                    Enabled = false;
+                    var progress = new Progress<string>(message =>
+                    {
+                        progressDialog.SetMessage(message);
+                        _viewModel.SetStatus(message);
+                    });
+
+                    try
+                    {
+                        var result = await Task.Run(() => _viewModel.ImportAudio(fileName, engine, progress));
+                        Text = _viewModel.Document.WindowTitle;
+                        _glue.ApplyEditResult(new ScoreEditResult { Changed = true, SelectMeasureIndex = 0 });
+                        _glue.ResetPlaybackHead();
+                        _binder.SyncHeaderFromDocument();
+                        _binder.SyncFromViewModels();
+                        _viewModel.SetStatus(result.Message);
+                    }
+                    catch (Exception ex)
+                    {
+                        AppLog.Exception("Audio import failed: " + fileName, ex);
+                        _viewModel.SetStatus("Audio import failed");
+                        MessageBox.Show("Audio import failed: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                    finally
+                    {
+                        Enabled = true;
+                        progressDialog.Close();
+                    }
                 }
             }
         }

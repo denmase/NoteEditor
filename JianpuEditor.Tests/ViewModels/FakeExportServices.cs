@@ -58,7 +58,7 @@ namespace JianpuEditor.Tests.ViewModels
 
         public AudioTranscriptionEngine LastEngine { get; private set; }
 
-        public JianpuScore Import(string audioPath, AudioTranscriptionEngine engine)
+        public JianpuScore Import(string audioPath, AudioTranscriptionEngine engine, System.IProgress<string> progress = null)
         {
             LastPath = audioPath;
             LastEngine = engine;

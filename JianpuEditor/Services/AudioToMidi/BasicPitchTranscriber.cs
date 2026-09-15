@@ -18,7 +18,7 @@ namespace JianpuEditor.Services.AudioToMidi
         private const double MergeGapSeconds = 0.06; // bridges a spurious re-onset mid-sustain
         private const float MinAmplitude = 0.35f; // drops low-confidence/harmonic-bleed detections
 
-        public List<TranscribedNote> Transcribe(string audioPath)
+        public List<TranscribedNote> Transcribe(string audioPath, IProgress<string> progress = null)
         {
             var modelPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "Models", "nmp.onnx");
             if (!File.Exists(modelPath))
@@ -26,6 +26,7 @@ namespace JianpuEditor.Services.AudioToMidi
                 throw new FileNotFoundException("Audio transcription model not found. Expected at: " + modelPath, modelPath);
             }
 
+            progress?.Report("Decoding audio...");
             var samples = AudioDecoder.DecodeToMono(audioPath, BasicPitchModel.AudioSampleRate);
             if (samples.Length == 0)
             {
@@ -35,7 +36,8 @@ namespace JianpuEditor.Services.AudioToMidi
             List<NoteDecoder.TimedNote> timedNotes;
             using (var model = new BasicPitchModel(modelPath))
             {
-                var output = model.RunInference(samples);
+                var output = model.RunInference(samples, (window, totalWindows) =>
+                    progress?.Report($"Transcribing (instrument) window {window} of {totalWindows}..."));
                 var rawNotes = NoteDecoder.DecodeFrames(output.Note, output.Onset, OnsetThreshold, FrameThreshold, MinNoteLenFrames);
                 timedNotes = NoteDecoder.ToTimedNotes(rawNotes, output.Note.GetLength(0));
             }

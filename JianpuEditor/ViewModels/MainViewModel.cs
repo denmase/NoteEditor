@@ -241,12 +241,12 @@ namespace JianpuEditor.ViewModels
             }
         }
 
-        public ScoreEditResult ImportAudio(string filePath, AudioTranscriptionEngine engine)
+        public ScoreEditResult ImportAudio(string filePath, AudioTranscriptionEngine engine, IProgress<string> progress = null)
         {
             try
             {
                 Playback.Stop();
-                var score = _audioImportService.Import(filePath, engine);
+                var score = _audioImportService.Import(filePath, engine, progress);
                 Document.LoadFromMidi(score);
                 SetStatus("Audio transcribed: " + filePath);
                 return ScoreEditResult.WithMessage("Audio transcribed: " + filePath);

@@ -34,7 +34,7 @@ namespace JianpuEditor.Services.AudioToMidi
             _midiImportService = midiImportService ?? throw new ArgumentNullException(nameof(midiImportService));
         }
 
-        public JianpuScore Import(string audioPath, AudioTranscriptionEngine engine)
+        public JianpuScore Import(string audioPath, AudioTranscriptionEngine engine, IProgress<string> progress = null)
         {
             if (string.IsNullOrWhiteSpace(audioPath) || !File.Exists(audioPath))
             {
@@ -42,8 +42,8 @@ namespace JianpuEditor.Services.AudioToMidi
             }
 
             List<TranscribedNote> notes = engine == AudioTranscriptionEngine.Vocal
-                ? _gameTranscriber.Transcribe(audioPath)
-                : _basicPitchTranscriber.Transcribe(audioPath);
+                ? _gameTranscriber.Transcribe(audioPath, progress)
+                : _basicPitchTranscriber.Transcribe(audioPath, progress);
 
             if (notes.Count == 0)
             {

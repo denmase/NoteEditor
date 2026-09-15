@@ -36,7 +36,7 @@ namespace JianpuEditor.Services.AudioToMidi
             public float[,] Onset = null!;  // (n_times, 88)
         }
 
-        public ModelOutput RunInference(float[] audioOriginal)
+        public ModelOutput RunInference(float[] audioOriginal, Action<int, int> onWindow = null)
         {
             var overlapLen = NOverlappingFrames * FftHop; // 7680
             var hopSize = AudioNSamples - overlapLen;      // 36164
@@ -47,11 +47,16 @@ namespace JianpuEditor.Services.AudioToMidi
             var padded = new float[prePad + originalLength];
             Array.Copy(audioOriginal, 0, padded, prePad, originalLength);
 
+            var totalWindows = Math.Max(1, (int)Math.Ceiling((double)padded.Length / hopSize));
             var noteWindows = new List<float[,]>();
             var onsetWindows = new List<float[,]>();
 
+            var windowIndex = 0;
             for (var i = 0; i < padded.Length; i += hopSize)
             {
+                windowIndex++;
+                onWindow?.Invoke(windowIndex, totalWindows);
+
                 var window = new float[AudioNSamples];
                 var available = Math.Min(AudioNSamples, padded.Length - i);
                 Array.Copy(padded, i, window, 0, available);
