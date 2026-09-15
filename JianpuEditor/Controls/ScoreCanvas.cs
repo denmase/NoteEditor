@@ -743,7 +743,9 @@ namespace JianpuEditor.Controls
             if (_showPlaybackHead)
             {
                 var marker = PlaybackLayout.GetMarkerPosition(_playbackSegments, _playbackPositionQuarter);
-                if (marker.IsVisible && Math.Abs(logicalLocation.X - marker.X) <= _playbackHeadHitZone)
+                if (marker.IsVisible
+                    && Math.Abs(logicalLocation.X - marker.X) <= _playbackHeadHitZone
+                    && logicalLocation.Y >= marker.Top && logicalLocation.Y <= marker.Bottom)
                 {
                     _playbackHeadDragMoved = false;
                     BeginDrag(DragKind.PlaybackHead, UpdatePlaybackHeadDrag, CommitPlaybackHeadDrag);
@@ -793,14 +795,14 @@ namespace JianpuEditor.Controls
         private void UpdatePlaybackHeadDrag(Point logicalLocation)
         {
             _playbackHeadDragMoved = true;
-            var beat = PlaybackLayout.MapXToBeat(_playbackSegments, logicalLocation.X);
+            var beat = PlaybackLayout.MapXToBeat(_playbackSegments, logicalLocation.X, logicalLocation.Y);
             SetPlaybackPosition(beat, showHead: true, ensureVisible: false);
             PlaybackSeeked?.Invoke(beat);
         }
 
         private void CommitPlaybackHeadDrag(Point logicalLocation)
         {
-            var beat = PlaybackLayout.MapXToBeat(_playbackSegments, logicalLocation.X);
+            var beat = PlaybackLayout.MapXToBeat(_playbackSegments, logicalLocation.X, logicalLocation.Y);
             SetPlaybackPosition(beat, showHead: true, ensureVisible: true);
             PlaybackSeeked?.Invoke(beat);
         }
@@ -815,7 +817,9 @@ namespace JianpuEditor.Controls
             }
 
             var marker = PlaybackLayout.GetMarkerPosition(_playbackSegments, _playbackPositionQuarter);
-            _contentPanel.Cursor = marker.IsVisible && Math.Abs(location.X - marker.X) <= _playbackHeadHitZone
+            _contentPanel.Cursor = marker.IsVisible
+                && Math.Abs(location.X - marker.X) <= _playbackHeadHitZone
+                && location.Y >= marker.Top && location.Y <= marker.Bottom
                 ? Cursors.SizeWE
                 : Cursors.Default;
         }
