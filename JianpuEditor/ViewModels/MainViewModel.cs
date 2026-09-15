@@ -62,7 +62,8 @@ namespace JianpuEditor.ViewModels
             ExportPdfCommand = new RelayCommand(() => RequestExportPdf?.Invoke(this, EventArgs.Empty));
             ExportMidiCommand = new RelayCommand(() => RequestExportMidi?.Invoke(this, EventArgs.Empty));
             ImportMidiCommand = new RelayCommand(() => RequestImportMidi?.Invoke(this, EventArgs.Empty));
-            ImportAudioCommand = new RelayCommand(() => RequestImportAudio?.Invoke(this, EventArgs.Empty));
+            ImportAudioInstrumentCommand = new RelayCommand(() => RequestImportAudioInstrument?.Invoke(this, EventArgs.Empty));
+            ImportAudioVocalCommand = new RelayCommand(() => RequestImportAudioVocal?.Invoke(this, EventArgs.Empty));
             RequestTransposeDialogCommand = new RelayCommand(() => RequestTransposeDialog?.Invoke(this, EventArgs.Empty));
 
             _messenger.Register<MainViewModel, StatusChangedMessage>(this, OnStatusChanged);
@@ -112,7 +113,9 @@ namespace JianpuEditor.ViewModels
 
         public RelayCommand ImportMidiCommand { get; }
 
-        public RelayCommand ImportAudioCommand { get; }
+        public RelayCommand ImportAudioInstrumentCommand { get; }
+
+        public RelayCommand ImportAudioVocalCommand { get; }
 
         public RelayCommand RequestTransposeDialogCommand { get; }
 
@@ -128,7 +131,9 @@ namespace JianpuEditor.ViewModels
 
         public event EventHandler RequestImportMidi;
 
-        public event EventHandler RequestImportAudio;
+        public event EventHandler RequestImportAudioInstrument;
+
+        public event EventHandler RequestImportAudioVocal;
 
         public event EventHandler RequestTransposeDialog;
 
@@ -236,12 +241,12 @@ namespace JianpuEditor.ViewModels
             }
         }
 
-        public ScoreEditResult ImportAudio(string filePath)
+        public ScoreEditResult ImportAudio(string filePath, AudioTranscriptionEngine engine)
         {
             try
             {
                 Playback.Stop();
-                var score = _audioImportService.Import(filePath);
+                var score = _audioImportService.Import(filePath, engine);
                 Document.LoadFromMidi(score);
                 SetStatus("Audio transcribed: " + filePath);
                 return ScoreEditResult.WithMessage("Audio transcribed: " + filePath);

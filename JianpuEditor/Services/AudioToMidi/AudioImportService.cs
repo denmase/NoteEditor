@@ -8,62 +8,43 @@ using JianpuEditor.Models;
 namespace JianpuEditor.Services.AudioToMidi
 {
     /// <summary>
-    /// Audio-to-MIDI transcription for a single-instrument (STEM) recording: BASS decodes
-    /// and resamples the input file, basic-pitch's ONNX model estimates pitches, and the
-    /// resulting notes are written as a temporary MIDI file and handed to the existing
-    /// <see cref="IMidiImportService"/> pipeline -- reusing its MIDI-to-score conversion
-    /// rather than building a <see cref="JianpuScore"/> from scratch.
+    /// Audio-to-MIDI transcription for a single-instrument (STEM) recording. Picks
+    /// between two ONNX engines (<see cref="BasicPitchTranscriber"/> for instruments,
+    /// <see cref="GameTranscriber"/> for vocals), writes the resulting notes as a
+    /// temporary MIDI file, and hands that to the existing <see cref="IMidiImportService"/>
+    /// pipeline -- reusing its MIDI-to-score conversion rather than building a
+    /// <see cref="JianpuScore"/> from scratch.
     /// </summary>
     /// <remarks>
-    /// This is a prototype: precision was validated only against synthesized audio with
-    /// known ground truth (see the audio-to-MIDI spike), not yet against real recordings.
-    /// Known limitation: a note re-struck at the same pitch with no silence gap (legato
-    /// repeats) can be missed -- a general hard case for this class of model, not specific
-    /// to this integration.
+    /// This is a prototype. basic-pitch was validated against synthesized audio with
+    /// known ground truth; GAME was additionally validated against a real vocal
+    /// recording. Known limitations: a note re-struck at the same pitch with no
+    /// silence gap can be merged into one note by either engine (a general hard case
+    /// for this class of model), and GAME chunks long audio into ~24s windows, so a
+    /// note landing exactly on a chunk boundary can be split into two.
     /// </remarks>
     internal sealed class AudioImportService : IAudioImportService
     {
-        private const float OnsetThreshold = 0.5f;
-        private const float FrameThreshold = 0.3f;
-        private const int MinNoteLenFrames = 11; // basic-pitch's own default (~127.7ms)
-        private const double MergeGapSeconds = 0.06; // bridges a spurious re-onset mid-sustain
-        private const float MinAmplitude = 0.35f; // drops low-confidence/harmonic-bleed detections
-
         private readonly IMidiImportService _midiImportService;
+        private readonly BasicPitchTranscriber _basicPitchTranscriber = new BasicPitchTranscriber();
+        private readonly GameTranscriber _gameTranscriber = new GameTranscriber();
 
         public AudioImportService(IMidiImportService midiImportService)
         {
             _midiImportService = midiImportService ?? throw new ArgumentNullException(nameof(midiImportService));
         }
 
-        public JianpuScore Import(string audioPath)
+        public JianpuScore Import(string audioPath, AudioTranscriptionEngine engine)
         {
             if (string.IsNullOrWhiteSpace(audioPath) || !File.Exists(audioPath))
             {
                 throw new FileNotFoundException("Audio file not found.", audioPath);
             }
 
-            var modelPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "Models", "nmp.onnx");
-            if (!File.Exists(modelPath))
-            {
-                throw new FileNotFoundException("Audio transcription model not found. Expected at: " + modelPath, modelPath);
-            }
+            List<TranscribedNote> notes = engine == AudioTranscriptionEngine.Vocal
+                ? _gameTranscriber.Transcribe(audioPath)
+                : _basicPitchTranscriber.Transcribe(audioPath);
 
-            var samples = AudioDecoder.DecodeToMono(audioPath, BasicPitchModel.AudioSampleRate);
-            if (samples.Length == 0)
-            {
-                throw new InvalidOperationException("Decoded audio contained no samples: " + audioPath);
-            }
-
-            List<NoteDecoder.TimedNote> timedNotes;
-            using (var model = new BasicPitchModel(modelPath))
-            {
-                var output = model.RunInference(samples);
-                var rawNotes = NoteDecoder.DecodeFrames(output.Note, output.Onset, OnsetThreshold, FrameThreshold, MinNoteLenFrames);
-                timedNotes = NoteDecoder.ToTimedNotes(rawNotes, output.Note.GetLength(0));
-            }
-
-            var notes = MergeAndFilter(timedNotes);
             if (notes.Count == 0)
             {
                 throw new InvalidOperationException("No notes were detected in this audio file.");
@@ -86,25 +67,6 @@ namespace JianpuEditor.Services.AudioToMidi
                     // Best-effort cleanup; a leftover temp file isn't worth failing the import over.
                 }
             }
-        }
-
-        private static List<NoteDecoder.TimedNote> MergeAndFilter(List<NoteDecoder.TimedNote> notes)
-        {
-            var sorted = notes.OrderBy(n => n.Pitch).ThenBy(n => n.Start).ToList();
-            var merged = new List<NoteDecoder.TimedNote>();
-            foreach (var ev in sorted)
-            {
-                if (merged.Count > 0 && merged[^1].Pitch == ev.Pitch && ev.Start - merged[^1].End <= MergeGapSeconds)
-                {
-                    var prev = merged[^1];
-                    merged[^1] = new NoteDecoder.TimedNote(prev.Start, Math.Max(prev.End, ev.End), ev.Pitch, Math.Max(prev.Amplitude, ev.Amplitude));
-                }
-                else
-                {
-                    merged.Add(ev);
-                }
-            }
-            return merged.Where(n => n.Amplitude >= MinAmplitude).OrderBy(n => n.Start).ToList();
         }
     }
 }

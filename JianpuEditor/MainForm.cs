@@ -111,7 +111,8 @@ namespace JianpuEditor
             mainViewModel.RequestExportPdf += (s, e) => OnExportPdf(s, e);
             mainViewModel.RequestExportMidi += (s, e) => OnExportMidi(s, e);
             mainViewModel.RequestImportMidi += (s, e) => OnImportMidi(s, e);
-            mainViewModel.RequestImportAudio += (s, e) => OnImportAudio(s, e);
+            mainViewModel.RequestImportAudioInstrument += (s, e) => OnImportAudio(s, e, AudioTranscriptionEngine.Instrument);
+            mainViewModel.RequestImportAudioVocal += (s, e) => OnImportAudio(s, e, AudioTranscriptionEngine.Vocal);
             mainViewModel.RequestTransposeDialog += (s, e) => ShowTransposeDialog();
         }
 
@@ -240,7 +241,10 @@ namespace JianpuEditor
             fileMenu.DropDownItems.Add(CreateMenuItem("Export PDF...", Keys.Control | Keys.P, OnExportPdf));
             fileMenu.DropDownItems.Add(CreateMenuItem("Export MIDI...", Keys.None, OnExportMidi));
             fileMenu.DropDownItems.Add(CreateMenuItem("Import MIDI... (Spike)", Keys.None, OnImportMidi));
-            fileMenu.DropDownItems.Add(CreateMenuItem("Import from Audio... (Spike)", Keys.None, OnImportAudio));
+            fileMenu.DropDownItems.Add(CreateMenuItem("Import from Audio (Instrument)... (Spike)", Keys.None,
+                (s, e) => OnImportAudio(s, e, AudioTranscriptionEngine.Instrument)));
+            fileMenu.DropDownItems.Add(CreateMenuItem("Import from Audio (Vocal)... (Spike)", Keys.None,
+                (s, e) => OnImportAudio(s, e, AudioTranscriptionEngine.Vocal)));
             fileMenu.DropDownItems.Add(new ToolStripSeparator());
             var sampleMenu = new ToolStripMenuItem("Sample Library");
             sampleMenu.DropDownOpening += (s, e) => PopulateSampleLibraryMenu(sampleMenu.DropDownItems);
@@ -972,12 +976,14 @@ namespace JianpuEditor
             }
         }
 
-        private void OnImportAudio(object sender, EventArgs e)
+        private void OnImportAudio(object sender, EventArgs e, AudioTranscriptionEngine engine)
         {
             _viewModel.Playback.Stop();
             _viewModel.TieEditor.CancelTieMode();
+            var engineLabel = engine == AudioTranscriptionEngine.Vocal ? "Vocal (GAME)" : "Instrument (basic-pitch)";
             using (var dialog = new OpenFileDialog
             {
+                Title = "Import from Audio (" + engineLabel + ")",
                 Filter = "Audio Files (*.wav;*.mp3;*.ogg;*.flac)|*.wav;*.mp3;*.ogg;*.flac|All Files (*.*)|*.*"
             })
             {
@@ -987,11 +993,11 @@ namespace JianpuEditor
                 }
 
                 Cursor = Cursors.WaitCursor;
-                _viewModel.SetStatus("Transcribing audio... this can take a few seconds");
+                _viewModel.SetStatus("Transcribing audio (" + engineLabel + ")... this can take a few seconds");
                 Application.DoEvents();
                 try
                 {
-                    var result = _viewModel.ImportAudio(dialog.FileName);
+                    var result = _viewModel.ImportAudio(dialog.FileName, engine);
                     Text = _viewModel.Document.WindowTitle;
                     _glue.ApplyEditResult(new ScoreEditResult { Changed = true, SelectMeasureIndex = 0 });
                     _glue.ResetPlaybackHead();
