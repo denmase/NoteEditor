@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using JianpuEditor.Core.Abstractions;
@@ -205,12 +206,17 @@ namespace JianpuEditor.ViewModels
             }
         }
 
-        public ScoreEditResult ImportMidi(string filePath)
+        public IReadOnlyList<MidiTrackInfo> GetMidiTrackInfos(string filePath)
+        {
+            return _midiImportService.GetTrackInfos(filePath);
+        }
+
+        public ScoreEditResult ImportMidi(string filePath, int? trackIndex = null)
         {
             try
             {
                 Playback.Stop();
-                var score = _midiImportService.Import(filePath);
+                var score = _midiImportService.Import(filePath, trackIndex);
                 Document.LoadFromMidi(score);
                 SetStatus("MIDI imported: " + filePath);
                 return ScoreEditResult.WithMessage("MIDI imported: " + filePath);

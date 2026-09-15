@@ -98,14 +98,40 @@ concept of — chord markers, this app's specific ornament set, structured lyric
   before merge (click accuracy, drag, chord/header inline-editor positioning, and scrolling at
   non-default zoom) — this is WinForms mouse/paint behavior that unit tests can't cover and CI only
   proves compiles/existing tests still pass, not interactive correctness.
-- **A3. Generalize drag.** Today only chord-marker repositioning and playback-head seek have
-  drag support, each its own bespoke `MouseDown/Move/Up` state machine. Once A1 exists, build one
-  reusable drag mechanism on top of the shared geometry/hit-test model (note pitch/duration drag
-  becomes a real possibility, matching `ROADMAP.md`'s "live note preview under the cursor" item).
-- **A4. Vertical-stacking generalization.** `NoteTopAnnotationPlanner`'s band-based overlap
-  avoidance for accidentals/octave-dots/ornaments works but is tuned by hand; make it a proper
-  "avoid collision" pass rather than fixed Y-bands, informed by how alphaTab's own v1.8 changelog
-  described reworking the identical problem for its numbered-notation dot/overflow calculations.
+- **A3. Generalize drag — done.** Chord-marker repositioning and playback-head seek used to be two
+  independent bespoke `MouseDown/Move/Up` state machines in `ScoreCanvas.cs`, each with its own
+  mouse-capture bookkeeping. Replaced with one reusable mechanism: `OnContentMouseDown` registers a
+  small `DragHandler` (a `Move`/`Release` delegate pair tagged with a `DragKind`) for whichever
+  gesture started, and `OnContentMouseMove`/`OnContentMouseUp` dispatch through it generically
+  instead of each duplicating the same capture/branch logic. `DragKind` exists only so code outside
+  the gesture (`HidePlaybackHead`) can still tell which drag, if any, is active, without reaching
+  into gesture-specific state. Also folded in A1's flagged perf item: chord-marker dragging used to
+  rebuild the *entire* score's measure layout on every mouse-move tick just to find the one measure
+  it needed; layout doesn't change mid-drag (moving a chord marker's beat doesn't affect measure
+  geometry), so it's now captured once when the drag begins. Behavior is unchanged byte-for-byte
+  (verified by compiling the full `ScoreCanvas`/`JianpuRenderer`/`Models` graph and diffing the
+  generalized dispatch against the original two state machines) -- this was a mechanical
+  refactor, not a features change. New drag gestures (e.g. note pitch/duration drag, matching
+  `ROADMAP.md`'s "live note preview under the cursor" item) now only need a new `BeginDrag(...)`
+  call site, not a new state machine.
+- **A4. Vertical-stacking generalization — done.** `NoteTopAnnotationPlanner`'s ornament/fermata
+  placement (`PlaceOrnamentBands`) used to pick from a fixed table of hand-covered combinations: a
+  boolean "is anything else present" collapsed every case into one of two Y values, with no notion
+  of a fermata and a center ornament (trill/turn/mordent) sharing the same note -- both landed only
+  2px apart regardless of glyph size (real bug: `OrnamentService.TryAddOrnament` allows attaching
+  both to one note, they're independent ornament types). Replaced with real outward stacking: each
+  present layer (accidental/octave dots unchanged from A1/earlier tuning, then ornament, then
+  fermata) claims a fixed `AnnotationLayerClearance` (6px) above whatever's already been placed
+  closer to the note, so any combination gets real clearance instead of only the two the old table
+  explicitly handled. Verified three ways: (1) a standalone harness re-running the existing
+  `NoteTopAnnotationPlannerTests` math under Mono, all passing against hand-computed expected
+  values; (2) a new regression test (`Plan_FermataAndTrillTogether_...`) asserting the two layers
+  now sit a full `AnnotationLayerClearance` apart; (3) rendering a synthetic score through the real
+  `JianpuRenderer` with `ScoreLayoutOptions.Editor` (what `ScoreCanvas` actually uses) before and
+  after the change and diffing the PNGs pixel-by-pixel -- the diff bbox covered only the
+  fermata+trill note, confirming the three previously-covered combinations (accidental+octave+grace,
+  accidental+octave+trill, accidental+octave+fermata) render identically while the previously-broken
+  one now shows real separation.
 
 **Milestones**: A1 → A3 → A2 → A4, in that order (A1 unblocks A3's reuse story; A2 and A4 are
 independently schedulable after A1).

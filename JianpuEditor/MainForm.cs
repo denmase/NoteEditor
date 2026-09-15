@@ -35,10 +35,10 @@ namespace JianpuEditor
         private readonly NumericUpDown _measureSelector = new NumericUpDown();
         private readonly NumericUpDown _measureRangeFrom = new NumericUpDown();
         private readonly NumericUpDown _measureRangeTo = new NumericUpDown();
-        private readonly Label _statusLabel = new Label();
-        private Button _tieButton;
-        private Button _playButton;
-        private Button _stopButton;
+        private readonly ScoreStatusBar _statusBar = new ScoreStatusBar();
+        private RibbonButton _tieButton;
+        private RibbonButton _playButton;
+        private RibbonButton _stopButton;
         private MenuStrip _menuStrip;
         private ContextMenuStrip _sampleLibraryMenu;
         private ToolStripMenuItem _darkModeMenuItem;
@@ -90,7 +90,7 @@ namespace JianpuEditor
                 _measureSelector,
                 _measureRangeFrom,
                 _measureRangeTo,
-                _statusLabel,
+                _statusBar,
                 _tieButton,
                 _playButton,
                 _stopButton);
@@ -129,7 +129,6 @@ namespace JianpuEditor
         {
             _menuStrip = BuildMenuStrip();
             var toolbarPanel = BuildToolbarPanel();
-            ConfigureStatusLabel();
 
             _chromeLayout = new TableLayoutPanel
             {
@@ -165,12 +164,18 @@ namespace JianpuEditor
 
             _canvas.Dock = DockStyle.Fill;
             _canvas.MinimumSize = new Size(200, 200);
-            _statusLabel.Dock = DockStyle.Fill;
-            _statusLabel.MinimumSize = new Size(0, MainFormLayoutContext.StatusRowHeight);
+            _statusBar.Dock = DockStyle.Fill;
+            _statusBar.MinimumSize = new Size(0, MainFormLayoutContext.StatusRowHeight);
+            _statusBar.ZoomInClicked += () => _canvas.ZoomIn();
+            _statusBar.ZoomOutClicked += () => _canvas.ZoomOut();
+            _statusBar.EngineClicked += (s, e) => ShowAudioEngineDialog();
+            _statusBar.SetEngine(_midiOutput.EngineName);
+            _statusBar.SetZoomPercent((int)System.Math.Round(_canvas.ZoomScale * 100));
+            _canvas.ZoomChanged += () => _statusBar.SetZoomPercent((int)System.Math.Round(_canvas.ZoomScale * 100));
 
             _mainLayout.Controls.Add(_chromeLayout, 0, 0);
             _mainLayout.Controls.Add(_canvas, 0, 1);
-            _mainLayout.Controls.Add(_statusLabel, 0, 2);
+            _mainLayout.Controls.Add(_statusBar, 0, 2);
 
             Controls.Clear();
             Controls.Add(_mainLayout);
@@ -184,7 +189,7 @@ namespace JianpuEditor
                 MenuStrip = _menuStrip,
                 ToolbarPanel = toolbarPanel,
                 ScoreCanvas = _canvas,
-                StatusLabel = _statusLabel
+                ScoreStatusBar = _statusBar
             };
             _layoutService.Attach(_layoutContext);
         }
@@ -318,150 +323,137 @@ namespace JianpuEditor
         {
             var panel = new FlowLayoutPanel
             {
-                Padding = new Padding(12, 8, 12, 8),
+                Padding = new Padding(6, 4, 6, 4),
                 WrapContents = true,
                 AutoScroll = false
             };
 
-            _playButton = CreateToolButton("Play", OnPlayScore);
-            _stopButton = CreateToolButton("Stop", OnStopPlayback);
+            var playback = new RibbonGroup("Playback");
+            _playButton = CreateRibbonButton(RibbonIcon.Play, "Play", OnPlayScore);
+            _stopButton = CreateRibbonButton(RibbonIcon.Stop, "Stop", OnStopPlayback);
             _stopButton.Enabled = false;
-            panel.Controls.Add(_playButton);
-            panel.Controls.Add(_stopButton);
-            panel.Controls.Add(CreateToolButton("Instruments...", ShowInstrumentDialog));
-            panel.Controls.Add(CreateAudioEngineIndicator());
-            panel.Controls.Add(CreateSeparator());
+            var instrumentsButton = CreateRibbonButton(RibbonIcon.Instrument, "Instruments", ShowInstrumentDialog);
+            playback.AddRow(_playButton, _stopButton, instrumentsButton);
+            panel.Controls.Add(playback);
 
-            panel.Controls.Add(new Label { Text = "Notes:", AutoSize = true, Margin = new Padding(0, 10, 6, 0) });
+            var notes = new RibbonGroup("Notes 1-7 . Rest");
+            var noteButtons = new Control[8];
             for (var pitch = 1; pitch <= 7; pitch++)
             {
-                panel.Controls.Add(CreateNoteButton(pitch));
+                noteButtons[pitch - 1] = CreateNoteButton(pitch);
             }
 
-            panel.Controls.Add(CreateRestButton());
-            panel.Controls.Add(CreateToolButton("New Measure", ExecuteAddMeasure));
-            panel.Controls.Add(CreateSeparator());
+            noteButtons[7] = CreateRestButton();
+            notes.AddRow(noteButtons);
+            panel.Controls.Add(notes);
 
-            panel.Controls.Add(new Label { Text = "Modify:", AutoSize = true, Margin = new Padding(0, 10, 6, 0) });
-            panel.Controls.Add(CreateToolButton("High Octave", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.SetOctave(1))));
-            panel.Controls.Add(CreateToolButton("Low Octave", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.SetOctave(-1))));
-            panel.Controls.Add(CreateToolButton("Transpose Up", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.TransposePitch(1))));
-            panel.Controls.Add(CreateToolButton("Transpose Down", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.TransposePitch(-1))));
-            panel.Controls.Add(CreateToolButton("Split", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.SplitSelectedNotes())));
-            panel.Controls.Add(CreateToolButton("Merge", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.MergeSelectedNotes())));
-            panel.Controls.Add(CreateToolButton("Dotted", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.ToggleDotted())));
-            panel.Controls.Add(CreateToolButton("Extend+", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.IncreaseDuration())));
-            panel.Controls.Add(CreateToolButton("Shorten-", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.DecreaseDuration())));
-            _tieButton = CreateToolButton("Tie", () => _viewModel.TieEditor.ToggleTieModeCommand.Execute(null));
-            panel.Controls.Add(_tieButton);
-            panel.Controls.Add(CreateSeparator());
+            var modify = new RibbonGroup("Modify");
+            _tieButton = CreateRibbonButton(RibbonIcon.Tie, "Tie", () => _viewModel.TieEditor.ToggleTieModeCommand.Execute(null), compact: true);
+            modify.AddRow(
+                CreateRibbonButton(RibbonIcon.MeasureAdd, "New measure", ExecuteAddMeasure, compact: true),
+                CreateRibbonButton(RibbonIcon.OctaveUp, "High octave", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.SetOctave(1)), compact: true),
+                CreateRibbonButton(RibbonIcon.OctaveDown, "Low octave", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.SetOctave(-1)), compact: true),
+                CreateRibbonButton(RibbonIcon.TransposeUp, "Transpose up", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.TransposePitch(1)), compact: true),
+                CreateRibbonButton(RibbonIcon.TransposeDown, "Transpose down", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.TransposePitch(-1)), compact: true),
+                _tieButton);
+            modify.AddRow(
+                CreateRibbonButton(RibbonIcon.Split, "Split", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.SplitSelectedNotes()), compact: true),
+                CreateRibbonButton(RibbonIcon.Merge, "Merge", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.MergeSelectedNotes()), compact: true),
+                CreateRibbonButton(RibbonIcon.Dotted, "Dotted", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.ToggleDotted()), compact: true),
+                CreateRibbonButton(RibbonIcon.Extend, "Extend", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.IncreaseDuration()), compact: true),
+                CreateRibbonButton(RibbonIcon.Shorten, "Shorten", () => ExecuteNoteEdit(() => _viewModel.NoteEditor.DecreaseDuration()), compact: true));
+            panel.Controls.Add(modify);
 
-            panel.Controls.Add(new Label { Text = "Ornament:", AutoSize = true, Margin = new Padding(0, 10, 6, 0) });
-            panel.Controls.Add(CreateToolButton("Grace Note", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.GraceNote))));
-            panel.Controls.Add(CreateToolButton("Trill", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Trill))));
-            panel.Controls.Add(CreateToolButton("Turn", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Turn))));
-            panel.Controls.Add(CreateToolButton("Fermata", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Fermata))));
-            panel.Controls.Add(CreateSeparator());
+            var ornaments = new RibbonGroup("Ornaments");
+            ornaments.AddRow(
+                CreateRibbonButton(RibbonIcon.Grace, "Grace note", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.GraceNote)), compact: true),
+                CreateRibbonButton(RibbonIcon.Trill, "Trill", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Trill)), compact: true),
+                CreateRibbonButton(RibbonIcon.Turn, "Turn", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Turn)), compact: true),
+                CreateRibbonButton(RibbonIcon.Fermata, "Fermata", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Fermata)), compact: true));
+            panel.Controls.Add(ornaments);
 
-            panel.Controls.Add(new Label { Text = "Current Measure:", AutoSize = true, Margin = new Padding(0, 10, 6, 0) });
+            var measures = new RibbonGroup("Measures");
             _measureSelector.Minimum = 1;
             _measureSelector.Maximum = 1;
-            _measureSelector.Width = 56;
+            _measureSelector.Width = 48;
             _measureSelector.ValueChanged += OnMeasureSelectorChanged;
-            panel.Controls.Add(_measureSelector);
+            measures.AddRow(CreateInlineLabel("Cur"), _measureSelector, CreateRibbonButton(RibbonIcon.Duplicate, "Duplicate", ExecuteDuplicateMeasures, compact: true));
 
-            panel.Controls.Add(new Label { Text = "From:", AutoSize = true, Margin = new Padding(0, 10, 6, 0) });
             _measureRangeFrom.Minimum = 1;
             _measureRangeFrom.Maximum = 1;
-            _measureRangeFrom.Width = 56;
+            _measureRangeFrom.Width = 48;
             _measureRangeFrom.ValueChanged += OnMeasureRangeChanged;
-            panel.Controls.Add(_measureRangeFrom);
-
-            panel.Controls.Add(new Label { Text = "To:", AutoSize = true, Margin = new Padding(0, 10, 6, 0) });
             _measureRangeTo.Minimum = 1;
             _measureRangeTo.Maximum = 1;
-            _measureRangeTo.Width = 56;
+            _measureRangeTo.Width = 48;
             _measureRangeTo.ValueChanged += OnMeasureRangeChanged;
-            panel.Controls.Add(_measureRangeTo);
+            measures.AddRow(CreateInlineLabel("From"), _measureRangeFrom, CreateInlineLabel("To"), _measureRangeTo);
+            panel.Controls.Add(measures);
 
-            panel.Controls.Add(CreateToolButton("Duplicate Measure(s)", ExecuteDuplicateMeasures));
-            panel.Controls.Add(CreateSeparator());
-
-            _chordBox.Width = 120;
+            var chord = new RibbonGroup("Chord text");
+            _chordBox.Width = 100;
             _chordBox.TextChanged += OnChordTextChanged;
-            panel.Controls.Add(_chordBox);
+            chord.AddRow(_chordBox);
+            panel.Controls.Add(chord);
 
-            panel.Controls.Add(CreateSeparator());
-            panel.Controls.Add(CreateToolButton("Delete", ExecuteDelete));
+            var other = new RibbonGroup(string.Empty);
             _sampleLibraryMenu = new ContextMenuStrip();
             _sampleLibraryMenu.Opening += (s, e) => PopulateSampleLibraryMenu(_sampleLibraryMenu.Items);
-            var sampleButton = CreateToolButton("Sample Library", () => { });
+            var sampleButton = CreateRibbonButton(RibbonIcon.Library, "Sample library", () => { }, compact: true);
             sampleButton.Click += (s, e) => _sampleLibraryMenu.Show(sampleButton, new Point(0, sampleButton.Height));
-            panel.Controls.Add(sampleButton);
+            other.AddRow(
+                CreateRibbonButton(RibbonIcon.Delete, "Delete", ExecuteDelete, compact: true),
+                sampleButton);
+            panel.Controls.Add(other);
+
+            // Groups naturally size to their own row count (Modify/Measures hold two rows,
+            // the rest hold one), which left their bottoms -- and the caption row baseline --
+            // uneven. Give every group the tallest group's height so they all line up.
+            var groups = new[] { playback, notes, modify, ornaments, measures, chord, other };
+            var maxGroupHeight = 0;
+            foreach (var group in groups)
+            {
+                maxGroupHeight = Math.Max(maxGroupHeight, group.NaturalHeight);
+            }
+
+            foreach (var group in groups)
+            {
+                group.SetFixedHeight(maxGroupHeight);
+            }
 
             return panel;
         }
 
-        private Label CreateAudioEngineIndicator()
+        private RibbonButton CreateRibbonButton(RibbonIcon icon, string caption, Action onClick, bool compact = false)
         {
-            var label = new Label
-            {
-                Text = "Engine: " + _midiOutput.EngineName,
-                AutoSize = true,
-                Margin = new Padding(0, 10, 6, 0),
-                Cursor = Cursors.Hand
-            };
-            _toolTip.SetToolTip(
-                label,
-                "Active playback engine (click to open Edit → Audio Engine...). Changes here take effect after restarting.");
-            label.Click += (s, e) => ShowAudioEngineDialog();
-            return label;
-        }
-
-        private void ConfigureStatusLabel()
-        {
-            _statusLabel.Padding = new Padding(12, 6, 0, 0);
-            _statusLabel.TextAlign = ContentAlignment.MiddleLeft;
-            _statusLabel.Height = MainFormLayoutContext.StatusRowHeight;
-        }
-
-        private Button CreateToolButton(string text, Action onClick)
-        {
-            var button = new Button
-            {
-                Text = text,
-                Width = text.Length > 2 ? 72 : 42,
-                Height = 34,
-                Margin = new Padding(4, 4, 4, 4)
-            };
+            var button = new RibbonButton(icon, caption, compact);
             button.Click += (s, e) => onClick();
             return button;
         }
 
-        private Button CreateNoteButton(int pitch)
+        private static Label CreateInlineLabel(string text)
         {
-            var text = pitch.ToString();
-            var button = new Button
+            return new Label
             {
                 Text = text,
-                Width = 42,
-                Height = 34,
-                Margin = new Padding(4, 4, 4, 4)
+                AutoSize = true,
+                Margin = new Padding(2, 10, 2, 0),
+                Font = new Font("Segoe UI", 7.5f)
             };
+        }
+
+
+        private DigitButton CreateNoteButton(int pitch)
+        {
+            var button = new DigitButton(pitch.ToString());
             _toolTip.SetToolTip(button, NoteButtonToolTip);
             button.Click += (s, e) => OnNoteButtonClick(pitch);
             return button;
         }
 
-        private Button CreateRestButton()
+        private DigitButton CreateRestButton()
         {
-            var button = new Button
-            {
-                Text = "0",
-                Width = 42,
-                Height = 34,
-                Margin = new Padding(4, 4, 4, 4)
-            };
+            var button = new DigitButton("0");
             _toolTip.SetToolTip(button, NoteButtonToolTip);
             button.Click += (s, e) => OnRestButtonClick();
             return button;
@@ -499,17 +491,6 @@ namespace JianpuEditor
         private static bool IsCopyStyleModifierActive()
         {
             return IsAppendModifierActive() && (Control.ModifierKeys & Keys.Shift) == Keys.Shift;
-        }
-
-        private static Panel CreateSeparator()
-        {
-            return new Panel
-            {
-                Width = 2,
-                Height = 30,
-                BackColor = AppTheme.Separator,
-                Margin = new Padding(8, 8, 8, 8)
-            };
         }
 
         private void OnDarkModeToggled(object sender, EventArgs e)
@@ -958,7 +939,22 @@ namespace JianpuEditor
 
                 try
                 {
-                    var result = _viewModel.ImportMidi(dialog.FileName);
+                    int? trackIndex = null;
+                    var trackInfos = _viewModel.GetMidiTrackInfos(dialog.FileName);
+                    if (trackInfos.Count > 1)
+                    {
+                        using (var picker = new MidiTrackPickerDialog(trackInfos))
+                        {
+                            if (picker.ShowDialog(this) != DialogResult.OK)
+                            {
+                                return;
+                            }
+
+                            trackIndex = picker.SelectedTrackIndex;
+                        }
+                    }
+
+                    var result = _viewModel.ImportMidi(dialog.FileName, trackIndex);
                     Text = _viewModel.Document.WindowTitle;
                     _glue.ApplyEditResult(new ScoreEditResult { Changed = true, SelectMeasureIndex = 0 });
                     _glue.ResetPlaybackHead();

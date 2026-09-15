@@ -57,7 +57,9 @@ namespace JianpuEditor.Tests.Rendering
             Assert.True(layout.AccidentalX < layout.HeadCenterX);
             Assert.True(layout.OctaveDotCenterX > layout.AccidentalX);
             Assert.Equal(NoteTopAnnotationLayout.OctaveDotBandY, layout.OctaveDotBaseY);
-            Assert.Equal(NoteTopAnnotationLayout.DefaultOrnamentBandY, layout.GetOrnamentY(OrnamentType.Trill));
+            Assert.Equal(
+                layout.OctaveDotBaseY - NoteTopAnnotationLayout.AnnotationLayerClearance,
+                layout.GetOrnamentY(OrnamentType.Trill));
             Assert.True(layout.AccidentalY > layout.OctaveDotBaseY);
             Assert.True(layout.OctaveDotBaseY > layout.GetOrnamentY(OrnamentType.Trill));
         }
@@ -80,10 +82,36 @@ namespace JianpuEditor.Tests.Rendering
             var layout = NoteTopAnnotationPlanner.Plan(note, 100, 28, ornaments, compactAccidentals: true);
 
             Assert.Equal(layout.HeadCenterX, layout.GetOrnamentAnchorX(OrnamentType.Fermata, 100, 28), 1);
-            Assert.Equal(NoteTopAnnotationLayout.FermataBandY, layout.GetOrnamentY(OrnamentType.Fermata));
+            Assert.Equal(
+                layout.OctaveDotBaseY - NoteTopAnnotationLayout.AnnotationLayerClearance,
+                layout.GetOrnamentY(OrnamentType.Fermata));
             Assert.Equal(NoteTopAnnotationLayout.AccidentalBandY, layout.AccidentalY);
             Assert.True(layout.AccidentalX < layout.OctaveDotCenterX);
             Assert.True(layout.GetOrnamentY(OrnamentType.Fermata) < layout.OctaveDotBaseY);
+        }
+
+        [Fact]
+        public void Plan_FermataAndTrillTogether_StackWithRealClearanceInsteadOfNearlyOverlapping()
+        {
+            // Regression test for the bug the old fixed-band table couldn't represent: a fermata
+            // and a center ornament (trill/turn/mordent) can both be attached to the same note, but
+            // the old table always placed fermata at a fixed Y=0 and any center ornament sharing a
+            // note with one at a fixed Y=2 -- only 2px apart regardless of glyph size. The new
+            // stacking model gives each layer its own real clearance instead.
+            var note = new JianpuNote { Type = NoteType.Note, Pitch = 1 };
+            var ornaments = new List<JianpuOrnament>
+            {
+                new JianpuOrnament { Type = OrnamentType.Trill, NoteIndex = 0 },
+                new JianpuOrnament { Type = OrnamentType.Fermata, NoteIndex = 0 }
+            };
+
+            var layout = NoteTopAnnotationPlanner.Plan(note, 100, 28, ornaments, compactAccidentals: true);
+
+            Assert.True(layout.HasCenterOrnament);
+            Assert.True(layout.HasFermata);
+            var gap = layout.GetOrnamentY(OrnamentType.Trill) - layout.GetOrnamentY(OrnamentType.Fermata);
+            Assert.True(layout.GetOrnamentY(OrnamentType.Fermata) < layout.GetOrnamentY(OrnamentType.Trill));
+            Assert.Equal(NoteTopAnnotationLayout.AnnotationLayerClearance, gap);
         }
 
         [Fact]

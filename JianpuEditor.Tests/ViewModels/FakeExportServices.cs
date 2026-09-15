@@ -37,10 +37,18 @@ namespace JianpuEditor.Tests.ViewModels
     {
         public string LastPath { get; private set; }
 
-        public JianpuScore Import(string path)
+        public int? LastTrackIndex { get; private set; }
+
+        public JianpuScore Import(string path, int? trackIndex = null)
         {
             LastPath = path;
+            LastTrackIndex = trackIndex;
             return new JianpuScore { Title = System.IO.Path.GetFileNameWithoutExtension(path) };
+        }
+
+        public IReadOnlyList<MidiTrackInfo> GetTrackInfos(string path)
+        {
+            return new List<MidiTrackInfo>();
         }
     }
 

@@ -48,7 +48,13 @@ namespace JianpuEditor.Glue
             foreach (Control control in controls)
             {
                 ApplyControl(control, canvas);
-                if (control.HasChildren)
+
+                // RibbonGroup/ScoreStatusBar and their children theme themselves off
+                // AppTheme.ThemeChanged; walking into them would otherwise catch their internal
+                // (plain, unsubclassed) Label/FlowLayoutPanel children in the generic "is Label"/
+                // "is FlowLayoutPanel" branches below and stomp their colors back to
+                // FormForeground/FormBackground.
+                if (control.HasChildren && !(control is RibbonGroup) && !(control is ScoreStatusBar))
                 {
                     ApplyControlTree(control.Controls, canvas);
                 }
@@ -60,6 +66,11 @@ namespace JianpuEditor.Glue
             if (control is ScoreCanvas scoreCanvas)
             {
                 scoreCanvas.ApplyTheme();
+                return;
+            }
+
+            if (control is RibbonGroup || control is ScoreStatusBar)
+            {
                 return;
             }
 

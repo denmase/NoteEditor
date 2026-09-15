@@ -75,15 +75,38 @@ namespace JianpuEditor.Rendering
             return marker;
         }
 
-        public static double MapXToBeat(IReadOnlyList<PlaybackMeasureSegment> segments, int x)
+        /// <summary>
+        /// Maps a screen position to a beat. Every line/system of a multi-line score repeats
+        /// roughly the same X range, so matching on X alone -- as this used to -- always resolved
+        /// to whichever row happened to come first in <paramref name="segments"/> (the top line),
+        /// regardless of which line the pointer was actually over. <paramref name="y"/>
+        /// disambiguates: segments are matched against the row it falls in (or the nearest row, if
+        /// dragging above/below the score entirely) before X is used to find the beat within it.
+        /// </summary>
+        public static double MapXToBeat(IReadOnlyList<PlaybackMeasureSegment> segments, int x, int y)
         {
             if (segments == null || segments.Count == 0)
             {
                 return 0;
             }
 
+            var rowTop = FindNearestRowBlockTop(segments, y);
+            PlaybackMeasureSegment first = null;
+            PlaybackMeasureSegment last = null;
             foreach (var segment in segments)
             {
+                if (segment.BlockTop != rowTop)
+                {
+                    continue;
+                }
+
+                if (first == null)
+                {
+                    first = segment;
+                }
+
+                last = segment;
+
                 if (x < segment.X || x > segment.X + segment.Width)
                 {
                     continue;
@@ -93,13 +116,36 @@ namespace JianpuEditor.Rendering
                 return segment.StartBeat + segment.DurationBeat * Math.Max(0, Math.Min(1, fraction));
             }
 
-            if (x < segments[0].X)
+            if (first != null && x < first.X)
             {
-                return 0;
+                return first.StartBeat;
             }
 
-            var tail = segments[segments.Count - 1];
-            return tail.StartBeat + tail.DurationBeat;
+            return last != null ? last.StartBeat + last.DurationBeat : 0;
+        }
+
+        private static int FindNearestRowBlockTop(IReadOnlyList<PlaybackMeasureSegment> segments, int y)
+        {
+            var bestTop = segments[0].BlockTop;
+            var bestDistance = int.MaxValue;
+            foreach (var segment in segments)
+            {
+                if (y >= segment.BlockTop && y <= segment.BlockTop + JianpuRenderer.StaffBlockHeight)
+                {
+                    return segment.BlockTop;
+                }
+
+                var distance = y < segment.BlockTop
+                    ? segment.BlockTop - y
+                    : y - (segment.BlockTop + JianpuRenderer.StaffBlockHeight);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    bestTop = segment.BlockTop;
+                }
+            }
+
+            return bestTop;
         }
 
         public static double GetTotalBeats(IReadOnlyList<PlaybackMeasureSegment> segments)

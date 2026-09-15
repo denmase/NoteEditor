@@ -6,7 +6,7 @@
     <LangVersion>10</LangVersion>
     <AssemblyName>JianpuEditor</AssemblyName>
     <RootNamespace>JianpuEditor</RootNamespace>
-    <ApplicationIcon />
+    <ApplicationIcon>Resources\Icons\AppIcon.ico</ApplicationIcon>
     <Nullable>disable</Nullable>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
   </PropertyGroup>

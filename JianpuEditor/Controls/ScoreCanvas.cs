@@ -76,13 +76,13 @@ namespace JianpuEditor.Controls
         private int _selectedTieIndex = -1;
         private int _selectedChordMeasureIndex = -1;
         private int _selectedChordMarkerIndex = -1;
-        private bool _draggingChordMarker;
+        private DragHandler _activeDrag;
         private int _dragChordMeasureIndex = -1;
         private int _dragChordMarkerIndex = -1;
+        private IReadOnlyList<JianpuRenderer.MeasureLayout> _dragMeasureLayouts;
         private IReadOnlyList<PlaybackMeasureSegment> _playbackSegments = Array.Empty<PlaybackMeasureSegment>();
         private double _playbackPositionQuarter;
         private bool _showPlaybackHead;
-        private bool _draggingPlaybackHead;
         private bool _playbackHeadDragMoved;
         private int _playbackHeadHitZone = 12;
         private Bitmap _scoreBitmap;
@@ -122,6 +122,11 @@ namespace JianpuEditor.Controls
             get { return _zoom.Scale; }
         }
 
+        /// <summary>Raised after the zoom factor changes, from any of ZoomIn/ZoomOut/ResetZoom or
+        /// Ctrl+MouseWheel -- so UI reporting the current zoom (the status bar) doesn't need to
+        /// duplicate all four entry points.</summary>
+        public event Action ZoomChanged;
+
         public void ZoomIn()
         {
             _zoom.ZoomIn();
@@ -142,6 +147,7 @@ namespace JianpuEditor.Controls
 
         private void ApplyZoomChange()
         {
+            ZoomChanged?.Invoke();
             if (!IsHandleCreated)
             {
                 return;
@@ -621,7 +627,11 @@ namespace JianpuEditor.Controls
         {
             var oldBounds = GetPlaybackHeadBounds(_playbackPositionQuarter, _showPlaybackHead);
             _showPlaybackHead = false;
-            _draggingPlaybackHead = false;
+            if (_activeDrag != null && _activeDrag.Kind == DragKind.PlaybackHead)
+            {
+                _activeDrag = null;
+            }
+
             InvalidatePlaybackRegion(oldBounds, Rectangle.Empty);
         }
 
@@ -688,6 +698,40 @@ namespace JianpuEditor.Controls
             }
         }
 
+        /// <summary>
+        /// One reusable mechanism behind every drag gesture on the canvas (today: chord-marker
+        /// repositioning and playback-head seek). A gesture registers a <see cref="DragHandler"/>
+        /// in <see cref="OnContentMouseDown"/>; <see cref="OnContentMouseMove"/>/<see
+        /// cref="OnContentMouseUp"/> route to it generically instead of each duplicating their own
+        /// capture/dispatch bookkeeping. <see cref="DragKind"/> exists only so code outside the
+        /// gesture (e.g. <see cref="HidePlaybackHead"/>) can tell which drag, if any, is active.
+        /// </summary>
+        private enum DragKind
+        {
+            ChordMarker,
+            PlaybackHead
+        }
+
+        private sealed class DragHandler
+        {
+            public DragKind Kind;
+            public Action<Point> Move;
+            public Action<Point> Release;
+        }
+
+        private void BeginDrag(DragKind kind, Action<Point> move, Action<Point> release)
+        {
+            _activeDrag = new DragHandler { Kind = kind, Move = move, Release = release };
+            _contentPanel.Capture = true;
+        }
+
+        private void EndDrag()
+        {
+            _activeDrag = null;
+            _dragMeasureLayouts = null;
+            _contentPanel.Capture = false;
+        }
+
         private void OnContentMouseDown(object sender, MouseEventArgs e)
         {
             if (e.Button != MouseButtons.Left)
@@ -699,11 +743,12 @@ namespace JianpuEditor.Controls
             if (_showPlaybackHead)
             {
                 var marker = PlaybackLayout.GetMarkerPosition(_playbackSegments, _playbackPositionQuarter);
-                if (marker.IsVisible && Math.Abs(logicalLocation.X - marker.X) <= _playbackHeadHitZone)
+                if (marker.IsVisible
+                    && Math.Abs(logicalLocation.X - marker.X) <= _playbackHeadHitZone
+                    && logicalLocation.Y >= marker.Top && logicalLocation.Y <= marker.Bottom)
                 {
-                    _draggingPlaybackHead = true;
                     _playbackHeadDragMoved = false;
-                    _contentPanel.Capture = true;
+                    BeginDrag(DragKind.PlaybackHead, UpdatePlaybackHeadDrag, CommitPlaybackHeadDrag);
                     return;
                 }
             }
@@ -712,52 +757,52 @@ namespace JianpuEditor.Controls
             if (hit.HitType == ScoreHitType.ChordDragHandle)
             {
                 NotifyScoreMutationStarting();
-                _draggingChordMarker = true;
                 _dragChordMeasureIndex = hit.MeasureIndex;
                 _dragChordMarkerIndex = hit.ChordMarkerIndex;
+
+                // Measure geometry doesn't change mid-drag -- moving a chord marker's beat doesn't
+                // affect measure layout -- so it's captured once here instead of being rebuilt from
+                // scratch on every mouse-move tick for the rest of the drag.
+                _dragMeasureLayouts = _renderer.GetMeasureLayouts(_score, GetDrawWidth());
                 SelectChordMarker(hit.MeasureIndex, hit.ChordMarkerIndex, startInlineEdit: false);
-                _contentPanel.Capture = true;
+                BeginDrag(DragKind.ChordMarker, UpdateChordMarkerDrag, CommitChordMarkerDrag);
             }
         }
 
         private void OnContentMouseMove(object sender, MouseEventArgs e)
         {
-            if (_draggingChordMarker)
+            if (_activeDrag != null)
             {
-                UpdateChordMarkerDrag(_zoom.ToLogical(e.X));
+                _activeDrag.Move(_zoom.ToLogical(e.Location));
                 return;
             }
 
-            if (!_draggingPlaybackHead)
-            {
-                UpdatePlaybackCursor(_zoom.ToLogical(e.Location));
-                return;
-            }
-
-            _playbackHeadDragMoved = true;
-            var beat = PlaybackLayout.MapXToBeat(_playbackSegments, _zoom.ToLogical(e.X));
-            SetPlaybackPosition(beat, showHead: true, ensureVisible: false);
-            PlaybackSeeked?.Invoke(beat);
+            UpdatePlaybackCursor(_zoom.ToLogical(e.Location));
         }
 
         private void OnContentMouseUp(object sender, MouseEventArgs e)
         {
-            if (_draggingChordMarker)
-            {
-                _draggingChordMarker = false;
-                _contentPanel.Capture = false;
-                CommitChordMarkerDrag(_zoom.ToLogical(e.X));
-                return;
-            }
-
-            if (!_draggingPlaybackHead)
+            if (_activeDrag == null)
             {
                 return;
             }
 
-            _draggingPlaybackHead = false;
-            _contentPanel.Capture = false;
-            var beat = PlaybackLayout.MapXToBeat(_playbackSegments, _zoom.ToLogical(e.X));
+            var drag = _activeDrag;
+            EndDrag();
+            drag.Release(_zoom.ToLogical(e.Location));
+        }
+
+        private void UpdatePlaybackHeadDrag(Point logicalLocation)
+        {
+            _playbackHeadDragMoved = true;
+            var beat = PlaybackLayout.MapXToBeat(_playbackSegments, logicalLocation.X, logicalLocation.Y);
+            SetPlaybackPosition(beat, showHead: true, ensureVisible: false);
+            PlaybackSeeked?.Invoke(beat);
+        }
+
+        private void CommitPlaybackHeadDrag(Point logicalLocation)
+        {
+            var beat = PlaybackLayout.MapXToBeat(_playbackSegments, logicalLocation.X, logicalLocation.Y);
             SetPlaybackPosition(beat, showHead: true, ensureVisible: true);
             PlaybackSeeked?.Invoke(beat);
         }
@@ -772,7 +817,9 @@ namespace JianpuEditor.Controls
             }
 
             var marker = PlaybackLayout.GetMarkerPosition(_playbackSegments, _playbackPositionQuarter);
-            _contentPanel.Cursor = marker.IsVisible && Math.Abs(location.X - marker.X) <= _playbackHeadHitZone
+            _contentPanel.Cursor = marker.IsVisible
+                && Math.Abs(location.X - marker.X) <= _playbackHeadHitZone
+                && location.Y >= marker.Top && location.Y <= marker.Bottom
                 ? Cursors.SizeWE
                 : Cursors.Default;
         }
@@ -1454,15 +1501,14 @@ namespace JianpuEditor.Controls
             SyncChordInlineEditorBounds();
         }
 
-        private void UpdateChordMarkerDrag(int x)
+        private void UpdateChordMarkerDrag(Point logicalLocation)
         {
             if (_dragChordMeasureIndex < 0 || _dragChordMarkerIndex < 0)
             {
                 return;
             }
 
-            var layouts = _renderer.GetMeasureLayouts(_score, GetDrawWidth());
-            var layout = layouts.FirstOrDefault(item => item.MeasureIndex == _dragChordMeasureIndex);
+            var layout = _dragMeasureLayouts?.FirstOrDefault(item => item.MeasureIndex == _dragChordMeasureIndex);
             if (layout == null)
             {
                 return;
@@ -1476,7 +1522,7 @@ namespace JianpuEditor.Controls
 
             var marker = measure.ChordMarkers[_dragChordMarkerIndex];
             var duration = ScoreMidiSchedule.GetMeasureDurationUnits(measure);
-            var beat = ChordMarkerService.MapXToBeat(layout.X, layout.Width, x, duration);
+            var beat = ChordMarkerService.MapXToBeat(layout.X, layout.Width, logicalLocation.X, duration);
             ChordMarkerService.SetMarkerBeat(measure, _dragChordMarkerIndex, beat);
             _dragChordMarkerIndex = measure.ChordMarkers.IndexOf(marker);
             SyncChordInlineEditorBounds();
@@ -1484,9 +1530,9 @@ namespace JianpuEditor.Controls
             _contentPanel.Invalidate();
         }
 
-        private void CommitChordMarkerDrag(int x)
+        private void CommitChordMarkerDrag(Point logicalLocation)
         {
-            UpdateChordMarkerDrag(x);
+            UpdateChordMarkerDrag(logicalLocation);
             if (_dragChordMeasureIndex >= 0 && _dragChordMarkerIndex >= 0)
             {
                 SelectChordMarker(_dragChordMeasureIndex, _dragChordMarkerIndex);
