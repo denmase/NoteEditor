@@ -175,6 +175,7 @@ namespace JianpuEditor.Tests.ViewModels
                 new FakePdfExportService(),
                 new FakeMidiExportService(),
                 new FakeMidiImportService(),
+                new FakeAudioImportService(),
                 messenger);
         }
 
@@ -224,6 +225,7 @@ namespace JianpuEditor.Tests.ViewModels
                 pdfExport,
                 midiExport,
                 new FakeMidiImportService(),
+                new FakeAudioImportService(),
                 messenger);
         }
     }
