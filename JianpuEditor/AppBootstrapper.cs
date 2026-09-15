@@ -4,6 +4,7 @@ using JianpuEditor.Core.Abstractions;
 using JianpuEditor.Core.Messaging;
 using JianpuEditor.Rendering;
 using JianpuEditor.Services;
+using JianpuEditor.Services.AudioToMidi;
 using JianpuEditor.ViewModels;
 using JianpuEditor.Views;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,6 +26,7 @@ namespace JianpuEditor
             services.AddSingleton<IPdfExportService, PdfExportServiceAdapter>();
             services.AddSingleton<IMidiExportService, MidiExportServiceAdapter>();
             services.AddSingleton<IMidiImportService, MidiImportServiceAdapter>();
+            services.AddSingleton<IAudioImportService, AudioImportService>();
             services.AddSingleton<ISampleLibraryService, SampleLibraryServiceAdapter>();
             services.AddSingleton<IChordTransposeService, ChordTransposeServiceAdapter>();
             services.AddSingleton<IHarmonySuggestionService, HarmonySuggestionServiceAdapter>();

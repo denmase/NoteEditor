@@ -302,8 +302,18 @@ JianpuEditor.Tests/        # xUnit unit tests (248; services, ViewModels, Glue, 
 - [Microsoft.Extensions.DependencyInjection](https://www.nuget.org/packages/Microsoft.Extensions.DependencyInjection) 8.0.1
 - [Newtonsoft.Json](https://www.nuget.org/packages/Newtonsoft.Json) 13.0.3
 - [PDFsharp](https://www.nuget.org/packages/PDFsharp) 6.2.0
+- [ManagedBass](https://www.nuget.org/packages/ManagedBass) / ManagedBass.Midi / ManagedBass.Vst 3.1.1
+- [Microsoft.ML.OnnxRuntime](https://www.nuget.org/packages/Microsoft.ML.OnnxRuntime) 1.30.0
 
 MIDI export and score playback are implemented in-house, with no third-party MIDI library.
+
+### Audio-to-MIDI import (Spike)
+
+"Import from Audio" transcribes a single-instrument (STEM) recording using one of two
+bundled ONNX models, run locally via Microsoft.ML.OnnxRuntime (no Python at runtime):
+
+- **Instrument**: [basic-pitch](https://github.com/spotify/basic-pitch) (Spotify), Apache License 2.0. Handles monophonic and polyphonic (chord) instrument audio.
+- **Vocal**: [GAME](https://github.com/openvpi/GAME) (openvpi), code MIT-licensed; **the bundled pretrained model weights are CC BY-NC-SA 4.0 (non-commercial)**. Vocal-only (monophonic singing voice), but produces cleaner results than basic-pitch on real singing audio.
 
 ## Contributing
 

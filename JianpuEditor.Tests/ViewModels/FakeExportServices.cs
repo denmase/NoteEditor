@@ -52,6 +52,20 @@ namespace JianpuEditor.Tests.ViewModels
         }
     }
 
+    internal sealed class FakeAudioImportService : IAudioImportService
+    {
+        public string LastPath { get; private set; }
+
+        public AudioTranscriptionEngine LastEngine { get; private set; }
+
+        public JianpuScore Import(string audioPath, AudioTranscriptionEngine engine)
+        {
+            LastPath = audioPath;
+            LastEngine = engine;
+            return new JianpuScore { Title = System.IO.Path.GetFileNameWithoutExtension(audioPath) };
+        }
+    }
+
     internal sealed class FakeSampleLibraryService : ISampleLibraryService
     {
         public IReadOnlyList<string> Samples { get; set; } = new[] { @"C:\sample\demo.jianpu" };
