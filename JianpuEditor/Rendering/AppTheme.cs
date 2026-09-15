@@ -5,6 +5,13 @@ using Newtonsoft.Json;
 
 namespace JianpuEditor.Rendering
 {
+    /// <summary>
+    /// Static facade the rest of the app reads for colors and a few persisted display settings.
+    /// Colors are no longer ad-hoc "IsDarkMode ? a : b" ternaries -- they're all derived from
+    /// <see cref="Current"/>, a <see cref="Theme"/> token set. Adding a theme means adding one more
+    /// <see cref="Theme"/> preset and, if it should be user-selectable, one more branch in
+    /// <see cref="SetDarkMode"/>/a future theme picker; every property below picks it up for free.
+    /// </summary>
     public static class AppTheme
     {
         private static readonly string SettingsPath = ResolveSettingsPath();
@@ -28,7 +35,14 @@ namespace JianpuEditor.Rendering
                 "settings.json");
         }
 
-        public static bool IsDarkMode { get; private set; }
+        /// <summary>The active theme's full token set, for code (e.g. the toolbar/status bar) that
+        /// wants a token not exposed as its own named property below.</summary>
+        public static Theme Current { get; private set; } = Theme.ManuscriptLight;
+
+        public static bool IsDarkMode
+        {
+            get { return Current.IsDark; }
+        }
 
         public static bool FillMeasurePlaceholdersOnAdd { get; private set; } = true;
 
@@ -53,14 +67,14 @@ namespace JianpuEditor.Rendering
 
                 var json = File.ReadAllText(SettingsPath);
                 var settings = JsonConvert.DeserializeObject<ThemeSettings>(json);
-                IsDarkMode = settings?.DarkMode ?? false;
+                Current = (settings?.DarkMode ?? false) ? Theme.ManuscriptDark : Theme.ManuscriptLight;
                 FillMeasurePlaceholdersOnAdd = settings?.FillMeasurePlaceholdersOnAdd ?? true;
                 VstPluginPath = settings?.VstPluginPath ?? string.Empty;
                 UnderlinesAbove = settings?.UnderlinesAbove ?? false;
             }
             catch
             {
-                IsDarkMode = false;
+                Current = Theme.ManuscriptLight;
                 FillMeasurePlaceholdersOnAdd = true;
                 VstPluginPath = string.Empty;
                 UnderlinesAbove = false;
@@ -69,12 +83,13 @@ namespace JianpuEditor.Rendering
 
         public static void SetDarkMode(bool enabled, bool persist = true)
         {
-            if (IsDarkMode == enabled)
+            var next = enabled ? Theme.ManuscriptDark : Theme.ManuscriptLight;
+            if (Current == next)
             {
                 return;
             }
 
-            IsDarkMode = enabled;
+            Current = next;
             if (persist)
             {
                 Save();
@@ -130,92 +145,92 @@ namespace JianpuEditor.Rendering
 
         public static Color FormBackground
         {
-            get { return IsDarkMode ? Color.FromArgb(32, 32, 36) : SystemColors.Control; }
+            get { return Current.Paper; }
         }
 
         public static Color FormForeground
         {
-            get { return IsDarkMode ? Color.FromArgb(230, 230, 230) : SystemColors.ControlText; }
+            get { return Current.Ink; }
         }
 
         public static Color InputBackground
         {
-            get { return IsDarkMode ? Color.FromArgb(45, 45, 50) : SystemColors.Window; }
+            get { return Current.PaperRaised; }
         }
 
         public static Color InputForeground
         {
-            get { return IsDarkMode ? Color.FromArgb(235, 235, 235) : SystemColors.WindowText; }
+            get { return Current.Ink; }
         }
 
         public static Color CanvasChrome
         {
-            get { return IsDarkMode ? Color.FromArgb(28, 28, 32) : Color.FromArgb(245, 245, 245); }
+            get { return Current.PaperSunken; }
         }
 
         public static Color ScorePaper
         {
-            get { return IsDarkMode ? Color.FromArgb(24, 24, 28) : Color.White; }
+            get { return Current.PaperRaised; }
         }
 
         public static Color PrimaryText
         {
-            get { return IsDarkMode ? Color.FromArgb(230, 230, 230) : Color.Black; }
+            get { return Current.Ink; }
         }
 
         public static Color SecondaryText
         {
-            get { return IsDarkMode ? Color.FromArgb(170, 170, 175) : Color.DimGray; }
+            get { return Current.InkSoft; }
         }
 
         public static Color TieActive
         {
-            get { return Color.FromArgb(255, 41, 98, 255); }
+            get { return Current.Accent; }
         }
 
         public static Color TieInactive
         {
-            get { return IsDarkMode ? Color.FromArgb(200, 200, 205) : Color.Black; }
+            get { return Current.Ink; }
         }
 
         public static Color ChordBackground
         {
-            get { return IsDarkMode ? Color.FromArgb(40, 40, 48) : Color.FromArgb(248, 248, 252); }
+            get { return Current.PaperRaised; }
         }
 
         public static Color ChordSelectedBackground
         {
-            get { return IsDarkMode ? Color.FromArgb(55, 52, 38) : Color.FromArgb(255, 255, 240); }
+            get { return Current.AccentWash; }
         }
 
         public static Color ChordBorder
         {
-            get { return IsDarkMode ? Color.FromArgb(120, 120, 135) : Color.FromArgb(180, 160, 174, 192); }
+            get { return Current.LineStrong; }
         }
 
         public static Color ChordSelectedBorder
         {
-            get { return Color.FromArgb(220, 41, 98, 255); }
+            get { return Current.Accent; }
         }
 
         public static Color InlineEditorBackground
         {
-            get { return IsDarkMode ? Color.FromArgb(55, 52, 38) : Color.FromArgb(255, 255, 240); }
+            get { return Current.AccentWash; }
         }
 
         public static Color TieModeButtonBackground
         {
-            get { return IsDarkMode ? Color.FromArgb(70, 65, 35) : Color.FromArgb(255, 255, 200); }
+            get { return Current.AccentWash; }
         }
 
         public static Color Separator
         {
-            get { return IsDarkMode ? Color.FromArgb(70, 70, 78) : Color.LightGray; }
+            get { return Current.Line; }
         }
 
         public static Color GetScoreBackground(bool respectTheme)
         {
-            return respectTheme && IsDarkMode ? ScorePaper : Color.White;
+            return respectTheme ? ScorePaper : Color.White;
         }
 
         private static void Save()
@@ -231,7 +246,7 @@ namespace JianpuEditor.Rendering
                 var json = JsonConvert.SerializeObject(
                     new ThemeSettings
                     {
-                        DarkMode = IsDarkMode,
+                        DarkMode = Current.IsDark,
                         FillMeasurePlaceholdersOnAdd = FillMeasurePlaceholdersOnAdd,
                         VstPluginPath = VstPluginPath,
                         UnderlinesAbove = UnderlinesAbove
