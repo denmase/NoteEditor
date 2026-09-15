@@ -98,10 +98,22 @@ concept of — chord markers, this app's specific ornament set, structured lyric
   before merge (click accuracy, drag, chord/header inline-editor positioning, and scrolling at
   non-default zoom) — this is WinForms mouse/paint behavior that unit tests can't cover and CI only
   proves compiles/existing tests still pass, not interactive correctness.
-- **A3. Generalize drag.** Today only chord-marker repositioning and playback-head seek have
-  drag support, each its own bespoke `MouseDown/Move/Up` state machine. Once A1 exists, build one
-  reusable drag mechanism on top of the shared geometry/hit-test model (note pitch/duration drag
-  becomes a real possibility, matching `ROADMAP.md`'s "live note preview under the cursor" item).
+- **A3. Generalize drag — done.** Chord-marker repositioning and playback-head seek used to be two
+  independent bespoke `MouseDown/Move/Up` state machines in `ScoreCanvas.cs`, each with its own
+  mouse-capture bookkeeping. Replaced with one reusable mechanism: `OnContentMouseDown` registers a
+  small `DragHandler` (a `Move`/`Release` delegate pair tagged with a `DragKind`) for whichever
+  gesture started, and `OnContentMouseMove`/`OnContentMouseUp` dispatch through it generically
+  instead of each duplicating the same capture/branch logic. `DragKind` exists only so code outside
+  the gesture (`HidePlaybackHead`) can still tell which drag, if any, is active, without reaching
+  into gesture-specific state. Also folded in A1's flagged perf item: chord-marker dragging used to
+  rebuild the *entire* score's measure layout on every mouse-move tick just to find the one measure
+  it needed; layout doesn't change mid-drag (moving a chord marker's beat doesn't affect measure
+  geometry), so it's now captured once when the drag begins. Behavior is unchanged byte-for-byte
+  (verified by compiling the full `ScoreCanvas`/`JianpuRenderer`/`Models` graph and diffing the
+  generalized dispatch against the original two state machines) -- this was a mechanical
+  refactor, not a features change. New drag gestures (e.g. note pitch/duration drag, matching
+  `ROADMAP.md`'s "live note preview under the cursor" item) now only need a new `BeginDrag(...)`
+  call site, not a new state machine.
 - **A4. Vertical-stacking generalization.** `NoteTopAnnotationPlanner`'s band-based overlap
   avoidance for accidentals/octave-dots/ornaments works but is tuned by hand; make it a proper
   "avoid collision" pass rather than fixed Y-bands, informed by how alphaTab's own v1.8 changelog
