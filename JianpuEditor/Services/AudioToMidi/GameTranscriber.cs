@@ -28,7 +28,7 @@ namespace JianpuEditor.Services.AudioToMidi
         private const float EstThreshold = 0.2f;
         private const float DefaultAmplitude = 0.8f; // GAME has no per-note confidence/velocity signal
 
-        public List<TranscribedNote> Transcribe(string audioPath)
+        public List<TranscribedNote> Transcribe(string audioPath, IProgress<string> progress = null)
         {
             var modelDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "Models", "game");
             if (!Directory.Exists(modelDir))
@@ -36,8 +36,10 @@ namespace JianpuEditor.Services.AudioToMidi
                 throw new DirectoryNotFoundException("GAME transcription model not found. Expected at: " + modelDir);
             }
 
+            progress?.Report("Loading vocal model...");
             using (var model = new GameOnnxModel(modelDir))
             {
+                progress?.Report("Decoding audio...");
                 var samples = AudioDecoder.DecodeToMono(audioPath, model.SampleRate);
                 if (samples.Length == 0)
                 {
@@ -47,10 +49,15 @@ namespace JianpuEditor.Services.AudioToMidi
                 var ts = GameOnnxModel.DefaultTs();
                 var padSamples = (int)(PadSeconds * model.SampleRate);
                 var chunkSamples = (int)(ChunkSeconds * model.SampleRate);
+                var totalChunks = Math.Max(1, (int)Math.Ceiling((double)samples.Length / chunkSamples));
 
                 var notes = new List<TranscribedNote>();
+                var chunkIndex = 0;
                 for (var chunkStart = 0; chunkStart < samples.Length; chunkStart += chunkSamples)
                 {
+                    chunkIndex++;
+                    progress?.Report($"Transcribing (vocal) chunk {chunkIndex} of {totalChunks}...");
+
                     var chunkLength = Math.Min(chunkSamples, samples.Length - chunkStart);
                     var padded = new float[padSamples * 2 + chunkLength];
                     Array.Copy(samples, chunkStart, padded, padSamples, chunkLength);

@@ -574,6 +574,10 @@ namespace JianpuEditor.Services
             return lowerDegree == 2 || lowerDegree == 4 || lowerDegree == 6;
         }
 
+        // The set of durations (in quarter-note units) jianpu notation can actually
+        // represent: sixteenth through whole note via underlines/dashes/dots.
+        private static readonly double[] ValidDurationUnits = { 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0 };
+
         internal static bool ApplyDurationUnits(JianpuNote note, double units)
         {
             if (note == null || units <= 0)
@@ -585,47 +589,50 @@ namespace JianpuEditor.Services
             note.Dashes = 0;
             note.Dotted = false;
 
-            if (Math.Abs(units - 0.25) < DurationEpsilon)
+            // Snap to the closest notatable duration instead of only matching near-exact
+            // values -- a duration that doesn't land close to any of them (routine for
+            // audio-transcribed notes, whose real-world timing has no relationship to any
+            // notated grid) used to silently fall through to a fixed eighth note regardless
+            // of how far off that was, which is what caused most of a transcribed melody to
+            // come out as rests: the truncated duration left an unaccounted gap that the
+            // next step filled in with a rest.
+            var snapped = units;
+            if (!ValidDurationUnits.Any(c => Math.Abs(units - c) < DurationEpsilon))
+            {
+                snapped = ValidDurationUnits.OrderBy(c => Math.Abs(c - units)).First();
+            }
+
+            if (Math.Abs(snapped - 0.25) < DurationEpsilon)
             {
                 note.Underlines = 2;
                 return true;
             }
 
-            if (Math.Abs(units - 0.5) < DurationEpsilon)
+            if (Math.Abs(snapped - 0.5) < DurationEpsilon)
             {
                 note.Underlines = 1;
                 return true;
             }
 
-            if (Math.Abs(units - 0.75) < DurationEpsilon)
+            if (Math.Abs(snapped - 0.75) < DurationEpsilon)
             {
                 note.Underlines = 1;
                 note.Dotted = true;
                 return true;
             }
 
-            if (Math.Abs(units - 1.0) < DurationEpsilon)
+            if (Math.Abs(snapped - 1.0) < DurationEpsilon)
             {
                 return true;
             }
 
-            if (Math.Abs(units - 1.5) < DurationEpsilon)
+            if (Math.Abs(snapped - 1.5) < DurationEpsilon)
             {
                 note.Dotted = true;
                 return true;
             }
 
-            if (units >= 1.0 - DurationEpsilon)
-            {
-                var rounded = (int)Math.Round(units, MidpointRounding.AwayFromZero);
-                if (Math.Abs(units - rounded) < DurationEpsilon && rounded >= 1 && rounded <= 4)
-                {
-                    note.Dashes = rounded - 1;
-                    return true;
-                }
-            }
-
-            note.Underlines = 1;
+            note.Dashes = (int)Math.Round(snapped, MidpointRounding.AwayFromZero) - 1;
             return true;
         }
 
