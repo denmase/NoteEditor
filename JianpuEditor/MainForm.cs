@@ -111,6 +111,7 @@ namespace JianpuEditor
             mainViewModel.RequestExportPdf += (s, e) => OnExportPdf(s, e);
             mainViewModel.RequestExportMidi += (s, e) => OnExportMidi(s, e);
             mainViewModel.RequestImportMidi += (s, e) => OnImportMidi(s, e);
+            mainViewModel.RequestImportAudio += (s, e) => OnImportAudio(s, e);
             mainViewModel.RequestTransposeDialog += (s, e) => ShowTransposeDialog();
         }
 
@@ -239,6 +240,7 @@ namespace JianpuEditor
             fileMenu.DropDownItems.Add(CreateMenuItem("Export PDF...", Keys.Control | Keys.P, OnExportPdf));
             fileMenu.DropDownItems.Add(CreateMenuItem("Export MIDI...", Keys.None, OnExportMidi));
             fileMenu.DropDownItems.Add(CreateMenuItem("Import MIDI... (Spike)", Keys.None, OnImportMidi));
+            fileMenu.DropDownItems.Add(CreateMenuItem("Import from Audio... (Spike)", Keys.None, OnImportAudio));
             fileMenu.DropDownItems.Add(new ToolStripSeparator());
             var sampleMenu = new ToolStripMenuItem("Sample Library");
             sampleMenu.DropDownOpening += (s, e) => PopulateSampleLibraryMenu(sampleMenu.DropDownItems);
@@ -966,6 +968,46 @@ namespace JianpuEditor
                 {
                     AppLog.Exception("MIDI import failed: " + dialog.FileName, ex);
                     MessageBox.Show("MIDI import failed: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+
+        private void OnImportAudio(object sender, EventArgs e)
+        {
+            _viewModel.Playback.Stop();
+            _viewModel.TieEditor.CancelTieMode();
+            using (var dialog = new OpenFileDialog
+            {
+                Filter = "Audio Files (*.wav;*.mp3;*.ogg;*.flac)|*.wav;*.mp3;*.ogg;*.flac|All Files (*.*)|*.*"
+            })
+            {
+                if (dialog.ShowDialog() != DialogResult.OK)
+                {
+                    return;
+                }
+
+                Cursor = Cursors.WaitCursor;
+                _viewModel.SetStatus("Transcribing audio... this can take a few seconds");
+                Application.DoEvents();
+                try
+                {
+                    var result = _viewModel.ImportAudio(dialog.FileName);
+                    Text = _viewModel.Document.WindowTitle;
+                    _glue.ApplyEditResult(new ScoreEditResult { Changed = true, SelectMeasureIndex = 0 });
+                    _glue.ResetPlaybackHead();
+                    _binder.SyncHeaderFromDocument();
+                    _binder.SyncFromViewModels();
+                    _viewModel.SetStatus(result.Message);
+                }
+                catch (Exception ex)
+                {
+                    AppLog.Exception("Audio import failed: " + dialog.FileName, ex);
+                    _viewModel.SetStatus("Audio import failed");
+                    MessageBox.Show("Audio import failed: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                finally
+                {
+                    Cursor = Cursors.Default;
                 }
             }
         }

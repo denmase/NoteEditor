@@ -14,6 +14,7 @@ namespace JianpuEditor.ViewModels
         private readonly IPdfExportService _pdfExportService;
         private readonly IMidiExportService _midiExportService;
         private readonly IMidiImportService _midiImportService;
+        private readonly IAudioImportService _audioImportService;
         private readonly IAppMessenger _messenger;
         private string _statusMessage = "Ready";
 
@@ -32,6 +33,7 @@ namespace JianpuEditor.ViewModels
             IPdfExportService pdfExportService,
             IMidiExportService midiExportService,
             IMidiImportService midiImportService,
+            IAudioImportService audioImportService,
             IAppMessenger messenger)
         {
             Document = document ?? throw new ArgumentNullException(nameof(document));
@@ -48,6 +50,7 @@ namespace JianpuEditor.ViewModels
             _pdfExportService = pdfExportService ?? throw new ArgumentNullException(nameof(pdfExportService));
             _midiExportService = midiExportService ?? throw new ArgumentNullException(nameof(midiExportService));
             _midiImportService = midiImportService ?? throw new ArgumentNullException(nameof(midiImportService));
+            _audioImportService = audioImportService ?? throw new ArgumentNullException(nameof(audioImportService));
             _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
 
             NewScoreCommand = new RelayCommand(NewScore);
@@ -59,6 +62,7 @@ namespace JianpuEditor.ViewModels
             ExportPdfCommand = new RelayCommand(() => RequestExportPdf?.Invoke(this, EventArgs.Empty));
             ExportMidiCommand = new RelayCommand(() => RequestExportMidi?.Invoke(this, EventArgs.Empty));
             ImportMidiCommand = new RelayCommand(() => RequestImportMidi?.Invoke(this, EventArgs.Empty));
+            ImportAudioCommand = new RelayCommand(() => RequestImportAudio?.Invoke(this, EventArgs.Empty));
             RequestTransposeDialogCommand = new RelayCommand(() => RequestTransposeDialog?.Invoke(this, EventArgs.Empty));
 
             _messenger.Register<MainViewModel, StatusChangedMessage>(this, OnStatusChanged);
@@ -108,6 +112,8 @@ namespace JianpuEditor.ViewModels
 
         public RelayCommand ImportMidiCommand { get; }
 
+        public RelayCommand ImportAudioCommand { get; }
+
         public RelayCommand RequestTransposeDialogCommand { get; }
 
         public event EventHandler RequestOpenScore;
@@ -121,6 +127,8 @@ namespace JianpuEditor.ViewModels
         public event EventHandler RequestExportMidi;
 
         public event EventHandler RequestImportMidi;
+
+        public event EventHandler RequestImportAudio;
 
         public event EventHandler RequestTransposeDialog;
 
@@ -225,6 +233,23 @@ namespace JianpuEditor.ViewModels
             {
                 SetStatus("MIDI import failed");
                 throw new InvalidOperationException("MIDI import failed: " + ex.Message, ex);
+            }
+        }
+
+        public ScoreEditResult ImportAudio(string filePath)
+        {
+            try
+            {
+                Playback.Stop();
+                var score = _audioImportService.Import(filePath);
+                Document.LoadFromMidi(score);
+                SetStatus("Audio transcribed: " + filePath);
+                return ScoreEditResult.WithMessage("Audio transcribed: " + filePath);
+            }
+            catch (Exception ex)
+            {
+                SetStatus("Audio import failed");
+                throw new InvalidOperationException("Audio import failed: " + ex.Message, ex);
             }
         }
 
