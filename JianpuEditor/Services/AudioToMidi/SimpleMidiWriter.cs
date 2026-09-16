@@ -15,11 +15,13 @@ namespace JianpuEditor.Services.AudioToMidi
     internal static class SimpleMidiWriter
     {
         private const int TicksPerQuarter = 480;
-        private const int NominalBpm = 120; // audio has no inherent tempo; the user retimes in the editor
 
-        public static void Write(string path, IReadOnlyList<(double Start, double End, int Pitch, float Velocity)> notes)
+        public static void Write(
+            string path,
+            IReadOnlyList<(double Start, double End, int Pitch, float Velocity)> notes,
+            double bpm)
         {
-            var ticksPerSecond = TicksPerQuarter * (NominalBpm / 60.0);
+            var ticksPerSecond = TicksPerQuarter * (bpm / 60.0);
 
             var events = new List<(long Ticks, bool IsNoteOn, int Pitch, int Velocity)>();
             foreach (var note in notes)
@@ -39,7 +41,7 @@ namespace JianpuEditor.Services.AudioToMidi
                 return cmp != 0 ? cmp : a.IsNoteOn.CompareTo(b.IsNoteOn);
             });
 
-            var microsecondsPerQuarter = 60_000_000 / NominalBpm;
+            var microsecondsPerQuarter = (int)Math.Round(60_000_000 / bpm);
 
             using var stream = new MemoryStream();
             using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true))
