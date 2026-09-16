@@ -112,7 +112,7 @@ namespace JianpuEditor.Services
             {
                 Title = Path.GetFileNameWithoutExtension(path) ?? "MIDI Import",
                 KeySignature = keySignature,
-                Tempo = "Moderato",
+                Tempo = TempoMarkingService.FromBpm(bpm),
                 Bpm = bpm,
                 Composer = string.Empty,
                 Measures = measures,

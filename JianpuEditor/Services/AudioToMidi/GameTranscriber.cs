@@ -23,13 +23,11 @@ namespace JianpuEditor.Services.AudioToMidi
     {
         private const double ChunkSeconds = 24.0;
         private const double PadSeconds = 1.0; // avoids a short-clip edge artifact found during prototyping
-        private const float SegThreshold = 0.2f;
-        private const long SegRadiusFrames = 2;
-        private const float EstThreshold = 0.2f;
         private const float DefaultAmplitude = 0.8f; // GAME has no per-note confidence/velocity signal
 
-        public List<TranscribedNote> Transcribe(string audioPath, IProgress<string> progress = null)
+        public List<TranscribedNote> Transcribe(string audioPath, GameSettings settings, IProgress<string> progress = null)
         {
+            settings = settings ?? GameSettings.CreateDefault();
             var modelDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "Models", "game");
             if (!Directory.Exists(modelDir))
             {
@@ -65,7 +63,7 @@ namespace JianpuEditor.Services.AudioToMidi
                     var chunkOffsetSeconds = (double)chunkStart / model.SampleRate - PadSeconds;
                     var gameNotes = model.Infer(
                         padded, (float)padded.Length / model.SampleRate,
-                        segThreshold: SegThreshold, segRadiusFrames: SegRadiusFrames, estThreshold: EstThreshold, ts: ts);
+                        segThreshold: settings.SegThreshold, segRadiusFrames: settings.SegRadiusFrames, estThreshold: settings.EstThreshold, ts: ts);
 
                     foreach (var n in gameNotes)
                     {

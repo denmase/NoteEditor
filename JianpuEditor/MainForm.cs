@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Threading.Tasks;
@@ -10,6 +11,7 @@ using JianpuEditor.Glue;
 using JianpuEditor.Models;
 using JianpuEditor.Rendering;
 using JianpuEditor.Services;
+using JianpuEditor.Services.AudioToMidi;
 using JianpuEditor.Services.EditCommands;
 using JianpuEditor.ViewModels;
 using JianpuEditor.Views;
@@ -23,6 +25,8 @@ namespace JianpuEditor
         private readonly ILayoutService _layoutService;
         private readonly IEditCommandHistory _commandHistory;
         private readonly IMidiOutput _midiOutput;
+        private readonly BasicPitchSettings _lastBasicPitchSettings = BasicPitchSettings.CreateDefault();
+        private readonly GameSettings _lastGameSettings = GameSettings.CreateDefault();
         private JianpuScore _mutationBeforeSnapshot;
         private int _mutationBeforeMeasureIndex = -1;
         private bool _suppressCanvasMutationTracking;
@@ -982,6 +986,12 @@ namespace JianpuEditor
             _viewModel.Playback.Stop();
             _viewModel.TieEditor.CancelTieMode();
             var engineLabel = engine == AudioTranscriptionEngine.Vocal ? "Vocal (GAME)" : "Instrument (basic-pitch)";
+
+            if (!TryShowEngineSettingsDialog(engine))
+            {
+                return;
+            }
+
             using (var dialog = new OpenFileDialog
             {
                 Title = "Import from Audio (" + engineLabel + ")",
@@ -1012,7 +1022,7 @@ namespace JianpuEditor
 
                     try
                     {
-                        var result = await Task.Run(() => _viewModel.ImportAudio(fileName, engine, progress));
+                        var result = await Task.Run(() => _viewModel.ImportAudio(fileName, engine, _lastBasicPitchSettings, _lastGameSettings, progress));
                         Text = _viewModel.Document.WindowTitle;
                         _glue.ApplyEditResult(new ScoreEditResult { Changed = true, SelectMeasureIndex = 0 });
                         _glue.ResetPlaybackHead();
@@ -1033,6 +1043,65 @@ namespace JianpuEditor
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Shows the engine-specific "Advanced settings" prompt before every audio import (per
+        /// user preference -- the values shown default to whatever was used last, but the dialog
+        /// itself is never skipped). Returns false if the user cancelled, in which case the caller
+        /// should abort the import entirely without opening the file picker.
+        /// </summary>
+        private bool TryShowEngineSettingsDialog(AudioTranscriptionEngine engine)
+        {
+            IReadOnlyList<ImportParameter> parameters;
+            if (engine == AudioTranscriptionEngine.Vocal)
+            {
+                parameters = new[]
+                {
+                    new ImportParameter("Segmentation threshold", (decimal)_lastGameSettings.SegThreshold, 0.05m, 0.95m, 0.05m, 2),
+                    new ImportParameter("Segmentation radius (frames)", _lastGameSettings.SegRadiusFrames, 0, 10, 1, 0),
+                    new ImportParameter("Note-presence threshold", (decimal)_lastGameSettings.EstThreshold, 0.05m, 0.95m, 0.05m, 2)
+                };
+            }
+            else
+            {
+                parameters = new[]
+                {
+                    new ImportParameter("Onset threshold", (decimal)_lastBasicPitchSettings.OnsetThreshold, 0.05m, 0.95m, 0.05m, 2),
+                    new ImportParameter("Frame threshold", (decimal)_lastBasicPitchSettings.FrameThreshold, 0.05m, 0.95m, 0.05m, 2),
+                    new ImportParameter("Minimum note length (frames)", _lastBasicPitchSettings.MinNoteLenFrames, 1, 60, 1, 0),
+                    new ImportParameter("Merge gap (seconds)", (decimal)_lastBasicPitchSettings.MergeGapSeconds, 0.0m, 0.5m, 0.01m, 2),
+                    new ImportParameter("Minimum amplitude", (decimal)_lastBasicPitchSettings.MinAmplitude, 0.0m, 0.95m, 0.05m, 2)
+                };
+            }
+
+            var engineLabel = engine == AudioTranscriptionEngine.Vocal ? "Vocal (GAME)" : "Instrument (basic-pitch)";
+            using (var dialog = new AudioImportSettingsDialog("Audio Import Settings (" + engineLabel + ")", parameters))
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    return false;
+                }
+
+                dialog.ApplyValues();
+            }
+
+            if (engine == AudioTranscriptionEngine.Vocal)
+            {
+                _lastGameSettings.SegThreshold = (float)parameters[0].Value;
+                _lastGameSettings.SegRadiusFrames = (long)parameters[1].Value;
+                _lastGameSettings.EstThreshold = (float)parameters[2].Value;
+            }
+            else
+            {
+                _lastBasicPitchSettings.OnsetThreshold = (float)parameters[0].Value;
+                _lastBasicPitchSettings.FrameThreshold = (float)parameters[1].Value;
+                _lastBasicPitchSettings.MinNoteLenFrames = (int)parameters[2].Value;
+                _lastBasicPitchSettings.MergeGapSeconds = (double)parameters[3].Value;
+                _lastBasicPitchSettings.MinAmplitude = (float)parameters[4].Value;
+            }
+
+            return true;
         }
 
         private void OnOpenScore(object sender, EventArgs e)
