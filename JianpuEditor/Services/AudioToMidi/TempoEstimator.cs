@@ -29,9 +29,16 @@ namespace JianpuEditor.Services.AudioToMidi
         private const double MaxBpm = 200.0;
         private const double MinIoiSeconds = 0.1; // faster than this is almost certainly decoder jitter, not a beat
         private const double MaxIoiSeconds = 2.0; // slower than this (a <30bpm beat) is not a useful candidate period
-        private const double ToleranceFraction = 0.08; // an onset gap within 8% of a beat multiple counts as "on the grid"
+        // A fixed absolute tolerance, not a percentage of the beat period: a percentage-based
+        // tolerance gives slow candidate tempos a wider absolute matching window for the exact
+        // same onset data (8% of a slow tempo's long period is a lot more real time than 8% of
+        // a fast tempo's short one), which systematically inflates slow-tempo scores regardless
+        // of whether they're actually right -- in practice this was enough to make the search
+        // collapse onto MinBpm on real vocal data with looser onset timing than any of this
+        // class's synthetic validation used.
+        private const double AbsoluteToleranceSeconds = 0.035;
         private const int MinNotesRequired = 6;
-        private const double HalvingAcceptanceFraction = 0.5; // accept half tempo if it still explains at least this fraction of the full-tempo score
+        private const double HalvingAcceptanceFraction = 0.45; // accept half tempo if it still explains at least this fraction of the full-tempo score
 
         /// <summary>
         /// Returns the estimated tempo in BPM, or <see cref="DefaultBpm"/> if there
@@ -134,10 +141,10 @@ namespace JianpuEditor.Services.AudioToMidi
                     continue;
                 }
 
-                var residual = Math.Abs(ioi - multiple * period) / period;
-                if (residual < ToleranceFraction)
+                var residual = Math.Abs(ioi - multiple * period);
+                if (residual < AbsoluteToleranceSeconds)
                 {
-                    score += 1.0 - (residual / ToleranceFraction);
+                    score += 1.0 - (residual / AbsoluteToleranceSeconds);
                 }
             }
 

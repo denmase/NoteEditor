@@ -254,29 +254,76 @@ namespace JianpuEditor.Services
             return Math.Max(QuantizeGrid, quantized);
         }
 
+        // Krumhansl-Kessler key profiles (Krumhansl & Kessler, 1982): the relative perceived
+        // "fit" of each scale degree (index = semitones above the tonic) in a major/minor
+        // context. A tonic's relative major (e.g. C for A minor) shares the exact same set of
+        // pitch classes, so counting scale membership alone -- the previous approach here --
+        // can never tell them apart and will always report the relative major, tie-broken only
+        // by which tonic happens to be tried first. Correlating the piece's actual pitch-class
+        // usage against these profiles (the standard technique for this problem) distinguishes
+        // them by how the piece actually emphasizes its scale degrees, not just which notes it
+        // uses.
+        private static readonly double[] MajorKeyProfile =
+            { 6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88 };
+
+        private static readonly double[] MinorKeyProfile =
+            { 6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17 };
+
         private static int DetectTonicMidi(IReadOnlyList<ImportedNote> notes)
         {
+            var histogram = new double[12];
+            foreach (var note in notes)
+            {
+                var pitchClass = ((note.MidiNote % 12) + 12) % 12;
+                histogram[pitchClass] += Math.Max(0.01, note.DurationQuarter);
+            }
+
+            if (histogram.Sum() <= 0)
+            {
+                return ScoreMidiSchedule.DefaultTonicMidi;
+            }
+
             var bestTonic = ScoreMidiSchedule.DefaultTonicMidi;
-            var bestScore = int.MinValue;
+            var bestCorrelation = double.NegativeInfinity;
             for (var tonic = 0; tonic < 12; tonic++)
             {
-                var score = 0;
-                foreach (var note in notes)
+                var majorCorrelation = CorrelateWithProfile(histogram, MajorKeyProfile, tonic);
+                var minorCorrelation = CorrelateWithProfile(histogram, MinorKeyProfile, tonic);
+                var best = Math.Max(majorCorrelation, minorCorrelation);
+                if (best > bestCorrelation)
                 {
-                    if (TryMidiToJianpu(note.MidiNote, 60 + tonic, out _, out _, out _, out var error))
-                    {
-                        score += Math.Max(0, 3 - error);
-                    }
-                }
-
-                if (score > bestScore)
-                {
-                    bestScore = score;
+                    bestCorrelation = best;
                     bestTonic = 60 + tonic;
                 }
             }
 
             return bestTonic;
+        }
+
+        private static double CorrelateWithProfile(double[] histogram, double[] profile, int tonic)
+        {
+            var rotated = new double[12];
+            for (var pitchClass = 0; pitchClass < 12; pitchClass++)
+            {
+                rotated[pitchClass] = profile[((pitchClass - tonic) % 12 + 12) % 12];
+            }
+
+            var meanHistogram = histogram.Average();
+            var meanProfile = rotated.Average();
+            var numerator = 0.0;
+            var histogramVariance = 0.0;
+            var profileVariance = 0.0;
+            for (var i = 0; i < 12; i++)
+            {
+                var dh = histogram[i] - meanHistogram;
+                var dp = rotated[i] - meanProfile;
+                numerator += dh * dp;
+                histogramVariance += dh * dh;
+                profileVariance += dp * dp;
+            }
+
+            var denominator = Math.Sqrt(histogramVariance * profileVariance);
+            return denominator > 0 ? numerator / denominator : 0.0;
         }
 
         private static List<JianpuMeasure> BuildMeasures(
