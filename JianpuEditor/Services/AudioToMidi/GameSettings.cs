@@ -4,9 +4,11 @@ namespace JianpuEditor.Services.AudioToMidi
     /// so they can experiment without a code change.</summary>
     public sealed class GameSettings
     {
-        public float SegThreshold = 0.2f;
-        public long SegRadiusFrames = 2;
-        public float EstThreshold = 0.2f;
+        public float SegThreshold { get; set; } = 0.2f;
+
+        public long SegRadiusFrames { get; set; } = 2;
+
+        public float EstThreshold { get; set; } = 0.2f;
 
         public static GameSettings CreateDefault()
         {
