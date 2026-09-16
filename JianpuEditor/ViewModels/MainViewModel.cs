@@ -6,6 +6,7 @@ using JianpuEditor.Core.Abstractions;
 using JianpuEditor.Core.Messaging;
 using JianpuEditor.Core.Messaging.Messages;
 using JianpuEditor.Models;
+using JianpuEditor.Services.AudioToMidi;
 
 namespace JianpuEditor.ViewModels
 {
@@ -241,12 +242,17 @@ namespace JianpuEditor.ViewModels
             }
         }
 
-        public ScoreEditResult ImportAudio(string filePath, AudioTranscriptionEngine engine, IProgress<string> progress = null)
+        public ScoreEditResult ImportAudio(
+            string filePath,
+            AudioTranscriptionEngine engine,
+            BasicPitchSettings basicPitchSettings = null,
+            GameSettings gameSettings = null,
+            IProgress<string> progress = null)
         {
             try
             {
                 Playback.Stop();
-                var score = _audioImportService.Import(filePath, engine, progress);
+                var score = _audioImportService.Import(filePath, engine, basicPitchSettings, gameSettings, progress);
                 Document.LoadFromMidi(score);
                 SetStatus("Audio transcribed: " + filePath);
                 return ScoreEditResult.WithMessage("Audio transcribed: " + filePath);
