@@ -50,10 +50,13 @@ namespace JianpuEditor.Services.AudioToMidi
                 throw new InvalidOperationException("No notes were detected in this audio file.");
             }
 
+            progress?.Report("Estimating tempo...");
+            var bpm = TempoEstimator.EstimateBpm(notes);
+
             var tempMidiPath = Path.Combine(Path.GetTempPath(), "audio-import-" + Guid.NewGuid().ToString("N") + ".mid");
             try
             {
-                SimpleMidiWriter.Write(tempMidiPath, notes.Select(n => (n.Start, n.End, n.Pitch, n.Amplitude)).ToList());
+                SimpleMidiWriter.Write(tempMidiPath, notes.Select(n => (n.Start, n.End, n.Pitch, n.Amplitude)).ToList(), bpm);
                 return _midiImportService.Import(tempMidiPath, trackIndex: null);
             }
             finally
