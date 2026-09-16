@@ -15,14 +15,26 @@ namespace JianpuEditor.Services.AudioToMidi
     /// whole clip at once, and memory/time scale roughly quadratically with duration
     /// (measured empirically: ~1.3GB at 30s, ~2.9GB at 45s; a full 3-minute clip fed
     /// whole was OOM-killed). <see cref="ChunkSeconds"/> keeps each inference call
-    /// well under 1.5GB. A note that happens to fall exactly on a chunk boundary can
-    /// be split into two -- a known limitation of this simple fixed-size chunking,
-    /// not fixed here.
+    /// well under 1.5GB.
+    ///
+    /// Each chunk is padded with <see cref="OverlapSeconds"/> of the *real* neighboring
+    /// audio (not silence) on both sides, so the model has genuine acoustic context
+    /// right up to the seam -- a held note that continues past a chunk boundary is
+    /// still fully audible to the chunk that starts it. To avoid then reporting that
+    /// same note twice (once truncated from each side), only notes whose onset falls
+    /// within a chunk's own "core" span [chunkStart, chunkStart+chunkLength) are kept
+    /// from that chunk's output; a note that starts inside chunk N's core but sustains
+    /// into the overlap fringe is still recorded in full by chunk N (its real end time,
+    /// since the audio there is real, not padding), while chunk N+1's own detection of
+    /// that same tail (from its leading overlap) is dropped as the duplicate it is.
+    /// An earlier version zero-padded between chunks, which reliably split any note
+    /// straddling a boundary into two truncated pieces (reproduced and fixed after a
+    /// user report that boundary notes came out shorter than they should).
     /// </remarks>
     internal sealed class GameTranscriber
     {
         private const double ChunkSeconds = 24.0;
-        private const double PadSeconds = 1.0; // avoids a short-clip edge artifact found during prototyping
+        private const double OverlapSeconds = 4.0; // real-audio context borrowed from each neighboring chunk
         private const float DefaultAmplitude = 0.8f; // GAME has no per-note confidence/velocity signal
 
         public List<TranscribedNote> Transcribe(string audioPath, GameSettings settings, IProgress<string> progress = null)
@@ -45,7 +57,7 @@ namespace JianpuEditor.Services.AudioToMidi
                 }
 
                 var ts = GameOnnxModel.DefaultTs();
-                var padSamples = (int)(PadSeconds * model.SampleRate);
+                var overlapSamples = (int)(OverlapSeconds * model.SampleRate);
                 var chunkSamples = (int)(ChunkSeconds * model.SampleRate);
                 var totalChunks = Math.Max(1, (int)Math.Ceiling((double)samples.Length / chunkSamples));
 
@@ -57,10 +69,20 @@ namespace JianpuEditor.Services.AudioToMidi
                     progress?.Report($"Transcribing (vocal) chunk {chunkIndex} of {totalChunks}...");
 
                     var chunkLength = Math.Min(chunkSamples, samples.Length - chunkStart);
-                    var padded = new float[padSamples * 2 + chunkLength];
-                    Array.Copy(samples, chunkStart, padded, padSamples, chunkLength);
+                    var coreStartSeconds = (double)chunkStart / model.SampleRate;
+                    var coreEndSeconds = (double)(chunkStart + chunkLength) / model.SampleRate;
 
-                    var chunkOffsetSeconds = (double)chunkStart / model.SampleRate - PadSeconds;
+                    // Window = [chunkStart - overlap, chunkStart + chunkLength + overlap),
+                    // clamped to the real sample array; only falls back to zero at the
+                    // true start/end of the whole clip, where there is no neighbor to
+                    // borrow real audio from anyway.
+                    var windowStart = Math.Max(0, chunkStart - overlapSamples);
+                    var windowEnd = Math.Min(samples.Length, chunkStart + chunkLength + overlapSamples);
+                    var leadingZeros = Math.Max(0, overlapSamples - chunkStart);
+                    var padded = new float[leadingZeros + (windowEnd - windowStart)];
+                    Array.Copy(samples, windowStart, padded, leadingZeros, windowEnd - windowStart);
+
+                    var chunkOffsetSeconds = (double)(chunkStart - overlapSamples) / model.SampleRate;
                     var gameNotes = model.Infer(
                         padded, (float)padded.Length / model.SampleRate,
                         segThreshold: settings.SegThreshold, segRadiusFrames: settings.SegRadiusFrames, estThreshold: settings.EstThreshold, ts: ts);
@@ -72,6 +94,10 @@ namespace JianpuEditor.Services.AudioToMidi
                         if (end <= 0)
                         {
                             continue; // fell entirely in the leading pad
+                        }
+                        if (start < coreStartSeconds || start >= coreEndSeconds)
+                        {
+                            continue; // onset belongs to a neighboring chunk's core -- that chunk owns it
                         }
                         notes.Add(new TranscribedNote(Math.Max(0, start), end, (int)Math.Round(n.Pitch), DefaultAmplitude));
                     }
