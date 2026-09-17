@@ -227,6 +227,82 @@ namespace JianpuEditor.Tests.Services
             }
         }
 
+        [Fact]
+        public void Import_OnsetJitterWithinASixteenth_DoesNotInsertSpuriousRest()
+        {
+            // Regression test: a note whose onset lands a little off-grid (routine for
+            // audio-transcribed content, and possible in a human-performed MIDI file) used to
+            // leave a real gap between the end of the previous note and this note's raw start
+            // once that jitter exceeded the small epsilon BuildMeasures already tolerates --
+            // which then got padded with a spurious sixteenth-note rest between the two notes.
+            // Quantizing each note's onset to the nearest sixteenth before measures are built
+            // closes that gap instead. (Trailing rests from measure normalization padding the
+            // rest of the 4-beat measure are expected and not what this test is about --
+            // it only checks that no rest was inserted *between* the two notes.)
+            const int ticksPerQuarter = 480;
+            var bytes = BuildTwoNoteMidiWithJitter(ticksPerQuarter, secondNoteStartTicks: 508); // ~29ms jitter at 120bpm
+            var path = Path.Combine(Path.GetTempPath(), "jianpu-import-onset-jitter-" + Guid.NewGuid() + ".mid");
+            try
+            {
+                File.WriteAllBytes(path, bytes);
+                var imported = MidiImportService.Import(path);
+
+                var melodyNotes = imported.Measures[0].MelodyNotes;
+                var firstNoteIndex = melodyNotes.FindIndex(note => note.Type == NoteType.Note);
+                var secondNoteIndex = melodyNotes.FindIndex(firstNoteIndex + 1, note => note.Type == NoteType.Note);
+                Assert.Equal(firstNoteIndex + 1, secondNoteIndex);
+            }
+            finally
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+        }
+
+        private static byte[] BuildTwoNoteMidiWithJitter(int ticksPerQuarter, int secondNoteStartTicks)
+        {
+            var events = new List<byte>();
+
+            // Note 1: starts at tick 0, lasts exactly one quarter note.
+            events.AddRange(VariableLength(0));
+            events.Add(0x90);
+            events.Add(60);
+            events.Add(100);
+            events.AddRange(VariableLength(ticksPerQuarter));
+            events.Add(0x80);
+            events.Add(60);
+            events.Add(0);
+
+            // Note 2: starts slightly late (jitter), also lasts one quarter note.
+            var delta = secondNoteStartTicks - ticksPerQuarter;
+            events.AddRange(VariableLength(delta));
+            events.Add(0x90);
+            events.Add(62);
+            events.Add(100);
+            events.AddRange(VariableLength(ticksPerQuarter));
+            events.Add(0x80);
+            events.Add(62);
+            events.Add(0);
+
+            events.AddRange(VariableLength(0));
+            events.Add(0xFF);
+            events.Add(0x2F);
+            events.Add(0x00);
+
+            var track = BuildTrackChunk(events);
+
+            var bytes = new List<byte>();
+            bytes.AddRange(Encoding.ASCII.GetBytes("MThd"));
+            bytes.AddRange(BigEndianUInt32(6));
+            bytes.AddRange(BigEndianUInt16(0));
+            bytes.AddRange(BigEndianUInt16(1));
+            bytes.AddRange(BigEndianUInt16(ticksPerQuarter));
+            bytes.AddRange(track);
+            return bytes.ToArray();
+        }
+
         private static byte[] BuildMinimalMultiTrackMidi()
         {
             const int ticksPerQuarter = 96;
