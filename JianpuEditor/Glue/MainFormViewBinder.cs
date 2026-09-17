@@ -2,6 +2,8 @@ using System;
 using System.ComponentModel;
 using System.Windows.Forms;
 using JianpuEditor.Controls;
+using JianpuEditor.Models;
+using JianpuEditor.Services;
 using JianpuEditor.ViewModels;
 
 namespace JianpuEditor.Glue
@@ -103,7 +105,7 @@ namespace JianpuEditor.Glue
                 _viewModel.MeasureNavigation.CurrentMeasureIndex,
                 measureCount - 1));
             _measureSelector.Value = Math.Max(1, Math.Min(measureCount, currentIndex + 1));
-            _statusBar.SetMeasure(currentIndex + 1, measureCount);
+            _statusBar.SetMeasure(currentIndex + 1, measureCount, GetBeatsWarning(score, currentIndex));
 
             var range = _viewModel.Selection.GetMeasureRangeIndices();
             var fromIndex = Math.Max(0, Math.Min(range.fromIndex, measureCount - 1));
@@ -112,6 +114,30 @@ namespace JianpuEditor.Glue
             _measureRangeTo.Value = Math.Max(1, Math.Min(measureCount, toIndex + 1));
             _suppressMeasureRangeSync = false;
             _suppressMeasureSelectorSync = false;
+        }
+
+        /// <summary>Null when the current measure's note content matches what the score's
+        /// time signature implies (or the time signature can't be parsed, or there's no
+        /// current measure) -- otherwise "actual/expected beats" for the status bar.</summary>
+        private static string GetBeatsWarning(JianpuScore score, int measureIndex)
+        {
+            if (score?.Measures == null || measureIndex < 0 || measureIndex >= score.Measures.Count)
+            {
+                return null;
+            }
+
+            if (!TimeSignatureService.TryGetQuarterBeatsPerMeasure(score.TimeSignature, out var expectedBeats))
+            {
+                return null;
+            }
+
+            var actualBeats = MelodyChordService.GetMeasureDurationUnits(score.Measures[measureIndex]);
+            if (Math.Abs(actualBeats - expectedBeats) <= 0.02)
+            {
+                return null;
+            }
+
+            return actualBeats.ToString("0.##") + "/" + expectedBeats.ToString("0.##") + " beats";
         }
 
         public void SyncMeasureTextBoxes()

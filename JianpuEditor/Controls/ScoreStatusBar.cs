@@ -97,9 +97,24 @@ namespace JianpuEditor.Controls
             _tempoSegment.Text = tempo ?? string.Empty;
         }
 
-        public void SetMeasure(int current, int total)
+        /// <summary><paramref name="beatsWarning"/> is appended when the current measure's
+        /// note content doesn't add up to what the score's time signature implies, e.g.
+        /// "5.00/4.00 beats" -- null or empty shows the plain measure count.</summary>
+        public void SetMeasure(int current, int total, string beatsWarning = null)
         {
-            _measureSegment.Text = total > 0 ? "Measure " + current + " / " + total : string.Empty;
+            if (total <= 0)
+            {
+                _measureSegment.Text = string.Empty;
+                return;
+            }
+
+            var text = "Measure " + current + " / " + total;
+            if (!string.IsNullOrEmpty(beatsWarning))
+            {
+                text += "  ⚠ " + beatsWarning;
+            }
+
+            _measureSegment.Text = text;
         }
 
         public void SetEngine(string engineName)
