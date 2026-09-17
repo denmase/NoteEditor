@@ -10,6 +10,13 @@ namespace JianpuEditor.Services.AudioToMidi
 
         public float EstThreshold { get; set; } = 0.2f;
 
+        /// <summary>Any note no longer than this, immediately flanked on both sides by a
+        /// note of one identical pitch, is merged into that surrounding note -- catches a
+        /// vibrato dip/rise that the segmenter mistakes for a distinct note without
+        /// touching genuine passing tones or chromatic runs (which move on to a different
+        /// pitch rather than returning to where they started). 0 disables this.</summary>
+        public double VibratoSmoothingSeconds { get; set; } = 0.15;
+
         public static GameSettings CreateDefault()
         {
             return new GameSettings();
@@ -21,7 +28,8 @@ namespace JianpuEditor.Services.AudioToMidi
             {
                 SegThreshold = SegThreshold,
                 SegRadiusFrames = SegRadiusFrames,
-                EstThreshold = EstThreshold
+                EstThreshold = EstThreshold,
+                VibratoSmoothingSeconds = VibratoSmoothingSeconds
             };
         }
     }
