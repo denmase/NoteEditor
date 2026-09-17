@@ -1062,7 +1062,8 @@ namespace JianpuEditor
                     new ImportParameter("Segmentation radius (frames)", _lastGameSettings.SegRadiusFrames, 0, 10, 1, 0),
                     new ImportParameter("Note-presence threshold", (decimal)_lastGameSettings.EstThreshold, 0.05m, 0.95m, 0.05m, 2),
                     new ImportParameter("Vibrato smoothing min (seconds)", (decimal)_lastGameSettings.MinVibratoSmoothingSeconds, 0.0m, 0.5m, 0.01m, 2),
-                    new ImportParameter("Vibrato smoothing max (seconds, 0=off)", (decimal)_lastGameSettings.MaxVibratoSmoothingSeconds, 0.0m, 0.5m, 0.01m, 2)
+                    new ImportParameter("Vibrato smoothing max (seconds, 0=off)", (decimal)_lastGameSettings.MaxVibratoSmoothingSeconds, 0.0m, 0.5m, 0.01m, 2),
+                    new ImportParameter("Onset quantize grid (quarter notes, 0=off)", (decimal)_lastGameSettings.OnsetQuantizeGrid, 0.0m, 1.0m, 0.25m, 2)
                 };
             }
             else
@@ -1073,7 +1074,8 @@ namespace JianpuEditor
                     new ImportParameter("Frame threshold", (decimal)_lastBasicPitchSettings.FrameThreshold, 0.05m, 0.95m, 0.05m, 2),
                     new ImportParameter("Minimum note length (frames)", _lastBasicPitchSettings.MinNoteLenFrames, 1, 60, 1, 0),
                     new ImportParameter("Merge gap (seconds)", (decimal)_lastBasicPitchSettings.MergeGapSeconds, 0.0m, 0.5m, 0.01m, 2),
-                    new ImportParameter("Minimum amplitude", (decimal)_lastBasicPitchSettings.MinAmplitude, 0.0m, 0.95m, 0.05m, 2)
+                    new ImportParameter("Minimum amplitude", (decimal)_lastBasicPitchSettings.MinAmplitude, 0.0m, 0.95m, 0.05m, 2),
+                    new ImportParameter("Onset quantize grid (quarter notes, 0=off)", (decimal)_lastBasicPitchSettings.OnsetQuantizeGrid, 0.0m, 1.0m, 0.25m, 2)
                 };
             }
 
@@ -1095,6 +1097,7 @@ namespace JianpuEditor
                 _lastGameSettings.EstThreshold = (float)parameters[2].Value;
                 _lastGameSettings.MinVibratoSmoothingSeconds = (double)parameters[3].Value;
                 _lastGameSettings.MaxVibratoSmoothingSeconds = (double)parameters[4].Value;
+                _lastGameSettings.OnsetQuantizeGrid = (double)parameters[5].Value;
             }
             else
             {
@@ -1103,6 +1106,7 @@ namespace JianpuEditor
                 _lastBasicPitchSettings.MinNoteLenFrames = (int)parameters[2].Value;
                 _lastBasicPitchSettings.MergeGapSeconds = (double)parameters[3].Value;
                 _lastBasicPitchSettings.MinAmplitude = (float)parameters[4].Value;
+                _lastBasicPitchSettings.OnsetQuantizeGrid = (double)parameters[5].Value;
             }
 
             return true;

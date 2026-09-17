@@ -58,6 +58,11 @@ namespace JianpuEditor.Services.AudioToMidi
             progress?.Report("Estimating tempo...");
             var bpm = TempoEstimator.EstimateBpm(notes);
 
+            var onsetQuantizeGrid = engine == AudioTranscriptionEngine.Vocal
+                ? (gameSettings ?? GameSettings.CreateDefault()).OnsetQuantizeGrid
+                : (basicPitchSettings ?? BasicPitchSettings.CreateDefault()).OnsetQuantizeGrid;
+            notes = OnsetQuantizer.Quantize(notes, bpm, onsetQuantizeGrid);
+
             progress?.Report("Estimating time signature...");
             var (timeSignatureNumerator, timeSignatureDenominator) = TimeSignatureEstimator.EstimateTimeSignature(notes, bpm);
 

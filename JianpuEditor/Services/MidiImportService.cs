@@ -235,7 +235,7 @@ namespace JianpuEditor.Services
                     {
                         Channel = start.Channel,
                         MidiNote = start.NoteNumber,
-                        StartQuarter = start.Ticks / (double)ticksPerQuarter,
+                        StartQuarter = QuantizeOnset(start.Ticks / (double)ticksPerQuarter),
                         DurationQuarter = QuantizeDuration(durationTicks / (double)ticksPerQuarter)
                     });
                 }
@@ -256,6 +256,18 @@ namespace JianpuEditor.Services
 
             var quantized = Math.Round(quarterLength / QuantizeGrid) * QuantizeGrid;
             return Math.Max(QuantizeGrid, quantized);
+        }
+
+        // Snaps a note's onset to the nearest sixteenth-note position. A source file's raw
+        // tick timing (whether a human performance or audio-transcribed onset noise) has no
+        // reason to land exactly on the grid jianpu notation requires; left uncorrected, that
+        // jitter accumulates into the running cursor in BuildMeasures and shows up as spurious
+        // near-zero-length rests once the gap exceeds DurationEpsilon. Durations are already
+        // force-snapped the same way (see ApplyDurationUnits), so this brings onsets in line
+        // with the same rigid grid the rest of the pipeline already assumes.
+        private static double QuantizeOnset(double quarterPosition)
+        {
+            return Math.Round(quarterPosition / QuantizeGrid) * QuantizeGrid;
         }
 
         // Krumhansl-Kessler key profiles (Krumhansl & Kessler, 1982): the relative perceived
