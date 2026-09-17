@@ -103,6 +103,22 @@ namespace JianpuEditor.ViewModels
             }
         }
 
+        public string TimeSignature
+        {
+            get { return _score.TimeSignature; }
+            set
+            {
+                if (_score.TimeSignature == value)
+                {
+                    return;
+                }
+
+                _score.TimeSignature = value ?? string.Empty;
+                OnPropertyChanged(nameof(TimeSignature));
+                MarkDirty();
+            }
+        }
+
         public int Bpm
         {
             get { return _score.Bpm; }
@@ -365,6 +381,8 @@ namespace JianpuEditor.ViewModels
                     return Title;
                 case ScoreHeaderField.KeySignature:
                     return KeySignature;
+                case ScoreHeaderField.TimeSignature:
+                    return TimeSignature;
                 case ScoreHeaderField.Tempo:
                     return Tempo;
                 case ScoreHeaderField.Composer:

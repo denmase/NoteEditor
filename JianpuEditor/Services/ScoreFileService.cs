@@ -69,6 +69,7 @@ namespace JianpuEditor.Services
             {
                 Title = token.Value<string>("Title") ?? "Untitled Score",
                 KeySignature = token.Value<string>("KeySignature") ?? "1=C",
+                TimeSignature = token.Value<string>("TimeSignature") ?? "4/4",
                 Tempo = token.Value<string>("Tempo") ?? "Moderato",
                 Bpm = token.Value<int?>("Bpm") ?? 120,
                 Composer = token.Value<string>("Composer") ?? string.Empty,

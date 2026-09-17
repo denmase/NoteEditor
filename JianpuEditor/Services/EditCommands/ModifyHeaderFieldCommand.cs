@@ -70,6 +70,9 @@ namespace JianpuEditor.Services.EditCommands
                 case ScoreHeaderField.KeySignature:
                     _document.KeySignature = stringValue;
                     break;
+                case ScoreHeaderField.TimeSignature:
+                    _document.TimeSignature = stringValue;
+                    break;
                 case ScoreHeaderField.Tempo:
                     _document.Tempo = stringValue;
                     break;

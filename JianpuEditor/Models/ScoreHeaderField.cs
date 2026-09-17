@@ -5,6 +5,7 @@ namespace JianpuEditor.Models
         None,
         Title,
         KeySignature,
+        TimeSignature,
         Tempo,
         Bpm,
         Composer
