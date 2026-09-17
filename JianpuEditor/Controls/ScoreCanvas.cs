@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Drawing;
 using System.Linq;
 using System.Reflection;
@@ -85,6 +86,8 @@ namespace JianpuEditor.Controls
         private bool _showPlaybackHead;
         private bool _playbackHeadDragMoved;
         private int _playbackHeadHitZone = 12;
+        private readonly ContextMenuStrip _contentContextMenu;
+        private Point _contextMenuLogicalLocation;
         private Bitmap _scoreBitmap;
         private bool _scoreBitmapDirty = true;
         private readonly CanvasZoom _zoom = new CanvasZoom();
@@ -112,6 +115,11 @@ namespace JianpuEditor.Controls
             _contentPanel.MouseWheel += OnContentMouseWheel;
             Controls.Add(_contentPanel);
             AppTheme.ThemeChanged += OnThemeChanged;
+
+            _contentContextMenu = new ContextMenuStrip();
+            _contentContextMenu.Items.Add("Move playback marker here", null, OnMovePlaybackMarkerHereClicked);
+            _contentContextMenu.Opening += OnContentContextMenuOpening;
+            _contentPanel.ContextMenuStrip = _contentContextMenu;
         }
 
         /// <summary>Current zoom factor; 1.0 is the unzoomed default. Score layout/hit-testing
@@ -802,9 +810,46 @@ namespace JianpuEditor.Controls
 
         private void CommitPlaybackHeadDrag(Point logicalLocation)
         {
+            SeekPlaybackToLogicalLocation(logicalLocation);
+        }
+
+        /// <summary>
+        /// Right-click alternative to dragging the playback marker. Dragging can only *start* by
+        /// grabbing the marker's current (narrow) on-screen position, so on a long score the
+        /// marker effectively feels pinned wherever it last was (typically the very first bar,
+        /// since that's where every load/new/reset leaves it) until the user finds that exact
+        /// spot to grab. Right-clicking anywhere seeks there directly, no drag required.
+        /// </summary>
+        private void OnContentContextMenuOpening(object sender, CancelEventArgs e)
+        {
+            if (_playbackSegments.Count == 0)
+            {
+                e.Cancel = true;
+                return;
+            }
+
+            _contextMenuLogicalLocation = _zoom.ToLogical(_contentPanel.PointToClient(System.Windows.Forms.Cursor.Position));
+        }
+
+        private void OnMovePlaybackMarkerHereClicked(object sender, EventArgs e)
+        {
+            SeekPlaybackToLogicalLocation(_contextMenuLogicalLocation);
+        }
+
+        /// <summary>internal so it can be exercised directly from a test without simulating real
+        /// mouse/cursor input; not otherwise meant to be called from outside the control.</summary>
+        internal void SeekPlaybackToLogicalLocation(Point logicalLocation)
+        {
             var beat = PlaybackLayout.MapXToBeat(_playbackSegments, logicalLocation.X, logicalLocation.Y);
             SetPlaybackPosition(beat, showHead: true, ensureVisible: true);
             PlaybackSeeked?.Invoke(beat);
+        }
+
+        /// <summary>internal so a test can find a specific measure's on-screen bounds without
+        /// duplicating layout logic.</summary>
+        internal IReadOnlyList<PlaybackMeasureSegment> GetPlaybackSegments()
+        {
+            return _playbackSegments;
         }
 
         /// <summary>location is in logical (unscaled) coordinates -- see CanvasZoom.</summary>
