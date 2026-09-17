@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace JianpuEditor.Services.AudioToMidi
 {
@@ -30,6 +31,17 @@ namespace JianpuEditor.Services.AudioToMidi
     /// An earlier version zero-padded between chunks, which reliably split any note
     /// straddling a boundary into two truncated pieces (reproduced and fixed after a
     /// user report that boundary notes came out shorter than they should).
+    ///
+    /// After all chunks are assembled, <see cref="MergeAdjacentSamePitch"/> always runs
+    /// (GAME sometimes reports one sustained pitch as several back-to-back identical-pitch
+    /// fragments), and <see cref="SmoothVibrato"/> optionally absorbs a short note that
+    /// dips/rises and immediately returns to its surrounding pitch -- vibrato mistaken for
+    /// a distinct note -- controlled by <see cref="GameSettings.VibratoSmoothingSeconds"/>.
+    /// This is a partial mitigation for a narrow, verifiable pattern (a brief round-trip
+    /// back to the same pitch), not a general "off-key note" fix: genuine chromatic
+    /// content (passing tones, deliberate runs) moves on to a different pitch and is left
+    /// alone by design, and a sustained mistracked pitch lasting longer than the threshold
+    /// is real transcription inaccuracy this doesn't address.
     /// </remarks>
     internal sealed class GameTranscriber
     {
@@ -102,8 +114,75 @@ namespace JianpuEditor.Services.AudioToMidi
                         notes.Add(new TranscribedNote(Math.Max(0, start), end, (int)Math.Round(n.Pitch), DefaultAmplitude));
                     }
                 }
+                return MergeAdjacentSamePitch(SmoothVibrato(MergeAdjacentSamePitch(notes), settings.VibratoSmoothingSeconds));
+            }
+        }
+
+        // GAME occasionally reports one sustained pitch as several back-to-back fragments
+        // (identical pitch, near-zero gap) -- always safe to collapse into a single note.
+        private static List<TranscribedNote> MergeAdjacentSamePitch(List<TranscribedNote> notes)
+        {
+            const double gapTolerance = 0.02;
+            var sorted = notes.OrderBy(n => n.Start).ToList();
+            var merged = new List<TranscribedNote>();
+            foreach (var n in sorted)
+            {
+                if (merged.Count > 0 && merged[merged.Count - 1].Pitch == n.Pitch && n.Start - merged[merged.Count - 1].End <= gapTolerance)
+                {
+                    var prev = merged[merged.Count - 1];
+                    merged[merged.Count - 1] = new TranscribedNote(prev.Start, n.End, prev.Pitch, Math.Max(prev.Amplitude, n.Amplitude));
+                }
+                else
+                {
+                    merged.Add(n);
+                }
+            }
+            return merged;
+        }
+
+        // Absorbs a short note that dips or rises away from a pitch and immediately
+        // returns to that exact same pitch -- the signature of vibrato mis-segmented as a
+        // separate note -- into the note it interrupts. A note that moves on to a
+        // genuinely different pitch (a passing tone, a chromatic run) is left untouched,
+        // since its neighbors won't agree on the same pitch on both sides.
+        private static List<TranscribedNote> SmoothVibrato(List<TranscribedNote> notes, double maxSmoothedSeconds)
+        {
+            if (maxSmoothedSeconds <= 0)
+            {
                 return notes;
             }
+
+            const int maxSemitoneDepth = 2;
+            const double gapTolerance = 0.02;
+            var result = new List<TranscribedNote>();
+            var i = 0;
+            while (i < notes.Count)
+            {
+                if (result.Count > 0 && i < notes.Count - 1)
+                {
+                    var before = result[result.Count - 1];
+                    var current = notes[i];
+                    var after = notes[i + 1];
+                    var isVibratoBlip =
+                        before.Pitch == after.Pitch
+                        && current.Pitch != before.Pitch
+                        && Math.Abs(current.Pitch - before.Pitch) <= maxSemitoneDepth
+                        && current.End - current.Start <= maxSmoothedSeconds
+                        && current.Start - before.End <= gapTolerance
+                        && after.Start - current.End <= gapTolerance;
+
+                    if (isVibratoBlip)
+                    {
+                        result[result.Count - 1] = new TranscribedNote(before.Start, after.End, before.Pitch, Math.Max(before.Amplitude, after.Amplitude));
+                        i += 2;
+                        continue;
+                    }
+                }
+
+                result.Add(notes[i]);
+                i++;
+            }
+            return result;
         }
     }
 }
