@@ -58,10 +58,18 @@ namespace JianpuEditor.Services.AudioToMidi
             progress?.Report("Estimating tempo...");
             var bpm = TempoEstimator.EstimateBpm(notes);
 
+            progress?.Report("Estimating time signature...");
+            var (timeSignatureNumerator, timeSignatureDenominator) = TimeSignatureEstimator.EstimateTimeSignature(notes, bpm);
+
             var tempMidiPath = Path.Combine(Path.GetTempPath(), "audio-import-" + Guid.NewGuid().ToString("N") + ".mid");
             try
             {
-                SimpleMidiWriter.Write(tempMidiPath, notes.Select(n => (n.Start, n.End, n.Pitch, n.Amplitude)).ToList(), bpm);
+                SimpleMidiWriter.Write(
+                    tempMidiPath,
+                    notes.Select(n => (n.Start, n.End, n.Pitch, n.Amplitude)).ToList(),
+                    bpm,
+                    timeSignatureNumerator,
+                    timeSignatureDenominator);
                 return _midiImportService.Import(tempMidiPath, trackIndex: null);
             }
             finally

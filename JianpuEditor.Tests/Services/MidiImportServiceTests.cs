@@ -2,6 +2,7 @@ using System.Text;
 using JianpuEditor.Models;
 using JianpuEditor.Rendering;
 using JianpuEditor.Services;
+using JianpuEditor.Services.AudioToMidi;
 using JianpuEditor.Tests.Helpers;
 using Xunit;
 
@@ -148,6 +149,55 @@ namespace JianpuEditor.Tests.Services
         {
             Assert.Throws<FileNotFoundException>(() =>
                 MidiImportService.Import(Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".mid")));
+        }
+
+        [Theory]
+        [InlineData(3, 4, "3/4")]
+        [InlineData(6, 8, "6/8")]
+        [InlineData(2, 4, "2/4")]
+        public void Import_ReadsTimeSignatureMetaEventFromMidiFile(int numerator, int denominator, string expected)
+        {
+            var notes = new List<(double Start, double End, int Pitch, float Velocity)> { (0.0, 0.5, 60, 0.8f) };
+            var path = Path.Combine(Path.GetTempPath(), "jianpu-import-timesig-" + Guid.NewGuid() + ".mid");
+            try
+            {
+                SimpleMidiWriter.Write(path, notes, bpm: 120.0, numerator, denominator);
+                var imported = MidiImportService.Import(path);
+
+                Assert.Equal(expected, imported.TimeSignature);
+            }
+            finally
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+        }
+
+        [Fact]
+        public void Import_DefaultsTimeSignatureTo4x4WhenNoMetaEventPresent()
+        {
+            var notes = new List<(double Start, double End, int Pitch, float Velocity)> { (0.0, 0.5, 60, 0.8f) };
+            var path = Path.Combine(Path.GetTempPath(), "jianpu-import-notimesig-" + Guid.NewGuid() + ".mid");
+            try
+            {
+                // SimpleMidiWriter always writes a time-signature meta-event; a plain
+                // MidiExportService.Export currently doesn't, which is the more common
+                // real-world "no time signature in this file at all" case to guard.
+                var score = ScoreTestHelper.CreateScore(ScoreTestHelper.Measure(ScoreTestHelper.Note(1)));
+                MidiExportService.Export(score, path);
+                var imported = MidiImportService.Import(path);
+
+                Assert.Equal("4/4", imported.TimeSignature);
+            }
+            finally
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
         }
 
         [Fact]
