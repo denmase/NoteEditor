@@ -34,6 +34,59 @@ namespace JianpuEditor.Tests.Services
         }
 
         [Fact]
+        public void SaveAndLoad_RoundTripsTimeSignature()
+        {
+            var score = ScoreTestHelper.CreateScore(ScoreTestHelper.Measure(ScoreTestHelper.Note(1)));
+            score.TimeSignature = "3/4";
+            var path = Path.Combine(Path.GetTempPath(), "jianpu-time-signature-" + Guid.NewGuid() + ".json");
+
+            try
+            {
+                ScoreFileService.Save(score, path);
+                var loaded = ScoreFileService.Load(path);
+
+                Assert.Equal("3/4", loaded.TimeSignature);
+            }
+            finally
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+        }
+
+        [Fact]
+        public void Load_DefaultsTimeSignatureTo4x4ForScoresWithoutTheField()
+        {
+            var path = Path.Combine(Path.GetTempPath(), "jianpu-legacy-time-signature-" + Guid.NewGuid() + ".json");
+            var json = @"{
+  ""Title"": ""Legacy Score"",
+  ""KeySignature"": ""1=C"",
+  ""Measures"": [
+    {
+      ""MelodyNotes"": [{ ""Pitch"": 1 }]
+    }
+  ]
+}";
+
+            try
+            {
+                File.WriteAllText(path, json);
+                var loaded = ScoreFileService.Load(path);
+
+                Assert.Equal("4/4", loaded.TimeSignature);
+            }
+            finally
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+        }
+
+        [Fact]
         public void Load_DefaultsInstrumentsToAcousticGrandPianoForLegacyScoresWithoutTheField()
         {
             var path = Path.Combine(Path.GetTempPath(), "jianpu-legacy-instruments-" + Guid.NewGuid() + ".json");

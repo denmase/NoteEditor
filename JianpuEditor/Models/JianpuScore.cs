@@ -10,6 +10,8 @@ namespace JianpuEditor.Models
 
         public string Tempo { get; set; } = "Moderato";
 
+        public string TimeSignature { get; set; } = "4/4";
+
         /// <summary>Beats per minute, used for MIDI export.</summary>
         public int Bpm { get; set; } = 120;
 

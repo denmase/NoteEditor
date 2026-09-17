@@ -581,8 +581,9 @@ namespace JianpuEditor.Rendering
 
                 var bpm = score.Bpm > 0 ? score.Bpm : 120;
                 var meta = string.Format(
-                    "{0}    {1}    BPM {2}",
+                    "{0}    {1}    {2}    BPM {3}",
                     score.KeySignature ?? "1=C",
+                    string.IsNullOrWhiteSpace(score.TimeSignature) ? "4/4" : score.TimeSignature,
                     score.Tempo ?? string.Empty,
                     bpm);
                 if (!string.IsNullOrWhiteSpace(score.Composer))
@@ -624,6 +625,11 @@ namespace JianpuEditor.Rendering
                     return CreateHeaderHit(ScoreHeaderField.KeySignature, headerLayout.KeyBounds);
                 }
 
+                if (headerLayout.TimeSignatureBounds.Contains(point))
+                {
+                    return CreateHeaderHit(ScoreHeaderField.TimeSignature, headerLayout.TimeSignatureBounds);
+                }
+
                 if (headerLayout.TempoBounds.Contains(point))
                 {
                     return CreateHeaderHit(ScoreHeaderField.Tempo, headerLayout.TempoBounds);
@@ -659,6 +665,8 @@ namespace JianpuEditor.Rendering
 
             public Rectangle KeyBounds { get; set; }
 
+            public Rectangle TimeSignatureBounds { get; set; }
+
             public Rectangle TempoBounds { get; set; }
 
             public Rectangle BpmBounds { get; set; }
@@ -685,6 +693,7 @@ namespace JianpuEditor.Rendering
                     rowHeight));
 
                 var keyText = score.KeySignature ?? "1=C";
+                var timeSignatureText = string.IsNullOrWhiteSpace(score.TimeSignature) ? "4/4" : score.TimeSignature;
                 var tempoText = score.Tempo ?? string.Empty;
                 var bpmValue = score.Bpm > 0 ? score.Bpm : 120;
                 var bpmText = bpmValue.ToString();
@@ -693,13 +702,14 @@ namespace JianpuEditor.Rendering
                 var gapWidth = g.MeasureString(gapText, metaFont).Width;
 
                 var keyWidth = g.MeasureString(keyText, metaFont).Width;
+                var timeSignatureWidth = Math.Max(g.MeasureString(timeSignatureText, metaFont).Width, 24f);
                 var tempoWidth = Math.Max(g.MeasureString(tempoText, metaFont).Width, 36f);
                 var bpmSegment = "BPM " + bpmText;
                 var bpmWidth = g.MeasureString(bpmSegment, metaFont).Width;
                 var composerSegment = "Composer: " + composerText;
                 var composerWidth = Math.Max(g.MeasureString(composerSegment, metaFont).Width, 56f);
 
-                var metaTotalWidth = keyWidth + gapWidth + tempoWidth + gapWidth + bpmWidth + gapWidth + composerWidth;
+                var metaTotalWidth = keyWidth + gapWidth + timeSignatureWidth + gapWidth + tempoWidth + gapWidth + bpmWidth + gapWidth + composerWidth;
 
                 var metaX = options.HeaderMetaLeftAligned
                     ? (float)MarginLeft
@@ -709,6 +719,8 @@ namespace JianpuEditor.Rendering
 
                 layout.KeyBounds = Rectangle.Round(new RectangleF(metaX, metaY, keyWidth + 12f, metaRowHeight));
                 metaX += keyWidth + gapWidth;
+                layout.TimeSignatureBounds = Rectangle.Round(new RectangleF(metaX - 6f, metaY, timeSignatureWidth + 12f, metaRowHeight));
+                metaX += timeSignatureWidth + gapWidth;
                 layout.TempoBounds = Rectangle.Round(new RectangleF(metaX - 6f, metaY, tempoWidth + 12f, metaRowHeight));
                 metaX += tempoWidth + gapWidth;
                 layout.BpmBounds = Rectangle.Round(new RectangleF(metaX - 6f, metaY, bpmWidth + 12f, metaRowHeight));
@@ -731,6 +743,8 @@ namespace JianpuEditor.Rendering
                     return score.Title ?? string.Empty;
                 case ScoreHeaderField.KeySignature:
                     return score.KeySignature ?? string.Empty;
+                case ScoreHeaderField.TimeSignature:
+                    return score.TimeSignature ?? string.Empty;
                 case ScoreHeaderField.Tempo:
                     return score.Tempo ?? string.Empty;
                 case ScoreHeaderField.Bpm:
