@@ -1061,7 +1061,8 @@ namespace JianpuEditor
                     new ImportParameter("Segmentation threshold", (decimal)_lastGameSettings.SegThreshold, 0.05m, 0.95m, 0.05m, 2),
                     new ImportParameter("Segmentation radius (frames)", _lastGameSettings.SegRadiusFrames, 0, 10, 1, 0),
                     new ImportParameter("Note-presence threshold", (decimal)_lastGameSettings.EstThreshold, 0.05m, 0.95m, 0.05m, 2),
-                    new ImportParameter("Vibrato smoothing (seconds, 0=off)", (decimal)_lastGameSettings.VibratoSmoothingSeconds, 0.0m, 0.5m, 0.01m, 2)
+                    new ImportParameter("Vibrato smoothing min (seconds)", (decimal)_lastGameSettings.MinVibratoSmoothingSeconds, 0.0m, 0.5m, 0.01m, 2),
+                    new ImportParameter("Vibrato smoothing max (seconds, 0=off)", (decimal)_lastGameSettings.MaxVibratoSmoothingSeconds, 0.0m, 0.5m, 0.01m, 2)
                 };
             }
             else
@@ -1092,7 +1093,8 @@ namespace JianpuEditor
                 _lastGameSettings.SegThreshold = (float)parameters[0].Value;
                 _lastGameSettings.SegRadiusFrames = (long)parameters[1].Value;
                 _lastGameSettings.EstThreshold = (float)parameters[2].Value;
-                _lastGameSettings.VibratoSmoothingSeconds = (double)parameters[3].Value;
+                _lastGameSettings.MinVibratoSmoothingSeconds = (double)parameters[3].Value;
+                _lastGameSettings.MaxVibratoSmoothingSeconds = (double)parameters[4].Value;
             }
             else
             {
