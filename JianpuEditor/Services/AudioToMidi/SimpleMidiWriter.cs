@@ -19,7 +19,9 @@ namespace JianpuEditor.Services.AudioToMidi
         public static void Write(
             string path,
             IReadOnlyList<(double Start, double End, int Pitch, float Velocity)> notes,
-            double bpm)
+            double bpm,
+            int timeSignatureNumerator = 4,
+            int timeSignatureDenominator = 4)
         {
             var ticksPerSecond = TicksPerQuarter * (bpm / 60.0);
 
@@ -57,6 +59,15 @@ namespace JianpuEditor.Services.AudioToMidi
                 writer.Write((byte)((microsecondsPerQuarter >> 16) & 0xFF));
                 writer.Write((byte)((microsecondsPerQuarter >> 8) & 0xFF));
                 writer.Write((byte)(microsecondsPerQuarter & 0xFF));
+
+                WriteVarLength(writer, 0);
+                writer.Write((byte)0xFF);
+                writer.Write((byte)0x58);
+                writer.Write((byte)0x04);
+                writer.Write((byte)timeSignatureNumerator);
+                writer.Write((byte)Math.Round(Math.Log(Math.Max(1, timeSignatureDenominator), 2)));
+                writer.Write((byte)24); // MIDI clocks per metronome click, the standard default
+                writer.Write((byte)8);  // notated 32nd notes per quarter note, the standard default
 
                 var lastTick = 0L;
                 foreach (var evt in events)

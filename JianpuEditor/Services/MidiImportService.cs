@@ -95,6 +95,9 @@ namespace JianpuEditor.Services
             var bpm = track.TempoChanges.Count > 0
                 ? track.TempoChanges[0].Bpm
                 : 120;
+            var timeSignature = track.TimeSignatureChanges.Count > 0
+                ? track.TimeSignatureChanges[0].Numerator + "/" + track.TimeSignatureChanges[0].Denominator
+                : "4/4";
             var tonicMidi = DetectTonicMidi(notes);
             var keySignature = KeySignatureService.FormatKeySignature(tonicMidi % 12);
             var measures = BuildMeasures(notes, tonicMidi, ScoreMidiSchedule.DefaultMeasureBeats);
@@ -112,6 +115,7 @@ namespace JianpuEditor.Services
             {
                 Title = Path.GetFileNameWithoutExtension(path) ?? "MIDI Import",
                 KeySignature = keySignature,
+                TimeSignature = timeSignature,
                 Tempo = TempoMarkingService.FromBpm(bpm),
                 Bpm = bpm,
                 Composer = string.Empty,
@@ -763,6 +767,15 @@ namespace JianpuEditor.Services
             public int Bpm { get; set; }
         }
 
+        private sealed class TimeSignatureChange
+        {
+            public long Ticks { get; set; }
+
+            public int Numerator { get; set; }
+
+            public int Denominator { get; set; }
+        }
+
         private sealed class ParsedTrack
         {
             public string Name { get; set; } = string.Empty;
@@ -772,6 +785,8 @@ namespace JianpuEditor.Services
             public List<NoteOnEvent> NoteOnEvents { get; } = new List<NoteOnEvent>();
 
             public List<TempoChange> TempoChanges { get; } = new List<TempoChange>();
+
+            public List<TimeSignatureChange> TimeSignatureChanges { get; } = new List<TimeSignatureChange>();
         }
 
         private sealed class MidiFileData
@@ -888,6 +903,21 @@ namespace JianpuEditor.Services
                                 {
                                     Ticks = absoluteTicks,
                                     Bpm = Math.Max(30, Math.Min(300, 60_000_000 / usPerQuarter))
+                                });
+                            }
+                        }
+                        else if (metaType == 0x58 && length == 4)
+                        {
+                            var numerator = reader.ReadByte();
+                            var denominatorPower = reader.ReadByte();
+                            reader.ReadBytes(2); // clocks-per-click, 32nds-per-quarter -- not needed here
+                            if (numerator > 0 && denominatorPower <= 8)
+                            {
+                                track.TimeSignatureChanges.Add(new TimeSignatureChange
+                                {
+                                    Ticks = absoluteTicks,
+                                    Numerator = numerator,
+                                    Denominator = 1 << denominatorPower
                                 });
                             }
                         }
