@@ -94,6 +94,7 @@ namespace JianpuEditor.Tests.Glue
             services.AddSingleton<IHarmonySuggestionService, HarmonySuggestionServiceAdapter>();
             services.AddSingleton<SampleLibraryViewModel>();
             services.AddSingleton<IPlaybackCoordinator, PlaybackCoordinator>();
+            services.AddSingleton<INoteClipboardService, NoteClipboardService>();
 
             return services.BuildServiceProvider();
         }

@@ -19,6 +19,7 @@ namespace JianpuEditor.ViewModels
         private readonly MeasureNavigationViewModel _navigation;
         private readonly IAppMessenger _messenger;
         private readonly IEditCommandHistory _history;
+        private readonly INoteClipboardService _clipboard;
         private JianpuNote _pendingNote = CreateDefaultNote();
 
         public NoteEditorViewModel(
@@ -26,13 +27,15 @@ namespace JianpuEditor.ViewModels
             ScoreSelectionViewModel selection,
             MeasureNavigationViewModel navigation,
             IAppMessenger messenger,
-            IEditCommandHistory history)
+            IEditCommandHistory history,
+            INoteClipboardService clipboard)
         {
             _document = document ?? throw new ArgumentNullException(nameof(document));
             _selection = selection ?? throw new ArgumentNullException(nameof(selection));
             _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
             _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
             _history = history ?? throw new ArgumentNullException(nameof(history));
+            _clipboard = clipboard ?? throw new ArgumentNullException(nameof(clipboard));
 
             AddNoteCommand = new RelayCommand<int>(pitch => AddNote(pitch));
             AddRestCommand = new RelayCommand(() => AddRest());
@@ -262,6 +265,69 @@ namespace JianpuEditor.ViewModels
                 _messenger,
                 () => ApplyMergeSelectedNotes(refs),
                 "Merge notes"));
+        }
+
+        public bool HasClipboardContent
+        {
+            get { return _clipboard.HasNotes; }
+        }
+
+        /// <summary>Copies the selected note(s) to the shared clipboard. Returns false (no-op,
+        /// nothing copied) when no note is selected, so callers like Cut know not to follow up
+        /// with a delete.</summary>
+        public bool CopySelectedNotes()
+        {
+            var refs = GetOrderedSelectedNoteRefs();
+            if (refs.Count == 0)
+            {
+                _messenger.Send(new StatusChangedMessage("Select a note to copy first"));
+                return false;
+            }
+
+            _document.EnsureMeasures();
+            var notes = new List<JianpuNote>();
+            foreach (var noteRef in refs)
+            {
+                if (noteRef.MeasureIndex < 0 || noteRef.MeasureIndex >= _document.Score.Measures.Count)
+                {
+                    continue;
+                }
+
+                var measureNotes = _document.Score.Measures[noteRef.MeasureIndex].MelodyNotes;
+                if (noteRef.NoteIndex < 0 || noteRef.NoteIndex >= measureNotes.Count)
+                {
+                    continue;
+                }
+
+                notes.Add(measureNotes[noteRef.NoteIndex]);
+            }
+
+            if (notes.Count == 0)
+            {
+                return false;
+            }
+
+            _clipboard.SetNotes(notes);
+            _messenger.Send(new StatusChangedMessage(notes.Count > 1 ? "Copied " + notes.Count + " notes" : "Copied note"));
+            return true;
+        }
+
+        public ScoreEditResult PasteNotes()
+        {
+            var clipboardNotes = _clipboard.GetNotes();
+            if (clipboardNotes.Count == 0)
+            {
+                _messenger.Send(new StatusChangedMessage("Nothing to paste"));
+                return ScoreEditResult.Unchanged;
+            }
+
+            _document.EnsureMeasures();
+            var message = clipboardNotes.Count > 1 ? "Pasted " + clipboardNotes.Count + " notes" : "Pasted note";
+            return ExecuteCommand(new MeasuresMelodySnapshotCommand(
+                _document.Score,
+                _messenger,
+                () => ApplyPasteNotes(clipboardNotes),
+                message));
         }
 
         public ScoreEditResult TransposePitch(int delta)
@@ -569,6 +635,57 @@ namespace JianpuEditor.ViewModels
                 SelectNoteMeasureIndex = selectMeasureIndex,
                 SelectNoteIndex = selectNoteIndex
             };
+        }
+
+        private ScoreEditResult ApplyPasteNotes(IReadOnlyList<JianpuNote> clipboardNotes)
+        {
+            var (measureIndex, insertIndex) = ResolvePasteInsertPoint();
+            if (measureIndex < 0 || measureIndex >= _document.Score.Measures.Count)
+            {
+                return ScoreEditResult.Unchanged;
+            }
+
+            var measure = _document.Score.Measures[measureIndex];
+            for (var i = 0; i < clipboardNotes.Count; i++)
+            {
+                MelodyChordService.InsertSlot(measure, insertIndex + i, clipboardNotes[i]);
+            }
+
+            return new ScoreEditResult
+            {
+                Changed = true,
+                SelectNoteMeasureIndex = measureIndex,
+                SelectNoteIndex = insertIndex + clipboardNotes.Count - 1
+            };
+        }
+
+        /// <summary>Pastes into the selected gap, right after the last selected note (in
+        /// ascending measure/note order), or at the end of the current measure if nothing more
+        /// specific is selected -- mirrors <see cref="InsertMelodyNote"/>'s own fallback.</summary>
+        private (int measureIndex, int insertIndex) ResolvePasteInsertPoint()
+        {
+            if (_selection.HasGapSelected)
+            {
+                var gapMeasureIndex = Math.Max(0, _selection.MeasureIndex);
+                return (gapMeasureIndex, _selection.InsertIndex);
+            }
+
+            var refs = GetOrderedSelectedNoteRefs();
+            if (refs.Count > 0)
+            {
+                var last = refs[refs.Count - 1];
+                return (last.MeasureIndex, last.NoteIndex + 1);
+            }
+
+            var measureIndex = GetCurrentMeasureIndex();
+            return (measureIndex, _document.Score.Measures[measureIndex].MelodyNotes.Count);
+        }
+
+        private List<ScoreNoteRef> GetOrderedSelectedNoteRefs()
+        {
+            var refs = GetSelectedNoteRefs();
+            refs.Sort((a, b) => ScoreNoteRef.Compare(a, b));
+            return refs;
         }
 
         private List<ScoreNoteRef> GetSelectedNoteRefs()

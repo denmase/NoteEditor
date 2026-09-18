@@ -50,6 +50,24 @@ namespace JianpuEditor.Controls
         public IReadOnlyList<ScoreNoteRef> SelectedNotes { get; set; } = Array.Empty<ScoreNoteRef>();
     }
 
+    /// <summary>Raised while the canvas's right-click menu is being built, after the canvas has
+    /// already synced the selection to whatever's under the cursor (see
+    /// <see cref="ScoreCanvas.ApplyHitSelectionForContextMenu"/>). A handler adds its own items
+    /// to <see cref="Menu"/> based on <see cref="HitType"/>; the canvas contributes only its own
+    /// intrinsic items (currently just "Move playback marker here").</summary>
+    public sealed class ScoreContextMenuEventArgs : EventArgs
+    {
+        public ScoreContextMenuEventArgs(ContextMenuStrip menu, ScoreHitType hitType)
+        {
+            Menu = menu;
+            HitType = hitType;
+        }
+
+        public ContextMenuStrip Menu { get; }
+
+        public ScoreHitType HitType { get; }
+    }
+
     public sealed class ScoreCanvas : Panel
     {
         private readonly JianpuRenderer _renderer = new JianpuRenderer();
@@ -117,7 +135,6 @@ namespace JianpuEditor.Controls
             AppTheme.ThemeChanged += OnThemeChanged;
 
             _contentContextMenu = new ContextMenuStrip();
-            _contentContextMenu.Items.Add("Move playback marker here", null, OnMovePlaybackMarkerHereClicked);
             _contentContextMenu.Opening += OnContentContextMenuOpening;
             _contentPanel.ContextMenuStrip = _contentContextMenu;
         }
@@ -204,6 +221,8 @@ namespace JianpuEditor.Controls
         public event EventHandler ScoreMutationStarting;
 
         public event Action<double> PlaybackSeeked;
+
+        public event EventHandler<ScoreContextMenuEventArgs> ContextMenuOpening;
 
         public JianpuScore Score
         {
@@ -814,21 +833,110 @@ namespace JianpuEditor.Controls
         }
 
         /// <summary>
-        /// Right-click alternative to dragging the playback marker. Dragging can only *start* by
-        /// grabbing the marker's current (narrow) on-screen position, so on a long score the
-        /// marker effectively feels pinned wherever it last was (typically the very first bar,
-        /// since that's where every load/new/reset leaves it) until the user finds that exact
-        /// spot to grab. Right-clicking anywhere seeks there directly, no drag required.
+        /// Builds the right-click menu fresh on every open: first syncs the selection to
+        /// whatever's under the cursor (so the rest of the app, listening to SelectionChanged,
+        /// already reflects the right-click target by the time <see cref="ContextMenuOpening"/>
+        /// fires), then contributes the canvas's own "Move playback marker here" item -- see its
+        /// own remarks below -- and lets subscribers add edit-command items via
+        /// <see cref="ContextMenuOpening"/>. Cancelled if nothing ends up added (e.g. an empty
+        /// canvas with no playback segments yet).
         /// </summary>
         private void OnContentContextMenuOpening(object sender, CancelEventArgs e)
         {
-            if (_playbackSegments.Count == 0)
+            _contextMenuLogicalLocation = _zoom.ToLogical(_contentPanel.PointToClient(System.Windows.Forms.Cursor.Position));
+            var hit = _score == null
+                ? new ScoreHitResult()
+                : _renderer.HitTest(_score, GetDrawWidth(), _contextMenuLogicalLocation);
+
+            if (hit.HitType != ScoreHitType.None)
             {
-                e.Cancel = true;
-                return;
+                ApplyHitSelectionForContextMenu(hit);
             }
 
-            _contextMenuLogicalLocation = _zoom.ToLogical(_contentPanel.PointToClient(System.Windows.Forms.Cursor.Position));
+            _contentContextMenu.Items.Clear();
+
+            // Right-click alternative to dragging the playback marker. Dragging can only *start*
+            // by grabbing the marker's current (narrow) on-screen position, so on a long score
+            // the marker effectively feels pinned wherever it last was (typically the very first
+            // bar, since that's where every load/new/reset leaves it) until the user finds that
+            // exact spot to grab. Right-clicking anywhere seeks there directly, no drag required.
+            if (_playbackSegments.Count > 0)
+            {
+                _contentContextMenu.Items.Add("Move playback marker here", null, OnMovePlaybackMarkerHereClicked);
+            }
+
+            ContextMenuOpening?.Invoke(this, new ScoreContextMenuEventArgs(_contentContextMenu, hit.HitType));
+
+            if (_contentContextMenu.Items.Count == 0)
+            {
+                e.Cancel = true;
+            }
+        }
+
+        /// <summary>Selection-only counterpart to <see cref="OnContentClick"/>'s hit-type switch:
+        /// syncs the selection to whatever's under a right-click, but never triggers a click
+        /// handler's side effects (deleting a chord marker, starting inline text edit, adding a
+        /// chord slot) -- those belong to a menu item the user explicitly chooses, not to merely
+        /// opening the menu. Leaves an existing multi-note selection alone when the right-click
+        /// landed inside it, so "Cut"/"Copy" on the context menu act on the whole selection
+        /// rather than collapsing it to just the note under the cursor.</summary>
+        private void ApplyHitSelectionForContextMenu(ScoreHitResult hit)
+        {
+            switch (hit.HitType)
+            {
+                case ScoreHitType.Tie:
+                    if (_selectedTieIndex != hit.TieIndex)
+                    {
+                        SelectTie(hit.TieIndex);
+                    }
+
+                    break;
+                case ScoreHitType.Note:
+                    if (!_selectedNotes.Any(existing => existing.MeasureIndex == hit.MeasureIndex && existing.NoteIndex == hit.NoteIndex)
+                        && !(_selectedNoteIndex == hit.NoteIndex && _selectedMeasureIndex == hit.MeasureIndex))
+                    {
+                        HandleNoteSelectionClick(hit.MeasureIndex, hit.NoteIndex);
+                    }
+
+                    break;
+                case ScoreHitType.Gap:
+                    SelectSingleMeasure(hit.MeasureIndex, false);
+                    ClearNoteSelection();
+                    _selectedInsertIndex = hit.InsertIndex;
+                    _selectedTieIndex = -1;
+                    ClearChordSelection();
+                    RaiseSelectionChanged();
+                    InvalidateSelection();
+                    break;
+                case ScoreHitType.ChordMarker:
+                case ScoreHitType.ChordDelete:
+                case ScoreHitType.ChordDragHandle:
+                    if (hit.ChordMarkerIndex >= 0)
+                    {
+                        SelectChordMarker(hit.MeasureIndex, hit.ChordMarkerIndex, startInlineEdit: false);
+                    }
+                    else
+                    {
+                        SelectSingleMeasure(hit.MeasureIndex, false);
+                    }
+
+                    break;
+                case ScoreHitType.ChordAddSlot:
+                case ScoreHitType.ChordRow:
+                    SelectSingleMeasure(hit.MeasureIndex, false);
+                    ClearChordSelection();
+                    RaiseSelectionChanged();
+                    break;
+                case ScoreHitType.LyricText:
+                    SelectSingleMeasure(hit.MeasureIndex, false);
+                    RaiseSelectionChanged();
+                    break;
+                case ScoreHitType.ScoreHeader:
+                    break;
+                default:
+                    HandleMeasureSelectionClick(hit.MeasureIndex);
+                    break;
+            }
         }
 
         private void OnMovePlaybackMarkerHereClicked(object sender, EventArgs e)

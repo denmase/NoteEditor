@@ -306,6 +306,7 @@ namespace JianpuEditor.Tests
             services.AddSingleton<ILayoutService, WinFormsLayoutService>();
             services.AddSingleton<IPlaybackCoordinator, PlaybackCoordinator>();
             services.AddSingleton<ISessionService, FakeSessionService>();
+            services.AddSingleton<INoteClipboardService, NoteClipboardService>();
             services.AddTransient<MainForm>();
 
             return services.BuildServiceProvider();
