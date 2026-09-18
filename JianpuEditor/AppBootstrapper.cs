@@ -57,6 +57,7 @@ namespace JianpuEditor
             services.AddSingleton<SampleLibraryViewModel>();
             services.AddSingleton<ILayoutService, WinFormsLayoutService>();
             services.AddSingleton<IPlaybackCoordinator, PlaybackCoordinator>();
+            services.AddSingleton<ISessionService, SessionService>();
             services.AddTransient<MainForm>();
 
             return services.BuildServiceProvider();

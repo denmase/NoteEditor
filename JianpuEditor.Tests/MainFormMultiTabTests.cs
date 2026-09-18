@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using System.Windows.Forms;
 using CommunityToolkit.Mvvm.Messaging;
@@ -152,6 +154,126 @@ namespace JianpuEditor.Tests
             Assert.True(secondTab.Canvas.IsDisposed);
         }
 
+        [Fact]
+        public void SavingTheSession_CapturesEveryTabsFilePathDirtyStateAndScore()
+        {
+            using var provider = BuildServiceProvider();
+            using var form = CreateForm(provider);
+
+            InvokePrivate(form, "OnNewScore", null, EventArgs.Empty);
+            var secondTab = GetActiveTab(form);
+            secondTab.ViewModel.Document.ApplyHeaderFieldEdit(ScoreHeaderField.Title, "Dirty Tab");
+            Assert.True(secondTab.ViewModel.Document.IsDirty);
+
+            // Calls the session-saving logic directly, bypassing OnFormClosing's Yes/No/Cancel
+            // prompt entirely -- a real modal can't be driven headlessly (same constraint noted on
+            // ClosingTheApp_WithNoUnsavedChanges_ClosesAndDisposesEveryTab), and the session must
+            // still capture a tab left dirty by a "No" answer, so testing it in isolation from that
+            // prompt is exactly the right boundary anyway.
+            InvokePrivate(form, "SaveSession");
+
+            var sessionService = (FakeSessionService)provider.GetRequiredService<ISessionService>();
+            Assert.Equal(1, sessionService.SaveCallCount);
+            Assert.Equal(2, sessionService.SavedTabs.Count);
+            Assert.False(sessionService.SavedTabs[0].IsDirty);
+            Assert.True(sessionService.SavedTabs[1].IsDirty);
+            Assert.Same(secondTab.ViewModel.Document.Score, sessionService.SavedTabs[1].Score);
+            Assert.Equal(1, sessionService.SavedActiveTabIndex);
+        }
+
+        [Fact]
+        public void StartupRestoresACleanTabFromItsSavedFilePath()
+        {
+            var tempFile = Path.GetTempFileName();
+            try
+            {
+                ScoreFileService.Save(new JianpuScore { Title = "Restored From File" }, tempFile);
+
+                using var provider = BuildServiceProvider();
+                var sessionService = (FakeSessionService)provider.GetRequiredService<ISessionService>();
+                sessionService.SessionToLoad = new SessionState
+                {
+                    Tabs = new List<SessionTabState>
+                    {
+                        new SessionTabState { FilePath = tempFile, IsDirty = false }
+                    },
+                    ActiveTabIndex = 0
+                };
+
+                using var form = CreateForm(provider);
+                var tabControl = GetTabControl(form);
+                var tab = GetActiveTab(form);
+
+                Assert.Single(tabControl.TabPages);
+                Assert.Equal("Restored From File", tab.ViewModel.Document.Title);
+                Assert.False(tab.ViewModel.Document.IsDirty);
+                Assert.Equal(tempFile, tab.ViewModel.Document.CurrentFilePath);
+            }
+            finally
+            {
+                File.Delete(tempFile);
+            }
+        }
+
+        [Fact]
+        public void StartupRestoresADirtyTabFromItsAutosaveFile_KeepingTheOriginalFilePathAndDirtyFlag()
+        {
+            var autosaveFile = Path.GetTempFileName();
+            try
+            {
+                ScoreFileService.Save(new JianpuScore { Title = "Recovered Unsaved Work" }, autosaveFile);
+
+                using var provider = BuildServiceProvider();
+                var sessionService = (FakeSessionService)provider.GetRequiredService<ISessionService>();
+                sessionService.SessionToLoad = new SessionState
+                {
+                    Tabs = new List<SessionTabState>
+                    {
+                        new SessionTabState
+                        {
+                            FilePath = @"C:\Original\MySong.jianpu",
+                            AutosavePath = autosaveFile,
+                            IsDirty = true
+                        }
+                    },
+                    ActiveTabIndex = 0
+                };
+
+                using var form = CreateForm(provider);
+                var tab = GetActiveTab(form);
+
+                Assert.Equal("Recovered Unsaved Work", tab.ViewModel.Document.Title);
+                Assert.True(tab.ViewModel.Document.IsDirty);
+                Assert.Equal(@"C:\Original\MySong.jianpu", tab.ViewModel.Document.CurrentFilePath);
+            }
+            finally
+            {
+                File.Delete(autosaveFile);
+            }
+        }
+
+        [Fact]
+        public void StartupWithASessionReferencingOnlyMissingFiles_FallsBackToTheDemoScore()
+        {
+            using var provider = BuildServiceProvider();
+            var sessionService = (FakeSessionService)provider.GetRequiredService<ISessionService>();
+            sessionService.SessionToLoad = new SessionState
+            {
+                Tabs = new List<SessionTabState>
+                {
+                    new SessionTabState { FilePath = @"C:\Does\Not\Exist.jianpu", IsDirty = false }
+                },
+                ActiveTabIndex = 0
+            };
+
+            using var form = CreateForm(provider);
+            var tabControl = GetTabControl(form);
+            var tab = GetActiveTab(form);
+
+            Assert.Single(tabControl.TabPages);
+            Assert.Equal("Ode to Joy", tab.ViewModel.Document.Score.Title);
+        }
+
         private static ServiceProvider BuildServiceProvider()
         {
             var services = new ServiceCollection();
@@ -183,6 +305,7 @@ namespace JianpuEditor.Tests
             services.AddSingleton<SampleLibraryViewModel>();
             services.AddSingleton<ILayoutService, WinFormsLayoutService>();
             services.AddSingleton<IPlaybackCoordinator, PlaybackCoordinator>();
+            services.AddSingleton<ISessionService, FakeSessionService>();
             services.AddTransient<MainForm>();
 
             return services.BuildServiceProvider();
