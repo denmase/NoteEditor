@@ -132,6 +132,26 @@ namespace JianpuEditor.Tests
             Assert.False(secondTab.ViewModel.Playback.IsPlaying);
         }
 
+        [Fact]
+        public void ClosingTheApp_WithNoUnsavedChanges_ClosesAndDisposesEveryTab()
+        {
+            using var provider = BuildServiceProvider();
+            using var form = CreateForm(provider);
+            var firstTab = GetActiveTab(form);
+
+            // A second, equally clean tab, so the whole-app close loop actually iterates more
+            // than one tab without ever hitting the (untestable-headlessly, see CloseTab's own
+            // lack of coverage here) Yes/No/Cancel MessageBox a dirty document would trigger.
+            InvokePrivate(form, "OnNewScore", null, EventArgs.Empty);
+            var secondTab = GetActiveTab(form);
+
+            form.Close();
+
+            Assert.True(form.IsDisposed);
+            Assert.True(firstTab.Canvas.IsDisposed);
+            Assert.True(secondTab.Canvas.IsDisposed);
+        }
+
         private static ServiceProvider BuildServiceProvider()
         {
             var services = new ServiceCollection();

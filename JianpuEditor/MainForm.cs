@@ -87,6 +87,7 @@ namespace JianpuEditor
             KeyDown += OnFormKeyDown;
             Load += OnFormLoad;
             Resize += OnFormResize;
+            FormClosing += OnFormClosing;
             FormClosed += OnFormClosed;
         }
 
@@ -252,30 +253,71 @@ namespace JianpuEditor
                 return;
             }
 
-            if (tab.ViewModel.Document.IsDirty)
+            if (!ConfirmDiscardOrSave(tab))
             {
-                _tabControl.SelectedTab = page;
-                var choice = MessageBox.Show(
-                    "Save changes to \"" + tab.ViewModel.Document.Title + "\" before closing?",
-                    "Unsaved Changes",
-                    MessageBoxButtons.YesNoCancel,
-                    MessageBoxIcon.Warning);
-                if (choice == DialogResult.Cancel)
-                {
-                    return;
-                }
-
-                if (choice == DialogResult.Yes)
-                {
-                    OnSaveScore(this, EventArgs.Empty);
-                    if (tab.ViewModel.Document.IsDirty)
-                    {
-                        return; // Save was itself cancelled (e.g. the Save As dialog was dismissed).
-                    }
-                }
+                return;
             }
 
             RemoveTab(page, tab);
+        }
+
+        /// <summary>If <paramref name="tab"/> has unsaved changes, switches to it (so the user can
+        /// see what they're being asked about) and prompts Yes/No/Cancel; Yes runs the existing
+        /// Save/Save-As flow. Returns false only on Cancel (either button, or the Save As dialog
+        /// being dismissed) -- callers must not proceed with closing that tab (or the whole app)
+        /// when this returns false. A clean tab always returns true without prompting.</summary>
+        private bool ConfirmDiscardOrSave(DocumentTab tab)
+        {
+            if (!tab.ViewModel.Document.IsDirty)
+            {
+                return true;
+            }
+
+            var page = FindTabPage(tab);
+            if (page != null && !ReferenceEquals(_tabControl.SelectedTab, page))
+            {
+                _tabControl.SelectedTab = page;
+                OnActiveTabChanged(this, EventArgs.Empty); // Don't rely solely on SelectedIndexChanged; see CreateTab.
+            }
+
+            var choice = MessageBox.Show(
+                "Save changes to \"" + tab.ViewModel.Document.Title + "\" before closing?",
+                "Unsaved Changes",
+                MessageBoxButtons.YesNoCancel,
+                MessageBoxIcon.Warning);
+            if (choice == DialogResult.Cancel)
+            {
+                return false;
+            }
+
+            if (choice == DialogResult.Yes)
+            {
+                OnSaveScore(this, EventArgs.Empty);
+                if (tab.ViewModel.Document.IsDirty)
+                {
+                    return false; // Save was itself cancelled (e.g. the Save As dialog was dismissed).
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>Whole-app close: prompts for every open tab's unsaved changes (not just the
+        /// active one), in tab order. Cancelling any one of them aborts the close entirely and
+        /// leaves every tab open, including ones already resolved earlier in the loop -- a tab
+        /// saved before the cancellation stays saved, matching how closing several documents one
+        /// after another normally behaves.</summary>
+        private void OnFormClosing(object sender, FormClosingEventArgs e)
+        {
+            foreach (TabPage page in _tabControl.TabPages)
+            {
+                var tab = page.Tag as DocumentTab;
+                if (tab != null && !ConfirmDiscardOrSave(tab))
+                {
+                    e.Cancel = true;
+                    return;
+                }
+            }
         }
 
         /// <summary>Removes a just-created tab whose New/Open/Import/Sample load attempt failed
