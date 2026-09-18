@@ -156,12 +156,15 @@ namespace JianpuEditor.Views
 
         private static void ValidateContext(MainFormLayoutContext context)
         {
+            // ScoreCanvas is deliberately not required here: with multi-tab support, MainForm
+            // attaches this context before any tab (and therefore any canvas) exists, and sets
+            // ScoreCanvas afterwards once the first tab is created and activated. Every method
+            // below that reads it already tolerates it being null at that brief window.
             if (context.Form == null
                 || context.MainLayout == null
                 || context.ChromeLayout == null
                 || context.MenuStrip == null
                 || context.ToolbarPanel == null
-                || context.ScoreCanvas == null
                 || context.ScoreStatusBar == null)
             {
                 throw new InvalidOperationException("MainFormLayoutContext is incomplete.");

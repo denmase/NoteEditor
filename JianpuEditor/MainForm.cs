@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using JianpuEditor.Controls;
@@ -15,27 +16,37 @@ using JianpuEditor.Services.AudioToMidi;
 using JianpuEditor.Services.EditCommands;
 using JianpuEditor.ViewModels;
 using JianpuEditor.Views;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace JianpuEditor
 {
     public sealed partial class MainForm : Form, IView
     {
-        private readonly MainViewModel _viewModel;
-        private readonly IAppMessenger _messenger;
+        private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILayoutService _layoutService;
-        private readonly IEditCommandHistory _commandHistory;
         private readonly IMidiOutput _midiOutput;
+        private readonly SampleLibraryViewModel _sampleLibrary;
         private readonly BasicPitchSettings _lastBasicPitchSettings = BasicPitchSettings.CreateDefault();
         private readonly GameSettings _lastGameSettings = GameSettings.CreateDefault();
         private JianpuScore _mutationBeforeSnapshot;
         private int _mutationBeforeMeasureIndex = -1;
         private bool _suppressCanvasMutationTracking;
-        private ScoreCanvasGlue _glue;
         private MainFormViewBinder _binder;
         private MainFormLayoutContext _layoutContext;
         private TableLayoutPanel _mainLayout;
         private TableLayoutPanel _chromeLayout;
-        private readonly ScoreCanvas _canvas = new ScoreCanvas();
+        private TabControl _tabControl;
+
+        // These were fixed fields before multi-tab support; they're now computed from whichever
+        // tab is active so the ~200 existing call sites across this file didn't all need
+        // individual rewriting to read through an ActiveTab indirection.
+        private DocumentTab ActiveTab => _tabControl?.SelectedTab?.Tag as DocumentTab;
+        private MainViewModel _viewModel => ActiveTab.ViewModel;
+        private ScoreCanvas _canvas => ActiveTab.Canvas;
+        private IAppMessenger _messenger => ActiveTab.Messenger;
+        private IEditCommandHistory _commandHistory => ActiveTab.CommandHistory;
+        private ScoreCanvasGlue _glue => ActiveTab.Glue;
+
         private readonly TextBox _chordBox = new TextBox();
         private readonly NumericUpDown _measureSelector = new NumericUpDown();
         private readonly NumericUpDown _measureRangeFrom = new NumericUpDown();
@@ -58,18 +69,15 @@ namespace JianpuEditor
             "Click: insert or modify a note at the selected position\r\nCtrl+Click: append to the end of the current measure\r\nCtrl+Shift+Click: append and copy the previous note's duration/octave";
 
         public MainForm(
-            MainViewModel viewModel,
-            IAppMessenger messenger,
+            IServiceScopeFactory scopeFactory,
             ILayoutService layoutService,
-            IEditCommandHistory commandHistory,
-            IMidiOutput midiOutput)
+            IMidiOutput midiOutput,
+            SampleLibraryViewModel sampleLibrary)
         {
-            _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
-            _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
+            _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
             _layoutService = layoutService ?? throw new ArgumentNullException(nameof(layoutService));
-            _commandHistory = commandHistory ?? throw new ArgumentNullException(nameof(commandHistory));
             _midiOutput = midiOutput ?? throw new ArgumentNullException(nameof(midiOutput));
-            _commandHistory.HistoryChanged += (s, e) => UpdateUndoMenuState();
+            _sampleLibrary = sampleLibrary ?? throw new ArgumentNullException(nameof(sampleLibrary));
 
             InitializeComponent();
             SetupLayoutStructure();
@@ -81,15 +89,106 @@ namespace JianpuEditor
             FormClosed += OnFormClosed;
         }
 
+        /// <summary>
+        /// No-op. <see cref="IView"/> declares this as taking an externally-supplied viewmodel,
+        /// from back when MainForm bound to one process-wide singleton; now every tab (including
+        /// the first one, created in <see cref="SetupLayoutStructure"/>) constructs and owns its
+        /// own, so there's nothing left for a caller to hand in. Kept only for interface
+        /// compatibility -- MainForm is the sole implementer of <see cref="IView"/>, so nothing
+        /// calls this polymorphically.
+        /// </summary>
         public void InitializeBindings(object viewModel)
         {
-            if (viewModel is not MainViewModel mainViewModel)
+        }
+
+        /// <summary>Wires the MainForm-level event handling a newly created tab needs -- the
+        /// mechanical per-canvas-instance and per-viewmodel-instance subscriptions that used to
+        /// happen once, in the constructor, back when there was only ever one document.</summary>
+        private void AttachTab(DocumentTab tab)
+        {
+            tab.ViewModel.Document.PropertyChanged += OnDocumentPropertyChanged;
+            tab.ViewModel.Document.PropertyChanged += (s, e) => SyncTabTitle(tab);
+            tab.CommandHistory.HistoryChanged += (s, e) =>
             {
-                throw new ArgumentException("MainForm requires MainViewModel.", nameof(viewModel));
+                if (ReferenceEquals(ActiveTab, tab))
+                {
+                    UpdateUndoMenuState();
+                }
+            };
+
+            tab.Canvas.SelectionChanged += OnCanvasSelectionChanged;
+            tab.Canvas.MeasureTextEdited += OnCanvasMeasureTextEdited;
+            tab.Canvas.HeaderEdited += OnCanvasHeaderEdited;
+            tab.Canvas.ChordMarkersChanged += OnCanvasChordMarkersChanged;
+            tab.Canvas.ScoreMutationStarting += OnCanvasScoreMutationStarting;
+            tab.Canvas.PlaybackSeeked += OnCanvasPlaybackSeeked;
+            tab.Canvas.ZoomChanged += () =>
+            {
+                if (ReferenceEquals(ActiveTab, tab))
+                {
+                    _statusBar.SetZoomPercent((int)Math.Round(tab.Canvas.ZoomScale * 100));
+                }
+            };
+
+            tab.ViewModel.RequestOpenScore += (s, e) => OnOpenScore(s, e);
+            tab.ViewModel.RequestSaveScore += (s, e) => OnSaveScore(s, e);
+            tab.ViewModel.RequestSaveAsScore += (s, e) => OnSaveScoreAs(s, e);
+            tab.ViewModel.RequestExportPdf += (s, e) => OnExportPdf(s, e);
+            tab.ViewModel.RequestExportMidi += (s, e) => OnExportMidi(s, e);
+            tab.ViewModel.RequestImportMidi += (s, e) => OnImportMidi(s, e);
+            tab.ViewModel.RequestImportAudioInstrument += (s, e) => OnImportAudio(s, e, AudioTranscriptionEngine.Instrument);
+            tab.ViewModel.RequestImportAudioVocal += (s, e) => OnImportAudio(s, e, AudioTranscriptionEngine.Vocal);
+            tab.ViewModel.RequestTransposeDialog += (s, e) => ShowTransposeDialog();
+        }
+
+        /// <summary>Creates a new tab, wires it, adds it to the TabControl, and selects it (which
+        /// activates it -- see <see cref="OnActiveTabChanged"/>). Used for New/Open/Import
+        /// MIDI/Import Audio/Sample Library, all of which always open a new tab rather than
+        /// replacing the active one.</summary>
+        private DocumentTab CreateTab()
+        {
+            var tab = new DocumentTab(_scopeFactory);
+            AttachTab(tab);
+
+            var page = new TabPage { Tag = tab };
+            tab.Canvas.Dock = DockStyle.Fill;
+            tab.Canvas.MinimumSize = new Size(200, 200);
+            page.Controls.Add(tab.Canvas);
+
+            _tabControl.TabPages.Add(page);
+            _tabControl.SelectedTab = page;
+            SyncTabTitle(tab);
+            return tab;
+        }
+
+        private void SyncTabTitle(DocumentTab tab)
+        {
+            var page = FindTabPage(tab);
+            if (page != null)
+            {
+                page.Text = tab.TabTitle;
+            }
+        }
+
+        private TabPage FindTabPage(DocumentTab tab)
+        {
+            return _tabControl.TabPages.Cast<TabPage>().FirstOrDefault(p => ReferenceEquals(p.Tag, tab));
+        }
+
+        /// <summary>Re-points the shared chrome (status bar, toolbar buttons, chord/measure
+        /// boxes, window title) at whichever tab is now selected. Called for every tab switch,
+        /// including right after a new tab is created.</summary>
+        private void OnActiveTabChanged(object sender, EventArgs e)
+        {
+            var tab = ActiveTab;
+            if (tab == null)
+            {
+                return;
             }
 
+            _binder?.Dispose();
             _binder = new MainFormViewBinder(
-                mainViewModel,
+                tab.ViewModel,
                 this,
                 _chordBox,
                 _measureSelector,
@@ -100,25 +199,124 @@ namespace JianpuEditor
                 _playButton,
                 _stopButton);
 
-            _glue = new ScoreCanvasGlue(mainViewModel, _canvas, _messenger);
-            mainViewModel.Document.PropertyChanged += OnDocumentPropertyChanged;
+            _layoutContext.ScoreCanvas = tab.Canvas;
+            UpdateUndoMenuState();
+            _statusBar.SetZoomPercent((int)Math.Round(tab.Canvas.ZoomScale * 100));
 
-            _canvas.SelectionChanged += OnCanvasSelectionChanged;
-            _canvas.MeasureTextEdited += OnCanvasMeasureTextEdited;
-            _canvas.HeaderEdited += OnCanvasHeaderEdited;
-            _canvas.ChordMarkersChanged += OnCanvasChordMarkersChanged;
-            _canvas.ScoreMutationStarting += OnCanvasScoreMutationStarting;
-            _canvas.PlaybackSeeked += OnCanvasPlaybackSeeked;
+            // Deliberately not RestoreLayout(): it resets AutoScrollPosition on the canvas it's
+            // pointed at, which here would mean switching back to a tab always jumped its scroll
+            // position back to the top. The TabControl itself already handles showing/hiding the
+            // right tab's canvas; nothing here needs to touch the chrome sizing RestoreLayout is
+            // actually for (that doesn't depend on which tab is active).
+        }
 
-            mainViewModel.RequestOpenScore += (s, e) => OnOpenScore(s, e);
-            mainViewModel.RequestSaveScore += (s, e) => OnSaveScore(s, e);
-            mainViewModel.RequestSaveAsScore += (s, e) => OnSaveScoreAs(s, e);
-            mainViewModel.RequestExportPdf += (s, e) => OnExportPdf(s, e);
-            mainViewModel.RequestExportMidi += (s, e) => OnExportMidi(s, e);
-            mainViewModel.RequestImportMidi += (s, e) => OnImportMidi(s, e);
-            mainViewModel.RequestImportAudioInstrument += (s, e) => OnImportAudio(s, e, AudioTranscriptionEngine.Instrument);
-            mainViewModel.RequestImportAudioVocal += (s, e) => OnImportAudio(s, e, AudioTranscriptionEngine.Vocal);
-            mainViewModel.RequestTransposeDialog += (s, e) => ShowTransposeDialog();
+        /// <summary>Prompts to save unsaved changes (Yes/No/Cancel), then disposes the tab and
+        /// removes its page. A cancelled prompt leaves the tab open. Closing the last remaining
+        /// tab opens a fresh blank one instead of leaving the window empty.</summary>
+        private void CloseTab(DocumentTab tab)
+        {
+            if (tab == null)
+            {
+                return;
+            }
+
+            var page = FindTabPage(tab);
+            if (page == null)
+            {
+                return;
+            }
+
+            if (tab.ViewModel.Document.IsDirty)
+            {
+                _tabControl.SelectedTab = page;
+                var choice = MessageBox.Show(
+                    "Save changes to \"" + tab.ViewModel.Document.Title + "\" before closing?",
+                    "Unsaved Changes",
+                    MessageBoxButtons.YesNoCancel,
+                    MessageBoxIcon.Warning);
+                if (choice == DialogResult.Cancel)
+                {
+                    return;
+                }
+
+                if (choice == DialogResult.Yes)
+                {
+                    OnSaveScore(this, EventArgs.Empty);
+                    if (tab.ViewModel.Document.IsDirty)
+                    {
+                        return; // Save was itself cancelled (e.g. the Save As dialog was dismissed).
+                    }
+                }
+            }
+
+            tab.ViewModel.Playback.Stop();
+            _tabControl.TabPages.Remove(page);
+            tab.Dispose();
+
+            if (_tabControl.TabPages.Count == 0)
+            {
+                CreateTab();
+            }
+        }
+
+        private const int TabCloseButtonSize = 14;
+
+        private void OnDrawTabItem(object sender, DrawItemEventArgs e)
+        {
+            if (e.Index < 0 || e.Index >= _tabControl.TabPages.Count)
+            {
+                return;
+            }
+
+            var page = _tabControl.TabPages[e.Index];
+            var tabRect = _tabControl.GetTabRect(e.Index);
+            e.DrawBackground();
+
+            var closeRect = GetCloseButtonRect(tabRect);
+            var textRect = new Rectangle(
+                tabRect.X + 6,
+                tabRect.Y,
+                Math.Max(0, closeRect.Left - tabRect.X - 8),
+                tabRect.Height);
+            TextRenderer.DrawText(
+                e.Graphics,
+                page.Text,
+                _tabControl.Font,
+                textRect,
+                SystemColors.ControlText,
+                TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
+
+            using (var pen = new Pen(Color.Gray, 1.5f))
+            {
+                e.Graphics.DrawLine(pen, closeRect.Left + 3, closeRect.Top + 3, closeRect.Right - 3, closeRect.Bottom - 3);
+                e.Graphics.DrawLine(pen, closeRect.Right - 3, closeRect.Top + 3, closeRect.Left + 3, closeRect.Bottom - 3);
+            }
+        }
+
+        private static Rectangle GetCloseButtonRect(Rectangle tabRect)
+        {
+            return new Rectangle(
+                tabRect.Right - TabCloseButtonSize - 6,
+                tabRect.Top + (tabRect.Height - TabCloseButtonSize) / 2,
+                TabCloseButtonSize,
+                TabCloseButtonSize);
+        }
+
+        private void OnTabControlMouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _tabControl.TabPages.Count; i++)
+            {
+                if (GetCloseButtonRect(_tabControl.GetTabRect(i)).Contains(e.Location))
+                {
+                    CloseTab(_tabControl.TabPages[i].Tag as DocumentTab);
+                    return;
+                }
+            }
         }
 
         public void RestoreLayout()
@@ -169,19 +367,21 @@ namespace JianpuEditor
             _mainLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
             _mainLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
-            _canvas.Dock = DockStyle.Fill;
-            _canvas.MinimumSize = new Size(200, 200);
+            _tabControl = new TabControl { MinimumSize = new Size(200, 200), DrawMode = TabDrawMode.OwnerDrawFixed };
+            _tabControl.Dock = DockStyle.Fill;
+            _tabControl.DrawItem += OnDrawTabItem;
+            _tabControl.MouseDown += OnTabControlMouseDown;
             _statusBar.Dock = DockStyle.Fill;
             _statusBar.MinimumSize = new Size(0, MainFormLayoutContext.StatusRowHeight);
             _statusBar.ZoomInClicked += () => _canvas.ZoomIn();
             _statusBar.ZoomOutClicked += () => _canvas.ZoomOut();
             _statusBar.EngineClicked += (s, e) => ShowAudioEngineDialog();
             _statusBar.SetEngine(_midiOutput.EngineName);
-            _statusBar.SetZoomPercent((int)System.Math.Round(_canvas.ZoomScale * 100));
-            _canvas.ZoomChanged += () => _statusBar.SetZoomPercent((int)System.Math.Round(_canvas.ZoomScale * 100));
+            // Zoom percent display and _layoutContext.ScoreCanvas are set once the first tab is
+            // created below and OnActiveTabChanged runs -- there's no canvas to read yet here.
 
             _mainLayout.Controls.Add(_chromeLayout, 0, 0);
-            _mainLayout.Controls.Add(_canvas, 0, 1);
+            _mainLayout.Controls.Add(_tabControl, 0, 1);
             _mainLayout.Controls.Add(_statusBar, 0, 2);
 
             Controls.Clear();
@@ -195,15 +395,24 @@ namespace JianpuEditor
                 ChromeLayout = _chromeLayout,
                 MenuStrip = _menuStrip,
                 ToolbarPanel = toolbarPanel,
-                ScoreCanvas = _canvas,
                 ScoreStatusBar = _statusBar
             };
             _layoutService.Attach(_layoutContext);
+
+            _tabControl.SelectedIndexChanged += OnActiveTabChanged;
+            CreateTab();
+
+            // WinForms doesn't reliably raise SelectedIndexChanged for the very first TabPage
+            // becoming selected (unlike every subsequent switch, which does) -- force the same
+            // activation CreateTab's later callers get from the event.
+            OnActiveTabChanged(this, EventArgs.Empty);
         }
 
         private void OnFormLoad(object sender, EventArgs e)
         {
-            InitializeBindings(_viewModel);
+            // The first tab is already created in SetupLayoutStructure (called from the
+            // constructor) so _layoutContext.ScoreCanvas is populated before RestoreLayout/
+            // ApplyTheme below ever run.
             RestoreLayout();
             ApplyDpiScaling();
             ApplyTheme();
@@ -256,6 +465,7 @@ namespace JianpuEditor
             PopulateSampleLibraryMenu(sampleMenu.DropDownItems);
             fileMenu.DropDownItems.Add(sampleMenu);
             fileMenu.DropDownItems.Add(new ToolStripSeparator());
+            fileMenu.DropDownItems.Add(CreateMenuItem("Close Tab", Keys.Control | Keys.W, (s, e) => CloseTab(ActiveTab)));
             fileMenu.DropDownItems.Add(CreateMenuItem("Exit", Keys.None, (s, e) => Close()));
 
             var editMenu = new ToolStripMenuItem("Edit");
@@ -614,6 +824,12 @@ namespace JianpuEditor
                 return true;
             }
 
+            if (keyData == (Keys.Control | Keys.W))
+            {
+                CloseTab(ActiveTab);
+                return true;
+            }
+
             return base.ProcessCmdKey(ref msg, keyData);
         }
 
@@ -733,6 +949,13 @@ namespace JianpuEditor
             if (e.Control && e.Shift && e.KeyCode == Keys.N)
             {
                 ExecuteAddMeasureWithPlaceholders();
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Control && e.KeyCode == Keys.W)
+            {
+                CloseTab(ActiveTab);
                 e.Handled = true;
                 return;
             }
@@ -927,17 +1150,16 @@ namespace JianpuEditor
 
         private void OnNewScore(object sender, EventArgs e)
         {
-            _viewModel.NewScoreCommand.Execute(null);
-            _glue.ApplyEditResult(new ScoreEditResult { Changed = true, SelectMeasureIndex = 0 });
-            _glue.ResetPlaybackHead();
+            var tab = CreateTab();
+            tab.ViewModel.NewScoreCommand.Execute(null);
+            tab.Glue.ApplyEditResult(new ScoreEditResult { Changed = true, SelectMeasureIndex = 0 });
+            tab.Glue.ResetPlaybackHead();
             _binder.SyncHeaderFromDocument();
             _binder.SyncFromViewModels();
         }
 
         private void OnImportMidi(object sender, EventArgs e)
         {
-            _viewModel.Playback.Stop();
-            _viewModel.TieEditor.CancelTieMode();
             using (var dialog = new OpenFileDialog
             {
                 Filter = "MIDI Files (*.mid)|*.mid|All Files (*.*)|*.*"
@@ -950,6 +1172,10 @@ namespace JianpuEditor
 
                 try
                 {
+                    // Reads the file's track list without touching any tab's document, so a new
+                    // tab is only created once the user has actually committed to an import
+                    // (picked a track, or the file has just one) rather than left behind empty
+                    // if they cancel the track picker.
                     int? trackIndex = null;
                     var trackInfos = _viewModel.GetMidiTrackInfos(dialog.FileName);
                     if (trackInfos.Count > 1)
@@ -965,13 +1191,14 @@ namespace JianpuEditor
                         }
                     }
 
-                    var result = _viewModel.ImportMidi(dialog.FileName, trackIndex);
-                    Text = _viewModel.Document.WindowTitle;
-                    _glue.ApplyEditResult(new ScoreEditResult { Changed = true, SelectMeasureIndex = 0 });
-                    _glue.ResetPlaybackHead();
+                    var tab = CreateTab();
+                    var result = tab.ViewModel.ImportMidi(dialog.FileName, trackIndex);
+                    Text = tab.ViewModel.Document.WindowTitle;
+                    tab.Glue.ApplyEditResult(new ScoreEditResult { Changed = true, SelectMeasureIndex = 0 });
+                    tab.Glue.ResetPlaybackHead();
                     _binder.SyncHeaderFromDocument();
                     _binder.SyncFromViewModels();
-                    _viewModel.SetStatus(result.Message);
+                    tab.ViewModel.SetStatus(result.Message);
                 }
                 catch (Exception ex)
                 {
@@ -983,8 +1210,6 @@ namespace JianpuEditor
 
         private async void OnImportAudio(object sender, EventArgs e, AudioTranscriptionEngine engine)
         {
-            _viewModel.Playback.Stop();
-            _viewModel.TieEditor.CancelTieMode();
             var engineLabel = engine == AudioTranscriptionEngine.Vocal ? "Vocal (GAME)" : "Instrument (basic-pitch)";
 
             if (!TryShowEngineSettingsDialog(engine))
@@ -1004,12 +1229,14 @@ namespace JianpuEditor
                 }
 
                 var fileName = dialog.FileName;
+                var tab = CreateTab();
 
                 // Transcription runs several seconds to a few minutes depending on the engine and
                 // clip length; running it on the UI thread froze the window ("Not Responding") for
                 // that whole time with no feedback. Task.Run keeps the UI pumping messages while
                 // Progress<string> (captures this thread's SynchronizationContext) marshals status
-                // updates back safely.
+                // updates back safely. The whole window (not just this tab) is disabled for the
+                // duration, so tab.ViewModel below can't drift from whatever's active mid-await.
                 using (var progressDialog = new AudioImportProgressDialog("Import from Audio (" + engineLabel + ")"))
                 {
                     progressDialog.Show(this);
@@ -1017,23 +1244,23 @@ namespace JianpuEditor
                     var progress = new Progress<string>(message =>
                     {
                         progressDialog.SetMessage(message);
-                        _viewModel.SetStatus(message);
+                        tab.ViewModel.SetStatus(message);
                     });
 
                     try
                     {
-                        var result = await Task.Run(() => _viewModel.ImportAudio(fileName, engine, _lastBasicPitchSettings, _lastGameSettings, progress));
-                        Text = _viewModel.Document.WindowTitle;
-                        _glue.ApplyEditResult(new ScoreEditResult { Changed = true, SelectMeasureIndex = 0 });
-                        _glue.ResetPlaybackHead();
+                        var result = await Task.Run(() => tab.ViewModel.ImportAudio(fileName, engine, _lastBasicPitchSettings, _lastGameSettings, progress));
+                        Text = tab.ViewModel.Document.WindowTitle;
+                        tab.Glue.ApplyEditResult(new ScoreEditResult { Changed = true, SelectMeasureIndex = 0 });
+                        tab.Glue.ResetPlaybackHead();
                         _binder.SyncHeaderFromDocument();
                         _binder.SyncFromViewModels();
-                        _viewModel.SetStatus(result.Message);
+                        tab.ViewModel.SetStatus(result.Message);
                     }
                     catch (Exception ex)
                     {
                         AppLog.Exception("Audio import failed: " + fileName, ex);
-                        _viewModel.SetStatus("Audio import failed");
+                        tab.ViewModel.SetStatus("Audio import failed");
                         MessageBox.Show("Audio import failed: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
                     finally
@@ -1114,8 +1341,6 @@ namespace JianpuEditor
 
         private void OnOpenScore(object sender, EventArgs e)
         {
-            _viewModel.Playback.Stop();
-            _viewModel.TieEditor.CancelTieMode();
             using (var dialog = new OpenFileDialog
             {
                 Filter = "Jianpu Files (*.jianpu)|*.jianpu|JSON Files (*.json)|*.json|All Files (*.*)|*.*"
@@ -1126,12 +1351,13 @@ namespace JianpuEditor
                     return;
                 }
 
-                _viewModel.Document.LoadFromFile(dialog.FileName);
-                _glue.ApplyEditResult(new ScoreEditResult { Changed = true, SelectMeasureIndex = 0 });
-                _glue.ResetPlaybackHead();
+                var tab = CreateTab();
+                tab.ViewModel.Document.LoadFromFile(dialog.FileName);
+                tab.Glue.ApplyEditResult(new ScoreEditResult { Changed = true, SelectMeasureIndex = 0 });
+                tab.Glue.ResetPlaybackHead();
                 _binder.SyncHeaderFromDocument();
                 _binder.SyncFromViewModels();
-                _viewModel.SetStatus("Opened: " + dialog.FileName);
+                tab.ViewModel.SetStatus("Opened: " + dialog.FileName);
             }
         }
 
@@ -1228,17 +1454,20 @@ namespace JianpuEditor
             items.Add(CreateMenuItem("Ode to Joy (built-in)", Keys.None, (s, e) => LoadDemoScore()));
             items.Add(new ToolStripSeparator());
 
-            _viewModel.SampleLibrary.RefreshSamples();
-            if (!_viewModel.SampleLibrary.HasSamples)
+            // Uses the directly-injected singleton, not _viewModel.SampleLibrary (same object,
+            // but this menu is built once during SetupLayoutStructure, before any tab -- and
+            // therefore ActiveTab -- exists yet).
+            _sampleLibrary.RefreshSamples();
+            if (!_sampleLibrary.HasSamples)
             {
                 items.Add(new ToolStripMenuItem("(no files in the sample directory yet)") { Enabled = false });
                 return;
             }
 
-            foreach (var sampleFile in _viewModel.SampleLibrary.Samples)
+            foreach (var sampleFile in _sampleLibrary.Samples)
             {
                 var path = sampleFile;
-                var label = _viewModel.SampleLibrary.GetDisplayName(sampleFile);
+                var label = _sampleLibrary.GetDisplayName(sampleFile);
                 items.Add(CreateMenuItem(label, Keys.None, (s, e) => LoadSampleScore(path)));
             }
         }
@@ -1247,12 +1476,11 @@ namespace JianpuEditor
         {
             try
             {
-                _viewModel.Playback.Stop();
-                _viewModel.TieEditor.CancelTieMode();
-                var result = _viewModel.SampleLibrary.LoadSample(_viewModel.Document, _messenger, path);
-                Text = _viewModel.SampleLibrary.BuildWindowTitle(_viewModel.Document, path);
-                _glue.ApplyEditResult(result);
-                _glue.ResetPlaybackHead();
+                var tab = CreateTab();
+                var result = tab.ViewModel.SampleLibrary.LoadSample(tab.ViewModel.Document, tab.Messenger, path);
+                Text = tab.ViewModel.SampleLibrary.BuildWindowTitle(tab.ViewModel.Document, path);
+                tab.Glue.ApplyEditResult(result);
+                tab.Glue.ResetPlaybackHead();
                 _binder.SyncHeaderFromDocument();
                 _binder.SyncFromViewModels();
             }
@@ -1265,11 +1493,10 @@ namespace JianpuEditor
 
         private void LoadDemoScore()
         {
-            _viewModel.Playback.Stop();
-            _viewModel.TieEditor.CancelTieMode();
-            var result = _viewModel.SampleLibrary.LoadDemoScore(_viewModel.Document, _messenger);
-            _glue.ApplyEditResult(result);
-            _glue.ResetPlaybackHead();
+            var tab = CreateTab();
+            var result = tab.ViewModel.SampleLibrary.LoadDemoScore(tab.ViewModel.Document, tab.Messenger);
+            tab.Glue.ApplyEditResult(result);
+            tab.Glue.ResetPlaybackHead();
             _binder.SyncHeaderFromDocument();
             _binder.SyncFromViewModels();
         }
@@ -1324,9 +1551,11 @@ namespace JianpuEditor
         private void OnFormClosed(object sender, FormClosedEventArgs e)
         {
             AppLog.Info("Jianpu Editor exiting");
-            _glue?.Dispose();
             _binder?.Dispose();
-            _viewModel.Dispose();
+            foreach (TabPage page in _tabControl.TabPages)
+            {
+                (page.Tag as DocumentTab)?.Dispose();
+            }
         }
 
         private void ShowHarmonySuggestionDialog()

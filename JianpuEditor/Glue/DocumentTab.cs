@@ -1,4 +1,5 @@
 using System;
+using System.Windows.Forms;
 using JianpuEditor.Controls;
 using JianpuEditor.Core.Abstractions;
 using JianpuEditor.Core.Messaging;
@@ -31,6 +32,7 @@ namespace JianpuEditor.Glue
             Scope = scopeFactory.CreateScope();
             ViewModel = Scope.ServiceProvider.GetRequiredService<MainViewModel>();
             Messenger = Scope.ServiceProvider.GetRequiredService<IAppMessenger>();
+            CommandHistory = Scope.ServiceProvider.GetRequiredService<IEditCommandHistory>();
             Canvas = new ScoreCanvas();
             Glue = new ScoreCanvasGlue(ViewModel, Canvas, Messenger);
         }
@@ -41,9 +43,23 @@ namespace JianpuEditor.Glue
 
         public IAppMessenger Messenger { get; }
 
+        public IEditCommandHistory CommandHistory { get; }
+
         public ScoreCanvas Canvas { get; }
 
         public ScoreCanvasGlue Glue { get; }
+
+        /// <summary>Display label for this tab's <see cref="TabPage"/>, kept in sync with the
+        /// document's title/dirty state by <see cref="MainForm"/>.</summary>
+        public string TabTitle
+        {
+            get
+            {
+                var title = ViewModel.Document.Title;
+                var name = string.IsNullOrWhiteSpace(title) ? "Untitled" : title;
+                return ViewModel.Document.IsDirty ? name + " *" : name;
+            }
+        }
 
         public void Dispose()
         {
