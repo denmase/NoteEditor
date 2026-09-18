@@ -158,7 +158,7 @@ namespace JianpuEditor.Tests.ViewModels
                 ornamentEditor,
                 messenger,
                 history);
-            var playback = new PlaybackViewModel(document, new FakePlaybackService(), messenger);
+            var playback = new PlaybackViewModel(document, new FakePlaybackService(), messenger, new PlaybackCoordinator());
             var sampleLibrary = new SampleLibraryViewModel(new SampleLibraryServiceAdapter());
             return new MainViewModel(
                 document,
@@ -208,7 +208,7 @@ namespace JianpuEditor.Tests.ViewModels
                 ornamentEditor,
                 messenger,
                 history);
-            var playback = new PlaybackViewModel(document, new FakePlaybackService(), messenger);
+            var playback = new PlaybackViewModel(document, new FakePlaybackService(), messenger, new PlaybackCoordinator());
             var sampleLibrary = new SampleLibraryViewModel(new SampleLibraryServiceAdapter());
             return new MainViewModel(
                 document,

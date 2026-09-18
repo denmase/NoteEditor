@@ -36,6 +36,7 @@ namespace JianpuEditor
         private TableLayoutPanel _mainLayout;
         private TableLayoutPanel _chromeLayout;
         private TabControl _tabControl;
+        private DocumentTab _previousActiveTab;
 
         // These were fixed fields before multi-tab support; they're now computed from whichever
         // tab is active so the ~200 existing call sites across this file didn't all need
@@ -157,6 +158,17 @@ namespace JianpuEditor
 
             _tabControl.TabPages.Add(page);
             _tabControl.SelectedTab = page;
+
+            // TabControl.SelectedIndexChanged is not a reliable way to detect this activation --
+            // confirmed unreliable for the very first tab even on real Windows (see the removed
+            // comment this replaced in SetupLayoutStructure), and observed here to also not fire
+            // for later tabs at least under Mono/headless. Driving OnActiveTabChanged explicitly,
+            // every time a tab is created, guarantees the shared chrome (and per-tab-switch
+            // behavior like auto-stopping a playing tab you're leaving) stays correct regardless
+            // of whether the event happens to fire too -- it's harmless to also run it again if
+            // SelectedIndexChanged does fire for the same activation, since ActiveTab is already
+            // this tab by then and every guard below keys off that.
+            OnActiveTabChanged(this, EventArgs.Empty);
             SyncTabTitle(tab);
             return tab;
         }
@@ -185,6 +197,20 @@ namespace JianpuEditor
             {
                 return;
             }
+
+            // Playback doesn't stop itself just because its tab scrolled out of view -- without
+            // this, switching away from a still-playing tab would leave its audio running
+            // invisibly in the background (RemoveTab covers the tab-closed case; this covers
+            // "switched away but left it open"). A tab RemoveTab already closed has already had
+            // its own Playback.Stop() called, so this is a no-op for it here.
+            if (_previousActiveTab != null
+                && !ReferenceEquals(_previousActiveTab, tab)
+                && _previousActiveTab.ViewModel.Playback.IsPlaying)
+            {
+                _previousActiveTab.ViewModel.Playback.Stop();
+            }
+
+            _previousActiveTab = tab;
 
             _binder?.Dispose();
             _binder = new MainFormViewBinder(
@@ -417,12 +443,7 @@ namespace JianpuEditor
             _layoutService.Attach(_layoutContext);
 
             _tabControl.SelectedIndexChanged += OnActiveTabChanged;
-            CreateTab();
-
-            // WinForms doesn't reliably raise SelectedIndexChanged for the very first TabPage
-            // becoming selected (unlike every subsequent switch, which does) -- force the same
-            // activation CreateTab's later callers get from the event.
-            OnActiveTabChanged(this, EventArgs.Empty);
+            CreateTab(); // Activates itself; see the comment in CreateTab().
         }
 
         private void OnFormLoad(object sender, EventArgs e)

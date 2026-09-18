@@ -93,6 +93,7 @@ namespace JianpuEditor.Tests.Glue
             services.AddSingleton<IChordTransposeService, ChordTransposeServiceAdapter>();
             services.AddSingleton<IHarmonySuggestionService, HarmonySuggestionServiceAdapter>();
             services.AddSingleton<SampleLibraryViewModel>();
+            services.AddSingleton<IPlaybackCoordinator, PlaybackCoordinator>();
 
             return services.BuildServiceProvider();
         }

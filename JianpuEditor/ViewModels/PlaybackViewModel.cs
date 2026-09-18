@@ -8,22 +8,25 @@ using JianpuEditor.Services;
 
 namespace JianpuEditor.ViewModels
 {
-    public sealed class PlaybackViewModel : ObservableObject, IDisposable
+    public sealed class PlaybackViewModel : ObservableObject, IDisposable, IPlaybackController
     {
         private readonly ScoreDocumentViewModel _document;
         private readonly IScorePlaybackService _playbackService;
         private readonly IAppMessenger _messenger;
+        private readonly IPlaybackCoordinator _coordinator;
         private bool _isPlaying;
         private double _playbackPositionQuarter;
 
         public PlaybackViewModel(
             ScoreDocumentViewModel document,
             IScorePlaybackService playbackService,
-            IAppMessenger messenger)
+            IAppMessenger messenger,
+            IPlaybackCoordinator coordinator)
         {
             _document = document ?? throw new ArgumentNullException(nameof(document));
             _playbackService = playbackService ?? throw new ArgumentNullException(nameof(playbackService));
             _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
+            _coordinator = coordinator ?? throw new ArgumentNullException(nameof(coordinator));
 
             PlayCommand = new RelayCommand(() => Play(), () => !IsPlaying);
             StopCommand = new RelayCommand(Stop, () => IsPlaying);
@@ -80,6 +83,7 @@ namespace JianpuEditor.ViewModels
                 _playbackService.Play(_document.Score, _document.Bpm, quarter);
                 IsPlaying = true;
                 PlaybackPositionQuarter = quarter;
+                _coordinator.NotifyPlaying(this);
                 _messenger.Send(new StatusChangedMessage("Playing..."));
             }
             catch (Exception ex)
@@ -94,7 +98,13 @@ namespace JianpuEditor.ViewModels
         {
             _playbackService.StopPlayback();
             IsPlaying = false;
+            _coordinator.NotifyStopped(this);
             _messenger.Send(new StatusChangedMessage("Playback stopped"));
+        }
+
+        void IPlaybackController.StopPlayback()
+        {
+            Stop();
         }
 
         public void Seek(double quarterBeat)
@@ -125,6 +135,7 @@ namespace JianpuEditor.ViewModels
 
         public void Dispose()
         {
+            _coordinator.NotifyStopped(this);
             _playbackService.PositionChanged -= OnPlaybackPositionChanged;
             _playbackService.PlaybackFinished -= OnPlaybackFinished;
             _playbackService.PlaybackError -= OnPlaybackError;
@@ -141,6 +152,7 @@ namespace JianpuEditor.ViewModels
         private void OnPlaybackFinished()
         {
             IsPlaying = false;
+            _coordinator.NotifyStopped(this);
             _messenger.Send(new StatusChangedMessage("Playback finished"));
             PlaybackFinished?.Invoke();
         }
@@ -148,6 +160,7 @@ namespace JianpuEditor.ViewModels
         private void OnPlaybackError(Exception ex)
         {
             IsPlaying = false;
+            _coordinator.NotifyStopped(this);
             PlaybackError?.Invoke(ex);
         }
 

@@ -114,6 +114,24 @@ namespace JianpuEditor.Tests
             Assert.Single(tabControl.TabPages);
         }
 
+        [Fact]
+        public void SwitchingAwayFromAPlayingTab_StopsItsPlayback()
+        {
+            using var provider = BuildServiceProvider();
+            using var form = CreateForm(provider);
+            var firstTab = GetActiveTab(form);
+
+            firstTab.ViewModel.Playback.Play();
+            Assert.True(firstTab.ViewModel.Playback.IsPlaying);
+
+            InvokePrivate(form, "OnNewScore", null, EventArgs.Empty);
+            var secondTab = GetActiveTab(form);
+
+            Assert.NotSame(firstTab, secondTab);
+            Assert.False(firstTab.ViewModel.Playback.IsPlaying);
+            Assert.False(secondTab.ViewModel.Playback.IsPlaying);
+        }
+
         private static ServiceProvider BuildServiceProvider()
         {
             var services = new ServiceCollection();
@@ -144,6 +162,7 @@ namespace JianpuEditor.Tests
             services.AddSingleton<IHarmonySuggestionService, HarmonySuggestionServiceAdapter>();
             services.AddSingleton<SampleLibraryViewModel>();
             services.AddSingleton<ILayoutService, WinFormsLayoutService>();
+            services.AddSingleton<IPlaybackCoordinator, PlaybackCoordinator>();
             services.AddTransient<MainForm>();
 
             return services.BuildServiceProvider();
