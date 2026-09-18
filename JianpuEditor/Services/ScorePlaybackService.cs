@@ -332,11 +332,15 @@ namespace JianpuEditor.Services
             return ((long)channel << 8) | (uint)note;
         }
 
+        // Does *not* dispose _synthesizer: it's the shared IMidiOutput singleton (the real
+        // BASS/VST audio hardware handle), not something this instance owns -- now that this
+        // service is scoped per document tab, disposing it here would kill audio for every other
+        // open tab the moment any one tab closes. The root IServiceProvider disposes it exactly
+        // once, at real application shutdown (see Program.cs).
         public void Dispose()
         {
             StopInternal(resetPosition: true);
             _timer.Dispose();
-            _synthesizer.Dispose();
             AppLog.Info("ScorePlaybackService disposed");
         }
 

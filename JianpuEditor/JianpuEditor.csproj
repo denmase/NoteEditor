@@ -25,7 +25,15 @@
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
+    <!-- Pinned to 9.0.0, not an 8.0.x patch: Microsoft.Extensions.DependencyInjection.Abstractions
+         8.0.1/8.0.2 ship a net462 asset whose AssemblyVersion is bumped past 8.0.0.0 (e.g. 8.0.0.2
+         for 8.0.2) while their net8.0 asset stays at 8.0.0.0, and PDFsharp (via
+         Microsoft.Extensions.Logging.Abstractions) forces Abstractions >= 8.0.2 regardless of what
+         version is requested here. JianpuEditor.Tests (net8.0) references this net472 project
+         directly and gets no binding redirects, so that cross-TFM version skew is a hard CS1705
+         build error. 9.0.0's assets report a uniform AssemblyVersion 9.0.0.0 on every TFM
+         (net462, net8.0, netstandard2.0), so moving here avoids the mismatch entirely. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="PDFsharp" Version="6.2.0" />
     <PackageReference Include="ManagedBass" Version="3.1.1" />

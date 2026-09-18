@@ -10,26 +10,24 @@ using JianpuEditor.Services;
 
 namespace JianpuEditor.ViewModels
 {
+    /// <summary>
+    /// Lists the bundled sample scores and applies one to a caller-supplied document. This is a
+    /// process-wide singleton (the sample list on disk isn't per-document), so it deliberately
+    /// does *not* hold a document/messenger of its own the way it used to -- doing so would
+    /// permanently capture whichever document happened to exist when this was first constructed
+    /// once documents become per-tab (each tab gets its own scoped <see cref="ScoreDocumentViewModel"/>
+    /// and <see cref="IAppMessenger"/>). The caller (today, <see cref="MainViewModel"/>'s own
+    /// Document/messenger; eventually, whichever tab is being populated) passes both in per call.
+    /// </summary>
     public sealed class SampleLibraryViewModel : ObservableObject
     {
-        private readonly ScoreDocumentViewModel _document;
         private readonly ISampleLibraryService _sampleLibraryService;
-        private readonly IAppMessenger _messenger;
         private IReadOnlyList<string> _samples = Array.Empty<string>();
 
-        public SampleLibraryViewModel(
-            ScoreDocumentViewModel document,
-            ISampleLibraryService sampleLibraryService,
-            IAppMessenger messenger)
+        public SampleLibraryViewModel(ISampleLibraryService sampleLibraryService)
         {
-            _document = document ?? throw new ArgumentNullException(nameof(document));
             _sampleLibraryService = sampleLibraryService ?? throw new ArgumentNullException(nameof(sampleLibraryService));
-            _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
             RefreshSamplesCommand = new RelayCommand(RefreshSamples);
-            LoadDemoScoreCommand = new RelayCommand(() => LoadDemoScore());
-            LoadSampleCommand = new RelayCommand<string>(
-                path => LoadSample(path),
-                path => !string.IsNullOrWhiteSpace(path));
             RefreshSamples();
         }
 
@@ -46,22 +44,18 @@ namespace JianpuEditor.ViewModels
 
         public RelayCommand RefreshSamplesCommand { get; }
 
-        public RelayCommand LoadDemoScoreCommand { get; }
-
-        public RelayCommand<string> LoadSampleCommand { get; }
-
         public void RefreshSamples()
         {
             Samples = _sampleLibraryService.ListSampleFiles();
             OnPropertyChanged(nameof(HasSamples));
         }
 
-        public ScoreEditResult LoadDemoScore()
+        public ScoreEditResult LoadDemoScore(ScoreDocumentViewModel document, IAppMessenger messenger)
         {
-            _document.LoadDemoScore();
+            document.LoadDemoScore();
             var message = "Loaded sample score \"Ode to Joy\"";
-            _messenger.Send(new ScoreEditedMessage(message, markDirty: false));
-            _messenger.Send(new ScoreLoadedMessage(_document.Score, null));
+            messenger.Send(new ScoreEditedMessage(message, markDirty: false));
+            messenger.Send(new ScoreLoadedMessage(document.Score, null));
             return new ScoreEditResult
             {
                 Changed = true,
@@ -71,15 +65,14 @@ namespace JianpuEditor.ViewModels
             };
         }
 
-        public ScoreEditResult LoadSample(string path)
+        public ScoreEditResult LoadSample(ScoreDocumentViewModel document, IAppMessenger messenger, string path)
         {
             try
             {
-                _document.LoadSample(path);
-                var displayName = _sampleLibraryService.GetDisplayName(path);
-                var message = "Loaded sample score: " + _document.Score.Title;
-                _messenger.Send(new ScoreEditedMessage(message, markDirty: false));
-                _messenger.Send(new ScoreLoadedMessage(_document.Score, path));
+                document.LoadSample(path);
+                var message = "Loaded sample score: " + document.Score.Title;
+                messenger.Send(new ScoreEditedMessage(message, markDirty: false));
+                messenger.Send(new ScoreLoadedMessage(document.Score, path));
                 return new ScoreEditResult
                 {
                     Changed = true,
@@ -100,11 +93,11 @@ namespace JianpuEditor.ViewModels
             return _sampleLibraryService.GetDisplayName(path);
         }
 
-        public string BuildWindowTitle(string samplePath)
+        public string BuildWindowTitle(ScoreDocumentViewModel document, string samplePath)
         {
-            if (!string.IsNullOrWhiteSpace(_document.CurrentFilePath))
+            if (!string.IsNullOrWhiteSpace(document.CurrentFilePath))
             {
-                return "Jianpu Editor - " + Path.GetFileName(_document.CurrentFilePath);
+                return "Jianpu Editor - " + Path.GetFileName(document.CurrentFilePath);
             }
 
             if (!string.IsNullOrWhiteSpace(samplePath))
