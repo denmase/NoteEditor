@@ -56,6 +56,7 @@ namespace JianpuEditor
             services.AddSingleton<IHarmonySuggestionService, HarmonySuggestionServiceAdapter>();
             services.AddSingleton<SampleLibraryViewModel>();
             services.AddSingleton<ILayoutService, WinFormsLayoutService>();
+            services.AddSingleton<IPlaybackCoordinator, PlaybackCoordinator>();
             services.AddTransient<MainForm>();
 
             return services.BuildServiceProvider();
