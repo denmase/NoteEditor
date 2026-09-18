@@ -299,7 +299,7 @@ JianpuEditor.Tests/        # xUnit unit tests (248; services, ViewModels, Glue, 
 ## Dependencies
 
 - [CommunityToolkit.Mvvm](https://www.nuget.org/packages/CommunityToolkit.Mvvm) 8.4.0
-- [Microsoft.Extensions.DependencyInjection](https://www.nuget.org/packages/Microsoft.Extensions.DependencyInjection) 8.0.1
+- [Microsoft.Extensions.DependencyInjection](https://www.nuget.org/packages/Microsoft.Extensions.DependencyInjection) 9.0.0
 - [Newtonsoft.Json](https://www.nuget.org/packages/Newtonsoft.Json) 13.0.3
 - [PDFsharp](https://www.nuget.org/packages/PDFsharp) 6.2.0
 - [ManagedBass](https://www.nuget.org/packages/ManagedBass) / ManagedBass.Midi / ManagedBass.Vst 3.1.1
