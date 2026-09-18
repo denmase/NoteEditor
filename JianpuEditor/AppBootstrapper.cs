@@ -65,6 +65,9 @@ namespace JianpuEditor
 
         private static IMidiOutput CreateMidiOutput()
         {
+            // VST support is not currently exposed in the Audio Engine dialog (good free VST2
+            // instruments have become hard to find), but a plugin path left over from an older
+            // build's settings.json is still honored here.
             var melodyVstPluginPath = AppTheme.VstMelodyPluginPath;
             if (!string.IsNullOrWhiteSpace(melodyVstPluginPath))
             {
@@ -78,15 +81,33 @@ namespace JianpuEditor
                 }
             }
 
-            var soundFontPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "Soundfonts", "GeneralUser-GS.sf2");
+            var bundledSoundFontPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "Soundfonts", "GeneralUser-GS.sf2");
+            var customSoundFontPath = AppTheme.CustomSoundFontPath;
+            var soundFontPath = !string.IsNullOrWhiteSpace(customSoundFontPath) && File.Exists(customSoundFontPath)
+                ? customSoundFontPath
+                : bundledSoundFontPath;
+
             try
             {
                 return new BassMidiSynthesizer(soundFontPath);
             }
             catch (Exception ex)
             {
-                AppLog.Exception("Failed to initialize BASSMIDI SoundFont synthesizer, falling back to system MIDI device", ex);
-                return new WindowsMidiSynthesizer();
+                AppLog.Exception("Failed to initialize BASSMIDI SoundFont synthesizer (" + soundFontPath + ")", ex);
+                if (soundFontPath == bundledSoundFontPath)
+                {
+                    return new WindowsMidiSynthesizer();
+                }
+
+                try
+                {
+                    return new BassMidiSynthesizer(bundledSoundFontPath);
+                }
+                catch (Exception fallbackEx)
+                {
+                    AppLog.Exception("Failed to initialize bundled SoundFont synthesizer, falling back to system MIDI device", fallbackEx);
+                    return new WindowsMidiSynthesizer();
+                }
             }
         }
     }

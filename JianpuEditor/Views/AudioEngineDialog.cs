@@ -5,14 +5,10 @@ namespace JianpuEditor.Views
 {
     public sealed class AudioEngineDialog : Form
     {
-        private readonly RadioButton _soundFontOption;
-        private readonly RadioButton _vstOption;
-        private readonly TextBox _melodyVstPathBox;
-        private readonly Button _melodyBrowseButton;
-        private readonly TextBox _chordVstPathBox;
-        private readonly Button _chordBrowseButton;
+        private readonly TextBox _soundFontPathBox;
+        private readonly Button _browseButton;
 
-        public AudioEngineDialog(string currentMelodyVstPluginPath, string currentChordVstPluginPath, string activeEngineName)
+        public AudioEngineDialog(string currentCustomSoundFontPath, string activeEngineName)
         {
             Text = "Audio Engine";
             FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -20,9 +16,7 @@ namespace JianpuEditor.Views
             MinimizeBox = false;
             MaximizeBox = false;
             ShowInTaskbar = false;
-            ClientSize = new Size(420, 268);
-
-            var hasVstPath = !string.IsNullOrWhiteSpace(currentMelodyVstPluginPath);
+            ClientSize = new Size(420, 190);
 
             var activeLabel = new Label
             {
@@ -32,87 +26,58 @@ namespace JianpuEditor.Views
                 Font = new Font(Font, FontStyle.Bold)
             };
 
-            _soundFontOption = new RadioButton
+            var pathLabel = new Label
             {
-                Text = "Bundled SoundFont (default)",
-                Location = new Point(16, 40),
-                AutoSize = true,
-                Checked = !hasVstPath
+                Text = "Instrument file (SoundFont .sf2 or SFZ .sfz):",
+                Location = new Point(16, 44),
+                AutoSize = true
             };
 
-            _vstOption = new RadioButton
+            _soundFontPathBox = new TextBox
             {
-                Text = "VST2 instrument plugin(s):",
-                Location = new Point(16, 68),
-                AutoSize = true,
-                Checked = hasVstPath
+                Location = new Point(16, 64),
+                Width = 324,
+                Text = currentCustomSoundFontPath ?? string.Empty
             };
-
-            var melodyLabel = new Label { Text = "Melody:", Location = new Point(36, 98), AutoSize = true };
-            _melodyVstPathBox = new TextBox
-            {
-                Location = new Point(100, 94),
-                Width = 236,
-                Text = currentMelodyVstPluginPath ?? string.Empty,
-                Enabled = hasVstPath
-            };
-            _melodyBrowseButton = new Button
+            _browseButton = new Button
             {
                 Text = "Browse...",
-                Location = new Point(340, 92),
-                Width = 64,
-                Enabled = hasVstPath
+                Location = new Point(340, 62),
+                Width = 64
             };
-            _melodyBrowseButton.Click += (s, e) => BrowseInto(_melodyVstPathBox);
-
-            var chordLabel = new Label { Text = "Chords:", Location = new Point(36, 126), AutoSize = true };
-            _chordVstPathBox = new TextBox
+            _browseButton.Click += (s, e) =>
             {
-                Location = new Point(100, 122),
-                Width = 236,
-                Text = currentChordVstPluginPath ?? string.Empty,
-                Enabled = hasVstPath
-            };
-            _chordBrowseButton = new Button
-            {
-                Text = "Browse...",
-                Location = new Point(340, 120),
-                Width = 64,
-                Enabled = hasVstPath
-            };
-            _chordBrowseButton.Click += (s, e) => BrowseInto(_chordVstPathBox);
-
-            _vstOption.CheckedChanged += (s, e) =>
-            {
-                _melodyVstPathBox.Enabled = _vstOption.Checked;
-                _melodyBrowseButton.Enabled = _vstOption.Checked;
-                _chordVstPathBox.Enabled = _vstOption.Checked;
-                _chordBrowseButton.Enabled = _vstOption.Checked;
+                using (var browseDialog = new OpenFileDialog
+                {
+                    Filter = "SoundFont/SFZ Instrument (*.sf2;*.sfz)|*.sf2;*.sfz|All Files (*.*)|*.*",
+                    Title = "Select Instrument File"
+                })
+                {
+                    if (browseDialog.ShowDialog(this) == DialogResult.OK)
+                    {
+                        _soundFontPathBox.Text = browseDialog.FileName;
+                    }
+                }
             };
 
             var hintLabel = new Label
             {
-                Text = "Hosts VST2 instrument DLLs (not VST3) via BASSVST -- one for melody, one for\n" +
-                       "chords. Leave Chords blank to use the melody plugin for both. Takes effect\n" +
-                       "after restarting Jianpu Editor. If a configured plugin fails to load, playback\n" +
-                       "silently falls back to the bundled SoundFont.",
-                Location = new Point(16, 152),
-                Size = new Size(388, 66),
+                Text = "Leave blank to use the bundled General MIDI SoundFont. Point to a full-quality\n" +
+                       "SF2 or SFZ instrument library instead for better piano/guitar/cello sound.\n" +
+                       "Takes effect after restarting Jianpu Editor. If the file fails to load,\n" +
+                       "playback silently falls back to the bundled SoundFont.",
+                Location = new Point(16, 94),
+                Size = new Size(388, 60),
                 ForeColor = Color.DimGray
             };
 
-            var okButton = new Button { Text = "OK", DialogResult = DialogResult.OK, Location = new Point(236, 230), Width = 76 };
-            var cancelButton = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, Location = new Point(320, 230), Width = 76 };
+            var okButton = new Button { Text = "OK", DialogResult = DialogResult.OK, Location = new Point(236, 152), Width = 76 };
+            var cancelButton = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, Location = new Point(320, 152), Width = 76 };
 
             Controls.Add(activeLabel);
-            Controls.Add(_soundFontOption);
-            Controls.Add(_vstOption);
-            Controls.Add(melodyLabel);
-            Controls.Add(_melodyVstPathBox);
-            Controls.Add(_melodyBrowseButton);
-            Controls.Add(chordLabel);
-            Controls.Add(_chordVstPathBox);
-            Controls.Add(_chordBrowseButton);
+            Controls.Add(pathLabel);
+            Controls.Add(_soundFontPathBox);
+            Controls.Add(_browseButton);
             Controls.Add(hintLabel);
             Controls.Add(okButton);
             Controls.Add(cancelButton);
@@ -121,31 +86,9 @@ namespace JianpuEditor.Views
         }
 
         /// <summary>Empty string means "use the bundled SoundFont".</summary>
-        public string SelectedMelodyVstPluginPath
+        public string SelectedSoundFontPath
         {
-            get { return _vstOption.Checked ? (_melodyVstPathBox.Text ?? string.Empty).Trim() : string.Empty; }
-        }
-
-        /// <summary>Empty string means "reuse the melody plugin for chords too" (or "use the
-        /// bundled SoundFont", if <see cref="SelectedMelodyVstPluginPath"/> is also empty).</summary>
-        public string SelectedChordVstPluginPath
-        {
-            get { return _vstOption.Checked ? (_chordVstPathBox.Text ?? string.Empty).Trim() : string.Empty; }
-        }
-
-        private void BrowseInto(TextBox targetBox)
-        {
-            using (var dialog = new OpenFileDialog
-            {
-                Filter = "VST2 Plugin (*.dll)|*.dll|All Files (*.*)|*.*",
-                Title = "Select VST2 Instrument Plugin"
-            })
-            {
-                if (dialog.ShowDialog(this) == DialogResult.OK)
-                {
-                    targetBox.Text = dialog.FileName;
-                }
-            }
+            get { return (_soundFontPathBox.Text ?? string.Empty).Trim(); }
         }
     }
 }

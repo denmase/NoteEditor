@@ -60,6 +60,10 @@ namespace JianpuEditor.Rendering
         /// reuse <see cref="VstMelodyPluginPath"/> for chords too.</summary>
         public static string VstChordPluginPath { get; private set; } = string.Empty;
 
+        /// <summary>Path to a custom SoundFont (.sf2) or SFZ instrument file to use instead of the
+        /// bundled General MIDI SoundFont, or empty to use the bundled one.</summary>
+        public static string CustomSoundFontPath { get; private set; } = string.Empty;
+
         public static event Action ThemeChanged;
 
         public static void Load()
@@ -79,6 +83,7 @@ namespace JianpuEditor.Rendering
                 // a setting saved by an older build isn't silently dropped.
                 VstMelodyPluginPath = settings?.VstMelodyPluginPath ?? settings?.VstPluginPath ?? string.Empty;
                 VstChordPluginPath = settings?.VstChordPluginPath ?? string.Empty;
+                CustomSoundFontPath = settings?.CustomSoundFontPath ?? string.Empty;
                 UnderlinesAbove = settings?.UnderlinesAbove ?? false;
             }
             catch
@@ -87,6 +92,7 @@ namespace JianpuEditor.Rendering
                 FillMeasurePlaceholdersOnAdd = true;
                 VstMelodyPluginPath = string.Empty;
                 VstChordPluginPath = string.Empty;
+                CustomSoundFontPath = string.Empty;
                 UnderlinesAbove = false;
             }
         }
@@ -149,6 +155,21 @@ namespace JianpuEditor.Rendering
 
             VstMelodyPluginPath = melodyPath;
             VstChordPluginPath = chordPath;
+            if (persist)
+            {
+                Save();
+            }
+        }
+
+        public static void SetCustomSoundFontPath(string path, bool persist = true)
+        {
+            path = path ?? string.Empty;
+            if (CustomSoundFontPath == path)
+            {
+                return;
+            }
+
+            CustomSoundFontPath = path;
             if (persist)
             {
                 Save();
@@ -262,6 +283,7 @@ namespace JianpuEditor.Rendering
                         FillMeasurePlaceholdersOnAdd = FillMeasurePlaceholdersOnAdd,
                         VstMelodyPluginPath = VstMelodyPluginPath,
                         VstChordPluginPath = VstChordPluginPath,
+                        CustomSoundFontPath = CustomSoundFontPath,
                         UnderlinesAbove = UnderlinesAbove
                     },
                     Formatting.Indented);
@@ -286,6 +308,8 @@ namespace JianpuEditor.Rendering
             public string VstMelodyPluginPath { get; set; } = string.Empty;
 
             public string VstChordPluginPath { get; set; } = string.Empty;
+
+            public string CustomSoundFontPath { get; set; } = string.Empty;
 
             public bool UnderlinesAbove { get; set; }
         }
