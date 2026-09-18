@@ -32,7 +32,7 @@ namespace JianpuEditor.Tests
             using var form = CreateForm(provider);
             var tabControl = GetTabControl(form);
 
-            Assert.Equal(1, tabControl.TabPages.Count);
+            Assert.Single(tabControl.TabPages);
             var tab = GetActiveTab(form);
             Assert.NotNull(tab);
             Assert.Equal("Ode to Joy", tab.ViewModel.Document.Score.Title);
@@ -75,7 +75,7 @@ namespace JianpuEditor.Tests
 
             InvokePrivate(form, "CloseTab", secondTab);
 
-            Assert.Equal(1, tabControl.TabPages.Count);
+            Assert.Single(tabControl.TabPages);
             var remaining = GetActiveTab(form);
             Assert.Same(firstTab, remaining);
             Assert.Equal("Ode to Joy", remaining.ViewModel.Document.Title);
@@ -91,7 +91,7 @@ namespace JianpuEditor.Tests
 
             InvokePrivate(form, "CloseTab", onlyTab);
 
-            Assert.Equal(1, tabControl.TabPages.Count);
+            Assert.Single(tabControl.TabPages);
             var freshTab = GetActiveTab(form);
             Assert.NotSame(onlyTab, freshTab);
         }
@@ -111,7 +111,7 @@ namespace JianpuEditor.Tests
             var handled = (bool)processCmdKey.Invoke(form, new object[] { msg, Keys.Control | Keys.W });
 
             Assert.True(handled);
-            Assert.Equal(1, tabControl.TabPages.Count);
+            Assert.Single(tabControl.TabPages);
         }
 
         private static ServiceProvider BuildServiceProvider()
