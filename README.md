@@ -299,11 +299,12 @@ JianpuEditor.Tests/        # xUnit unit tests (248; services, ViewModels, Glue, 
 ## Dependencies
 
 - [CommunityToolkit.Mvvm](https://www.nuget.org/packages/CommunityToolkit.Mvvm) 8.4.0
-- [Microsoft.Extensions.DependencyInjection](https://www.nuget.org/packages/Microsoft.Extensions.DependencyInjection) 8.0.1
+- [Microsoft.Extensions.DependencyInjection](https://www.nuget.org/packages/Microsoft.Extensions.DependencyInjection) 9.0.0
 - [Newtonsoft.Json](https://www.nuget.org/packages/Newtonsoft.Json) 13.0.3
 - [PDFsharp](https://www.nuget.org/packages/PDFsharp) 6.2.0
-- [ManagedBass](https://www.nuget.org/packages/ManagedBass) / ManagedBass.Midi / ManagedBass.Vst 3.1.1
+- [ManagedBass](https://www.nuget.org/packages/ManagedBass) / ManagedBass.Midi / ManagedBass.Vst 3.1.1 — .NET bindings for the bundled native [BASS](https://www.un4seen.com/bass.html)/BASSMIDI/BASSVST audio libraries (`JianpuEditor/Native/`, x86 and x64). **Free for individual, non-commercial use only**; a commercial fork/distribution needs its own license from un4seen.com — see `JianpuEditor/Native/NOTICE.md`
 - [Microsoft.ML.OnnxRuntime](https://www.nuget.org/packages/Microsoft.ML.OnnxRuntime) 1.30.0
+- [GeneralUser GS](JianpuEditor/Resources/Soundfonts/LICENSE.txt) v2.0.3 (bundled SoundFont for the default playback engine), License v2.0 — free for personal and commercial use; see the linked license for sample-origin caveats
 
 MIDI export and score playback are implemented in-house, with no third-party MIDI library.
 
