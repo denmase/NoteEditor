@@ -249,6 +249,23 @@ namespace JianpuEditor
                 }
             }
 
+            RemoveTab(page, tab);
+        }
+
+        /// <summary>Removes a just-created tab whose New/Open/Import/Sample load attempt failed
+        /// or was never actually populated, skipping the unsaved-changes prompt entirely -- the
+        /// user never asked for this tab to exist, so there's nothing of theirs to lose.</summary>
+        private void DiscardTab(DocumentTab tab)
+        {
+            var page = FindTabPage(tab);
+            if (page != null)
+            {
+                RemoveTab(page, tab);
+            }
+        }
+
+        private void RemoveTab(TabPage page, DocumentTab tab)
+        {
             tab.ViewModel.Playback.Stop();
             _tabControl.TabPages.Remove(page);
             tab.Dispose();
@@ -1170,6 +1187,7 @@ namespace JianpuEditor
                     return;
                 }
 
+                DocumentTab tab = null;
                 try
                 {
                     // Reads the file's track list without touching any tab's document, so a new
@@ -1191,7 +1209,7 @@ namespace JianpuEditor
                         }
                     }
 
-                    var tab = CreateTab();
+                    tab = CreateTab();
                     var result = tab.ViewModel.ImportMidi(dialog.FileName, trackIndex);
                     Text = tab.ViewModel.Document.WindowTitle;
                     tab.Glue.ApplyEditResult(new ScoreEditResult { Changed = true, SelectMeasureIndex = 0 });
@@ -1203,6 +1221,11 @@ namespace JianpuEditor
                 catch (Exception ex)
                 {
                     AppLog.Exception("MIDI import failed: " + dialog.FileName, ex);
+                    if (tab != null)
+                    {
+                        DiscardTab(tab);
+                    }
+
                     MessageBox.Show("MIDI import failed: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
@@ -1260,7 +1283,7 @@ namespace JianpuEditor
                     catch (Exception ex)
                     {
                         AppLog.Exception("Audio import failed: " + fileName, ex);
-                        tab.ViewModel.SetStatus("Audio import failed");
+                        DiscardTab(tab);
                         MessageBox.Show("Audio import failed: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
                     finally
@@ -1474,9 +1497,9 @@ namespace JianpuEditor
 
         private void LoadSampleScore(string path)
         {
+            var tab = CreateTab();
             try
             {
-                var tab = CreateTab();
                 var result = tab.ViewModel.SampleLibrary.LoadSample(tab.ViewModel.Document, tab.Messenger, path);
                 Text = tab.ViewModel.SampleLibrary.BuildWindowTitle(tab.ViewModel.Document, path);
                 tab.Glue.ApplyEditResult(result);
@@ -1487,6 +1510,7 @@ namespace JianpuEditor
             catch (Exception ex)
             {
                 AppLog.Exception("Failed to load sample score: " + path, ex);
+                DiscardTab(tab);
                 MessageBox.Show("Failed to load sample score: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
