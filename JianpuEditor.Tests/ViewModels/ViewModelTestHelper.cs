@@ -55,7 +55,8 @@ namespace JianpuEditor.Tests.ViewModels
             ScoreSelectionViewModel selection,
             IAppMessenger messenger,
             IEditCommandHistory history = null,
-            MeasureNavigationViewModel navigation = null)
+            MeasureNavigationViewModel navigation = null,
+            INoteClipboardService clipboard = null)
         {
             navigation = navigation ?? CreateMeasureNavigation(document, selection, messenger, history);
             return new NoteEditorViewModel(
@@ -63,7 +64,8 @@ namespace JianpuEditor.Tests.ViewModels
                 selection,
                 navigation,
                 messenger,
-                history ?? CreateHistory(messenger));
+                history ?? CreateHistory(messenger),
+                clipboard ?? new NoteClipboardService());
         }
 
         public static ChordEditorViewModel CreateChordEditor(
@@ -138,7 +140,7 @@ namespace JianpuEditor.Tests.ViewModels
             var document = new ScoreDocumentViewModel(new ScoreFileServiceAdapter(), messenger, history);
             var selection = new ScoreSelectionViewModel(document);
             var measureNavigation = new MeasureNavigationViewModel(document, selection, messenger, history);
-            var noteEditor = new NoteEditorViewModel(document, selection, measureNavigation, messenger, history);
+            var noteEditor = new NoteEditorViewModel(document, selection, measureNavigation, messenger, history, new NoteClipboardService());
             var tieEditor = new TieEditorViewModel(document, measureNavigation, messenger, history);
             var measureContent = new MeasureContentViewModel(document, measureNavigation, messenger, history);
             var chordEditor = new ChordEditorViewModel(
@@ -188,7 +190,7 @@ namespace JianpuEditor.Tests.ViewModels
             var document = new ScoreDocumentViewModel(new ScoreFileServiceAdapter(), messenger, history);
             var selection = new ScoreSelectionViewModel(document);
             var measureNavigation = new MeasureNavigationViewModel(document, selection, messenger, history);
-            var noteEditor = new NoteEditorViewModel(document, selection, measureNavigation, messenger, history);
+            var noteEditor = new NoteEditorViewModel(document, selection, measureNavigation, messenger, history, new NoteClipboardService());
             var tieEditor = new TieEditorViewModel(document, measureNavigation, messenger, history);
             var measureContent = new MeasureContentViewModel(document, measureNavigation, messenger, history);
             var chordEditor = new ChordEditorViewModel(
