@@ -30,7 +30,9 @@ dotnet_diagnostic.CA1305.severity = none
 dotnet_diagnostic.CA1822.severity = suggestion
 dotnet_diagnostic.CA1859.severity = suggestion
 
-[JianpuEditor.Tests/**/*.cs]
-# xUnit test naming and inline test data arrays
+[JianpuEditor.Tests/{*.cs,**/*.cs}]
+# xUnit test naming and inline test data arrays. Note: "**/*.cs" alone only matches files in a
+# subdirectory (an EditorConfig glob quirk) -- it silently skipped every *.cs file directly under
+# JianpuEditor.Tests/ (e.g. MainFormMultiTabTests.cs), which is why CA1707 kept firing for those.
 dotnet_diagnostic.CA1707.severity = none
 dotnet_diagnostic.CA1861.severity = none
