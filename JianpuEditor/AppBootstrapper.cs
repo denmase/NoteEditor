@@ -58,6 +58,8 @@ namespace JianpuEditor
             services.AddSingleton<ILayoutService, WinFormsLayoutService>();
             services.AddSingleton<IPlaybackCoordinator, PlaybackCoordinator>();
             services.AddSingleton<ISessionService, SessionService>();
+            // Shared across tabs deliberately (like IMidiOutput): cut/copy in one tab, paste in another.
+            services.AddSingleton<INoteClipboardService, NoteClipboardService>();
             services.AddTransient<MainForm>();
 
             return services.BuildServiceProvider();

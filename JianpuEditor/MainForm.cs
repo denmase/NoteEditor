@@ -127,6 +127,7 @@ namespace JianpuEditor
             tab.Canvas.ChordMarkersChanged += OnCanvasChordMarkersChanged;
             tab.Canvas.ScoreMutationStarting += OnCanvasScoreMutationStarting;
             tab.Canvas.PlaybackSeeked += OnCanvasPlaybackSeeked;
+            tab.Canvas.ContextMenuOpening += OnCanvasContextMenuOpening;
             tab.Canvas.ZoomChanged += () =>
             {
                 if (ReferenceEquals(ActiveTab, tab))
@@ -676,6 +677,10 @@ namespace JianpuEditor
             _redoMenuItem = CreateMenuItem("Redo", Keys.Control | Keys.Y, (s, e) => ExecuteRedo());
             _redoMenuItem.Enabled = false;
             editMenu.DropDownItems.Add(_redoMenuItem);
+            editMenu.DropDownItems.Add(CreateMenuItem("Cut", Keys.Control | Keys.X, (s, e) => ExecuteCut()));
+            editMenu.DropDownItems.Add(CreateMenuItem("Copy", Keys.Control | Keys.C, (s, e) => ExecuteCopy()));
+            editMenu.DropDownItems.Add(CreateMenuItem("Paste", Keys.Control | Keys.V, (s, e) => ExecutePaste()));
+            editMenu.DropDownItems.Add(CreateMenuItem("Delete", Keys.Delete, (s, e) => ExecuteDelete()));
             editMenu.DropDownItems.Add(CreateMenuItem("Add Measure", Keys.None, (s, e) => ExecuteAddMeasure()));
             editMenu.DropDownItems.Add(CreateMenuItem(
                 "Add Measure (with placeholders)",
@@ -1054,6 +1059,139 @@ namespace JianpuEditor
             ExecuteScoreEdit(() => _viewModel.ScoreEditor.Delete());
         }
 
+        /// <summary>Copy, then delete -- but only if there was actually something to copy, so an
+        /// accidental Cut with nothing selected doesn't fall through to Delete's own "nothing
+        /// selected" behavior (deleting the last note in the measure).</summary>
+        private void ExecuteCut()
+        {
+            if (_viewModel.NoteEditor.CopySelectedNotes())
+            {
+                ExecuteDelete();
+            }
+        }
+
+        private void ExecuteCopy()
+        {
+            _viewModel.NoteEditor.CopySelectedNotes();
+        }
+
+        private void ExecutePaste()
+        {
+            ExecuteNoteEdit(() => _viewModel.NoteEditor.PasteNotes());
+        }
+
+        /// <summary>Builds the right-click menu's edit-command items, based on what the canvas
+        /// just told us is under the cursor (it has already synced the selection to match, before
+        /// raising this event -- see <see cref="ScoreCanvas.ApplyHitSelectionForContextMenu"/>).
+        /// Every item here reuses an existing command already wired to the ribbon/menu elsewhere,
+        /// except Cut/Copy/Paste.</summary>
+        private void OnCanvasContextMenuOpening(object sender, ScoreContextMenuEventArgs e)
+        {
+            var menu = e.Menu;
+            if (menu.Items.Count > 0)
+            {
+                menu.Items.Add(new ToolStripSeparator());
+            }
+
+            switch (e.HitType)
+            {
+                case ScoreHitType.Note:
+                    AddNoteContextMenuItems(menu);
+                    break;
+                case ScoreHitType.Gap:
+                    AddGapContextMenuItems(menu);
+                    break;
+                case ScoreHitType.Tie:
+                    menu.Items.Add("Remove Tie", null, (s, args) => ExecuteDelete());
+                    break;
+                case ScoreHitType.ChordMarker:
+                case ScoreHitType.ChordDelete:
+                case ScoreHitType.ChordDragHandle:
+                case ScoreHitType.ChordAddSlot:
+                case ScoreHitType.ChordRow:
+                    AddChordContextMenuItems(menu);
+                    break;
+                case ScoreHitType.LyricText:
+                    menu.Items.Add("Align Lyrics", null, (s, args) => ExecuteScoreEdit(() => _viewModel.MeasureContent.AlignLyricsToNotes()));
+                    break;
+                default:
+                    AddMeasureContextMenuItems(menu);
+                    break;
+            }
+        }
+
+        private void AddNoteContextMenuItems(ContextMenuStrip menu)
+        {
+            menu.Items.Add("Cut", null, (s, e) => ExecuteCut());
+            menu.Items.Add("Copy", null, (s, e) => ExecuteCopy());
+            menu.Items.Add("Delete", null, (s, e) => ExecuteDelete());
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add("Shorten", null, (s, e) => ExecuteNoteEdit(() => _viewModel.NoteEditor.DecreaseDuration()));
+            menu.Items.Add("Extend", null, (s, e) => ExecuteNoteEdit(() => _viewModel.NoteEditor.IncreaseDuration()));
+            menu.Items.Add("Toggle Dotted", null, (s, e) => ExecuteNoteEdit(() => _viewModel.NoteEditor.ToggleDotted()));
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add("Octave Up", null, (s, e) => ExecuteNoteEdit(() => _viewModel.NoteEditor.SetOctave(1)));
+            menu.Items.Add("Octave Down", null, (s, e) => ExecuteNoteEdit(() => _viewModel.NoteEditor.SetOctave(-1)));
+            menu.Items.Add("Transpose Up", null, (s, e) => ExecuteNoteEdit(() => _viewModel.NoteEditor.TransposePitch(1)));
+            menu.Items.Add("Transpose Down", null, (s, e) => ExecuteNoteEdit(() => _viewModel.NoteEditor.TransposePitch(-1)));
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add("Split", null, (s, e) => ExecuteNoteEdit(() => _viewModel.NoteEditor.SplitSelectedNotes()));
+            menu.Items.Add("Merge", null, (s, e) => ExecuteNoteEdit(() => _viewModel.NoteEditor.MergeSelectedNotes()));
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add("Tie Here", null, (s, e) => _viewModel.TieEditor.ToggleTieModeCommand.Execute(null));
+
+            var ornamentsMenu = new ToolStripMenuItem("Ornaments");
+            ornamentsMenu.DropDownItems.Add("Grace Note", null, (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.GraceNote)));
+            ornamentsMenu.DropDownItems.Add("Trill", null, (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Trill)));
+            ornamentsMenu.DropDownItems.Add("Turn", null, (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Turn)));
+            ornamentsMenu.DropDownItems.Add("Fermata", null, (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Fermata)));
+            menu.Items.Add(ornamentsMenu);
+
+            AddPasteItemIfAvailable(menu);
+        }
+
+        private void AddGapContextMenuItems(ContextMenuStrip menu)
+        {
+            var insertMenu = new ToolStripMenuItem("Insert Note");
+            for (var pitch = 1; pitch <= 7; pitch++)
+            {
+                var capturedPitch = pitch;
+                insertMenu.DropDownItems.Add(pitch.ToString(), null, (s, e) => ExecuteNoteEdit(() => _viewModel.NoteEditor.AddNote(capturedPitch)));
+            }
+
+            menu.Items.Add(insertMenu);
+            menu.Items.Add("Insert Rest", null, (s, e) => ExecuteNoteEdit(() => _viewModel.NoteEditor.AddRest()));
+            AddPasteItemIfAvailable(menu);
+        }
+
+        private void AddChordContextMenuItems(ContextMenuStrip menu)
+        {
+            if (_viewModel.Selection.HasChordSelected)
+            {
+                menu.Items.Add("Delete Chord Marker", null, (s, e) => ExecuteDelete());
+            }
+
+            menu.Items.Add("Add Chord Marker Here", null, (s, e) => ExecuteScoreEdit(() => _viewModel.ChordEditor.AddChordMarker()));
+        }
+
+        private void AddMeasureContextMenuItems(ContextMenuStrip menu)
+        {
+            menu.Items.Add("Add Measure", null, (s, e) => ExecuteAddMeasure());
+            menu.Items.Add("Duplicate Measure(s)", null, (s, e) => ExecuteDuplicateMeasures());
+            AddPasteItemIfAvailable(menu);
+        }
+
+        private void AddPasteItemIfAvailable(ContextMenuStrip menu)
+        {
+            if (!_viewModel.NoteEditor.HasClipboardContent)
+            {
+                return;
+            }
+
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add("Paste", null, (s, e) => ExecutePaste());
+        }
+
         private void ExecuteUndo()
         {
             if (_isExecutingHistoryChange || !_commandHistory.CanUndo)
@@ -1176,6 +1314,27 @@ namespace JianpuEditor
             if (e.KeyCode == Keys.Back || e.KeyCode == Keys.Delete)
             {
                 ExecuteDelete();
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Control && e.KeyCode == Keys.X)
+            {
+                ExecuteCut();
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Control && e.KeyCode == Keys.C)
+            {
+                ExecuteCopy();
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Control && e.KeyCode == Keys.V)
+            {
+                ExecutePaste();
                 e.Handled = true;
             }
         }

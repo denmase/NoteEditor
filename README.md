@@ -16,6 +16,13 @@ A Jianpu (numbered musical notation) editing tool built on C# WinForms, supporti
   - **Shift + Left click**: Batch add/remove the range from the anchor to the current note (can span measures)
   - When multi-selecting across measures, the toolbar's "From / To" measure range automatically syncs the highlight
   - With multiple selection, toolbar ornament/delete operations etc. apply in batch
+- **Cut / Copy / Paste**
+  - **Ctrl+X** / **Ctrl+C** / **Ctrl+V** (also on the Edit menu and the right-click menu) cut, copy, or paste the selected note(s)
+  - Paste inserts after the last selected note, or at the selected gap, or at the end of the current measure; works across tabs and across open scores
+  - An in-app clipboard (not the OS clipboard), separate from the tie/chord/lyric/ornament data attached to the copied notes -- those are not carried over
+- **Right-click context menu**
+  - Context-aware: shows different commands depending on what's under the cursor -- a note (Cut/Copy/Delete, Shorten/Extend, octave/transpose, Split/Merge, Tie, Ornaments), an empty gap (Insert Note/Rest, Paste), a tie (Remove Tie), a chord marker (Add/Delete), lyric text (Align Lyrics), or empty space (Add Measure, Duplicate Measure(s), Paste, and the existing "Move playback marker here")
+  - Right-clicking a note or chord marker that isn't already selected selects it first, so the menu always acts on what you clicked
 - **Duration modification**
   - **Increase (+) / Decrease (-) duration**: cycles through six levels: 1/16 → 1/8 → 1/4 → extend 1 beat → extend 2 beats → extend 3 beats
   - High octave dot / low octave dot / dot (dotted note)
