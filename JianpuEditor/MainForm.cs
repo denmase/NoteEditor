@@ -210,7 +210,7 @@ namespace JianpuEditor
 
             AppLog.Info("Jianpu Editor started");
 
-            var demoResult = _viewModel.SampleLibrary.LoadDemoScore();
+            var demoResult = _viewModel.SampleLibrary.LoadDemoScore(_viewModel.Document, _messenger);
             _glue.ApplyEditResult(demoResult);
             _glue.ResetPlaybackHead();
             _binder.SyncHeaderFromDocument();
@@ -1249,8 +1249,8 @@ namespace JianpuEditor
             {
                 _viewModel.Playback.Stop();
                 _viewModel.TieEditor.CancelTieMode();
-                var result = _viewModel.SampleLibrary.LoadSample(path);
-                Text = _viewModel.SampleLibrary.BuildWindowTitle(path);
+                var result = _viewModel.SampleLibrary.LoadSample(_viewModel.Document, _messenger, path);
+                Text = _viewModel.SampleLibrary.BuildWindowTitle(_viewModel.Document, path);
                 _glue.ApplyEditResult(result);
                 _glue.ResetPlaybackHead();
                 _binder.SyncHeaderFromDocument();
@@ -1267,7 +1267,7 @@ namespace JianpuEditor
         {
             _viewModel.Playback.Stop();
             _viewModel.TieEditor.CancelTieMode();
-            var result = _viewModel.SampleLibrary.LoadDemoScore();
+            var result = _viewModel.SampleLibrary.LoadDemoScore(_viewModel.Document, _messenger);
             _glue.ApplyEditResult(result);
             _glue.ResetPlaybackHead();
             _binder.SyncHeaderFromDocument();

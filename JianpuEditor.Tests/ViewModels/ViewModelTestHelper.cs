@@ -159,7 +159,7 @@ namespace JianpuEditor.Tests.ViewModels
                 messenger,
                 history);
             var playback = new PlaybackViewModel(document, new FakePlaybackService(), messenger);
-            var sampleLibrary = new SampleLibraryViewModel(document, new SampleLibraryServiceAdapter(), messenger);
+            var sampleLibrary = new SampleLibraryViewModel(new SampleLibraryServiceAdapter());
             return new MainViewModel(
                 document,
                 selection,
@@ -209,7 +209,7 @@ namespace JianpuEditor.Tests.ViewModels
                 messenger,
                 history);
             var playback = new PlaybackViewModel(document, new FakePlaybackService(), messenger);
-            var sampleLibrary = new SampleLibraryViewModel(document, new SampleLibraryServiceAdapter(), messenger);
+            var sampleLibrary = new SampleLibraryViewModel(new SampleLibraryServiceAdapter());
             return new MainViewModel(
                 document,
                 selection,

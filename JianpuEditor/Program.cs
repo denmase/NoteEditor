@@ -22,7 +22,7 @@ namespace JianpuEditor
             Application.SetCompatibleTextRenderingDefault(false);
             AppTheme.Load();
 
-            var services = AppBootstrapper.ConfigureServices();
+            using var services = AppBootstrapper.ConfigureServices();
             Application.Run(services.GetRequiredService<MainForm>());
         }
 
