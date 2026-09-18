@@ -26,6 +26,7 @@ namespace JianpuEditor
         private readonly ILayoutService _layoutService;
         private readonly IMidiOutput _midiOutput;
         private readonly SampleLibraryViewModel _sampleLibrary;
+        private readonly ISessionService _sessionService;
         private readonly BasicPitchSettings _lastBasicPitchSettings = BasicPitchSettings.CreateDefault();
         private readonly GameSettings _lastGameSettings = GameSettings.CreateDefault();
         private JianpuScore _mutationBeforeSnapshot;
@@ -73,12 +74,14 @@ namespace JianpuEditor
             IServiceScopeFactory scopeFactory,
             ILayoutService layoutService,
             IMidiOutput midiOutput,
-            SampleLibraryViewModel sampleLibrary)
+            SampleLibraryViewModel sampleLibrary,
+            ISessionService sessionService)
         {
             _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
             _layoutService = layoutService ?? throw new ArgumentNullException(nameof(layoutService));
             _midiOutput = midiOutput ?? throw new ArgumentNullException(nameof(midiOutput));
             _sampleLibrary = sampleLibrary ?? throw new ArgumentNullException(nameof(sampleLibrary));
+            _sessionService = sessionService ?? throw new ArgumentNullException(nameof(sessionService));
 
             InitializeComponent();
             SetupLayoutStructure();
@@ -87,6 +90,7 @@ namespace JianpuEditor
             KeyDown += OnFormKeyDown;
             Load += OnFormLoad;
             Resize += OnFormResize;
+            FormClosing += OnFormClosing;
             FormClosed += OnFormClosed;
         }
 
@@ -252,30 +256,185 @@ namespace JianpuEditor
                 return;
             }
 
-            if (tab.ViewModel.Document.IsDirty)
+            if (!ConfirmDiscardOrSave(tab))
             {
-                _tabControl.SelectedTab = page;
-                var choice = MessageBox.Show(
-                    "Save changes to \"" + tab.ViewModel.Document.Title + "\" before closing?",
-                    "Unsaved Changes",
-                    MessageBoxButtons.YesNoCancel,
-                    MessageBoxIcon.Warning);
-                if (choice == DialogResult.Cancel)
-                {
-                    return;
-                }
-
-                if (choice == DialogResult.Yes)
-                {
-                    OnSaveScore(this, EventArgs.Empty);
-                    if (tab.ViewModel.Document.IsDirty)
-                    {
-                        return; // Save was itself cancelled (e.g. the Save As dialog was dismissed).
-                    }
-                }
+                return;
             }
 
             RemoveTab(page, tab);
+        }
+
+        /// <summary>If <paramref name="tab"/> has unsaved changes, switches to it (so the user can
+        /// see what they're being asked about) and prompts Yes/No/Cancel; Yes runs the existing
+        /// Save/Save-As flow. Returns false only on Cancel (either button, or the Save As dialog
+        /// being dismissed) -- callers must not proceed with closing that tab (or the whole app)
+        /// when this returns false. A clean tab always returns true without prompting.</summary>
+        private bool ConfirmDiscardOrSave(DocumentTab tab)
+        {
+            if (!tab.ViewModel.Document.IsDirty)
+            {
+                return true;
+            }
+
+            var page = FindTabPage(tab);
+            if (page != null && !ReferenceEquals(_tabControl.SelectedTab, page))
+            {
+                _tabControl.SelectedTab = page;
+                OnActiveTabChanged(this, EventArgs.Empty); // Don't rely solely on SelectedIndexChanged; see CreateTab.
+            }
+
+            var choice = MessageBox.Show(
+                "Save changes to \"" + tab.ViewModel.Document.Title + "\" before closing?",
+                "Unsaved Changes",
+                MessageBoxButtons.YesNoCancel,
+                MessageBoxIcon.Warning);
+            if (choice == DialogResult.Cancel)
+            {
+                return false;
+            }
+
+            if (choice == DialogResult.Yes)
+            {
+                OnSaveScore(this, EventArgs.Empty);
+                if (tab.ViewModel.Document.IsDirty)
+                {
+                    return false; // Save was itself cancelled (e.g. the Save As dialog was dismissed).
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>Whole-app close: prompts for every open tab's unsaved changes (not just the
+        /// active one), in tab order. Cancelling any one of them aborts the close entirely and
+        /// leaves every tab open, including ones already resolved earlier in the loop -- a tab
+        /// saved before the cancellation stays saved, matching how closing several documents one
+        /// after another normally behaves.</summary>
+        private void OnFormClosing(object sender, FormClosingEventArgs e)
+        {
+            foreach (TabPage page in _tabControl.TabPages)
+            {
+                var tab = page.Tag as DocumentTab;
+                if (tab != null && !ConfirmDiscardOrSave(tab))
+                {
+                    e.Cancel = true;
+                    return;
+                }
+            }
+
+            SaveSession();
+        }
+
+        /// <summary>Snapshots every open tab's current state (whatever the prompts above left it
+        /// as -- Yes-saved, No-still-dirty, or already clean) so the next launch can restore it.
+        /// A dirty tab's in-memory content is captured via a fresh autosave file even if the user
+        /// chose not to save it to its own location, the same "recovered document" safety net
+        /// familiar from other editors.</summary>
+        private void SaveSession()
+        {
+            var snapshots = new List<SessionTabSnapshot>();
+            var activeIndex = 0;
+            var selectedPage = _tabControl.SelectedTab;
+
+            for (var i = 0; i < _tabControl.TabPages.Count; i++)
+            {
+                var page = _tabControl.TabPages[i];
+                if (ReferenceEquals(page, selectedPage))
+                {
+                    activeIndex = snapshots.Count;
+                }
+
+                var tab = page.Tag as DocumentTab;
+                if (tab == null)
+                {
+                    continue;
+                }
+
+                snapshots.Add(new SessionTabSnapshot
+                {
+                    FilePath = tab.ViewModel.Document.CurrentFilePath,
+                    IsDirty = tab.ViewModel.Document.IsDirty,
+                    Score = tab.ViewModel.Document.Score
+                });
+            }
+
+            _sessionService.Save(snapshots, activeIndex);
+        }
+
+        /// <summary>Recreates tabs from a previously saved session, if one exists and at least one
+        /// entry is still restorable. Returns false (leaving the constructor's initial blank tab
+        /// untouched, for OnFormLoad to fall back to the usual demo score) when there's no session,
+        /// or every entry's file(s) are now missing.</summary>
+        private bool RestoreSession()
+        {
+            var session = _sessionService.Load();
+            if (session.Tabs.Count == 0)
+            {
+                return false;
+            }
+
+            var originalFirstTab = ActiveTab;
+            var restoredTabs = new List<DocumentTab>();
+            foreach (var entry in session.Tabs)
+            {
+                var tab = CreateTab();
+                if (RestoreTab(tab, entry))
+                {
+                    restoredTabs.Add(tab);
+                }
+                else
+                {
+                    DiscardTab(tab);
+                }
+            }
+
+            if (restoredTabs.Count == 0)
+            {
+                return false;
+            }
+
+            DiscardTab(originalFirstTab);
+
+            var activeIndex = Math.Max(0, Math.Min(session.ActiveTabIndex, restoredTabs.Count - 1));
+            var page = FindTabPage(restoredTabs[activeIndex]);
+            if (page != null)
+            {
+                _tabControl.SelectedTab = page;
+                OnActiveTabChanged(this, EventArgs.Empty); // Don't rely solely on SelectedIndexChanged; see CreateTab.
+            }
+
+            return true;
+        }
+
+        private static bool RestoreTab(DocumentTab tab, SessionTabState entry)
+        {
+            try
+            {
+                if (entry.IsDirty && !string.IsNullOrEmpty(entry.AutosavePath) && File.Exists(entry.AutosavePath))
+                {
+                    tab.ViewModel.Document.RestoreFromAutosave(entry.AutosavePath, entry.FilePath);
+                }
+                else if (!string.IsNullOrEmpty(entry.FilePath) && File.Exists(entry.FilePath))
+                {
+                    tab.ViewModel.Document.LoadFromFile(entry.FilePath);
+                }
+                else
+                {
+                    AppLog.Info(
+                        "Session restore: skipping entry with no readable file (FilePath=" +
+                        (entry.FilePath ?? "<none>") + ", AutosavePath=" + (entry.AutosavePath ?? "<none>") + ")");
+                    return false;
+                }
+
+                tab.Glue.ApplyEditResult(new ScoreEditResult { Changed = true, SelectMeasureIndex = 0 });
+                tab.Glue.ResetPlaybackHead();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                AppLog.Exception("Session restore failed for tab (FilePath=" + entry.FilePath + ")", ex);
+                return false;
+            }
         }
 
         /// <summary>Removes a just-created tab whose New/Open/Import/Sample load attempt failed
@@ -457,9 +616,13 @@ namespace JianpuEditor
 
             AppLog.Info("Jianpu Editor started");
 
-            var demoResult = _viewModel.SampleLibrary.LoadDemoScore(_viewModel.Document, _messenger);
-            _glue.ApplyEditResult(demoResult);
-            _glue.ResetPlaybackHead();
+            if (!RestoreSession())
+            {
+                var demoResult = _viewModel.SampleLibrary.LoadDemoScore(_viewModel.Document, _messenger);
+                _glue.ApplyEditResult(demoResult);
+                _glue.ResetPlaybackHead();
+            }
+
             _binder.SyncHeaderFromDocument();
             _binder.SyncFromViewModels();
             _viewModel.SetStatus("Ready - click the title/key/tempo/BPM/composer to edit directly, click a lyric line to edit its text");

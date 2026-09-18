@@ -283,6 +283,30 @@ namespace JianpuEditor.ViewModels
             OnPropertyChanged(nameof(WindowTitle));
         }
 
+        /// <summary>Session restore for a tab that was still dirty when the app last closed: loads
+        /// the autosaved content but keeps <paramref name="originalFilePath"/> (which may itself be
+        /// null, for a document that had never been saved) as <see cref="CurrentFilePath"/> and
+        /// stays dirty -- a later Save writes back to the original location, standard "recovered
+        /// document" editor behavior, unlike <see cref="LoadFromFile"/> which would point
+        /// CurrentFilePath at the autosave copy itself and clear the dirty flag.</summary>
+        public void RestoreFromAutosave(string autosavePath, string originalFilePath)
+        {
+            _score = _fileService.Load(autosavePath);
+            EnsureMeasures();
+            ChordMarkerService.NormalizeScore(_score);
+            CurrentFilePath = originalFilePath;
+            IsDirty = true;
+            _history.Clear();
+            OnPropertyChanged(nameof(Score));
+            OnPropertyChanged(nameof(Title));
+            OnPropertyChanged(nameof(KeySignature));
+            OnPropertyChanged(nameof(Tempo));
+            OnPropertyChanged(nameof(Bpm));
+            OnPropertyChanged(nameof(Composer));
+            OnPropertyChanged(nameof(WindowTitle));
+            _messenger?.Send(new ScoreLoadedMessage(_score, originalFilePath));
+        }
+
         public void LoadFromMidi(JianpuScore score)
         {
             _score = score ?? new JianpuScore();
