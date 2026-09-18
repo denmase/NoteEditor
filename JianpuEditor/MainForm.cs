@@ -1954,33 +1954,26 @@ namespace JianpuEditor
 
         private void ShowAudioEngineDialog()
         {
-            using (var dialog = new AudioEngineDialog(AppTheme.VstMelodyPluginPath, AppTheme.VstChordPluginPath, _midiOutput.EngineName))
+            using (var dialog = new AudioEngineDialog(AppTheme.CustomSoundFontPath, _midiOutput.EngineName))
             {
                 if (dialog.ShowDialog(this) != DialogResult.OK)
                 {
                     return;
                 }
 
-                var selectedMelodyPath = dialog.SelectedMelodyVstPluginPath;
-                var selectedChordPath = dialog.SelectedChordVstPluginPath;
-                if (!string.IsNullOrWhiteSpace(selectedMelodyPath) && !File.Exists(selectedMelodyPath))
+                var selectedSoundFontPath = dialog.SelectedSoundFontPath;
+                if (!string.IsNullOrWhiteSpace(selectedSoundFontPath) && !File.Exists(selectedSoundFontPath))
                 {
-                    MessageBox.Show("VST plugin file not found: " + selectedMelodyPath, "Audio Engine", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show("Instrument file not found: " + selectedSoundFontPath, "Audio Engine", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
 
-                if (!string.IsNullOrWhiteSpace(selectedChordPath) && !File.Exists(selectedChordPath))
-                {
-                    MessageBox.Show("VST plugin file not found: " + selectedChordPath, "Audio Engine", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
-                }
-
-                if (AppTheme.VstMelodyPluginPath == selectedMelodyPath && AppTheme.VstChordPluginPath == selectedChordPath)
+                if (AppTheme.CustomSoundFontPath == selectedSoundFontPath)
                 {
                     return;
                 }
 
-                AppTheme.SetVstPluginPaths(selectedMelodyPath, selectedChordPath);
+                AppTheme.SetCustomSoundFontPath(selectedSoundFontPath);
                 MessageBox.Show(
                     "Audio engine setting saved. Restart Jianpu Editor for this to take effect.",
                     "Audio Engine",
