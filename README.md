@@ -87,7 +87,7 @@ A Jianpu (numbered musical notation) editing tool built on C# WinForms, supporti
   - `Edit → Instruments...` (or the toolbar "Instruments..." button) picks a General MIDI instrument for the melody and for chords independently
   - Applies to both live playback and MIDI export, so the exported file sounds the same as in-app playback; saved with the score (`MelodyInstrument`/`ChordInstrument`, default Acoustic Grand Piano)
 - **VST instrument plugin (optional)**
-  - `Edit → Audio Engine...` can point playback at a VST2 instrument plugin DLL instead of the bundled SoundFont, hosted via BASSVST; both melody and chords are sent to the one loaded plugin
+  - `Edit → Audio Engine...` can point playback at VST2 instrument plugin DLLs instead of the bundled SoundFont, hosted via BASSVST, with independent melody and chord plugins (leave Chords blank to reuse the melody plugin for both) -- most VST2 instruments aren't multi-timbral across MIDI channels the way the bundled SoundFont is, so a single shared plugin can't otherwise give melody and chords distinct sounds
   - This is a machine-local app preference (not saved in the score file, since a plugin path isn't portable between machines) and takes effect after restarting the app
   - VST2 only, not VST3; MIDI export is unaffected (always raw MIDI regardless of playback engine)
   - The toolbar shows an **"Engine: ..."** indicator (next to "Instruments...") naming whichever engine is actually active — click it to open `Edit → Audio Engine...`, which also lists the active engine at the top. If a configured VST plugin fails to load, playback silently falls back to the bundled SoundFont; the indicator and dialog reflect that fallback rather than the (non-functional) configured path

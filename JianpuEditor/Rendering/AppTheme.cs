@@ -51,8 +51,14 @@ namespace JianpuEditor.Rendering
         /// to the Chinese/Western convention (lines below) this renderer defaults to.</summary>
         public static bool UnderlinesAbove { get; private set; }
 
-        /// <summary>Path to a VST2 instrument plugin DLL to use for playback instead of the bundled SoundFont, or empty to use the SoundFont.</summary>
-        public static string VstPluginPath { get; private set; } = string.Empty;
+        /// <summary>Path to a VST2 instrument plugin DLL to use for the melody part instead of the
+        /// bundled SoundFont, or empty to use the SoundFont. Required for VST playback; the chord
+        /// part falls back to this same plugin when <see cref="VstChordPluginPath"/> is empty.</summary>
+        public static string VstMelodyPluginPath { get; private set; } = string.Empty;
+
+        /// <summary>Path to a separate VST2 instrument plugin DLL for the chord part, or empty to
+        /// reuse <see cref="VstMelodyPluginPath"/> for chords too.</summary>
+        public static string VstChordPluginPath { get; private set; } = string.Empty;
 
         public static event Action ThemeChanged;
 
@@ -69,14 +75,18 @@ namespace JianpuEditor.Rendering
                 var settings = JsonConvert.DeserializeObject<ThemeSettings>(json);
                 Current = (settings?.DarkMode ?? false) ? Theme.ManuscriptDark : Theme.ManuscriptLight;
                 FillMeasurePlaceholdersOnAdd = settings?.FillMeasurePlaceholdersOnAdd ?? true;
-                VstPluginPath = settings?.VstPluginPath ?? string.Empty;
+                // VstMelodyPluginPath falls back to the pre-dual-instrument VstPluginPath field so
+                // a setting saved by an older build isn't silently dropped.
+                VstMelodyPluginPath = settings?.VstMelodyPluginPath ?? settings?.VstPluginPath ?? string.Empty;
+                VstChordPluginPath = settings?.VstChordPluginPath ?? string.Empty;
                 UnderlinesAbove = settings?.UnderlinesAbove ?? false;
             }
             catch
             {
                 Current = Theme.ManuscriptLight;
                 FillMeasurePlaceholdersOnAdd = true;
-                VstPluginPath = string.Empty;
+                VstMelodyPluginPath = string.Empty;
+                VstChordPluginPath = string.Empty;
                 UnderlinesAbove = false;
             }
         }
@@ -128,15 +138,17 @@ namespace JianpuEditor.Rendering
             ThemeChanged?.Invoke();
         }
 
-        public static void SetVstPluginPath(string path, bool persist = true)
+        public static void SetVstPluginPaths(string melodyPath, string chordPath, bool persist = true)
         {
-            path = path ?? string.Empty;
-            if (VstPluginPath == path)
+            melodyPath = melodyPath ?? string.Empty;
+            chordPath = chordPath ?? string.Empty;
+            if (VstMelodyPluginPath == melodyPath && VstChordPluginPath == chordPath)
             {
                 return;
             }
 
-            VstPluginPath = path;
+            VstMelodyPluginPath = melodyPath;
+            VstChordPluginPath = chordPath;
             if (persist)
             {
                 Save();
@@ -248,7 +260,8 @@ namespace JianpuEditor.Rendering
                     {
                         DarkMode = Current.IsDark,
                         FillMeasurePlaceholdersOnAdd = FillMeasurePlaceholdersOnAdd,
-                        VstPluginPath = VstPluginPath,
+                        VstMelodyPluginPath = VstMelodyPluginPath,
+                        VstChordPluginPath = VstChordPluginPath,
                         UnderlinesAbove = UnderlinesAbove
                     },
                     Formatting.Indented);
@@ -266,7 +279,13 @@ namespace JianpuEditor.Rendering
 
             public bool FillMeasurePlaceholdersOnAdd { get; set; } = true;
 
+            /// <summary>Legacy field from before melody/chord VST plugins were separate; read as a
+            /// fallback for VstMelodyPluginPath, never written.</summary>
             public string VstPluginPath { get; set; } = string.Empty;
+
+            public string VstMelodyPluginPath { get; set; } = string.Empty;
+
+            public string VstChordPluginPath { get; set; } = string.Empty;
 
             public bool UnderlinesAbove { get; set; }
         }

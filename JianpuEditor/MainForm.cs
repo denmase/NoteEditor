@@ -1954,26 +1954,33 @@ namespace JianpuEditor
 
         private void ShowAudioEngineDialog()
         {
-            using (var dialog = new AudioEngineDialog(AppTheme.VstPluginPath, _midiOutput.EngineName))
+            using (var dialog = new AudioEngineDialog(AppTheme.VstMelodyPluginPath, AppTheme.VstChordPluginPath, _midiOutput.EngineName))
             {
                 if (dialog.ShowDialog(this) != DialogResult.OK)
                 {
                     return;
                 }
 
-                var selectedPath = dialog.SelectedVstPluginPath;
-                if (!string.IsNullOrWhiteSpace(selectedPath) && !File.Exists(selectedPath))
+                var selectedMelodyPath = dialog.SelectedMelodyVstPluginPath;
+                var selectedChordPath = dialog.SelectedChordVstPluginPath;
+                if (!string.IsNullOrWhiteSpace(selectedMelodyPath) && !File.Exists(selectedMelodyPath))
                 {
-                    MessageBox.Show("VST plugin file not found: " + selectedPath, "Audio Engine", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show("VST plugin file not found: " + selectedMelodyPath, "Audio Engine", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
 
-                if (AppTheme.VstPluginPath == selectedPath)
+                if (!string.IsNullOrWhiteSpace(selectedChordPath) && !File.Exists(selectedChordPath))
+                {
+                    MessageBox.Show("VST plugin file not found: " + selectedChordPath, "Audio Engine", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                if (AppTheme.VstMelodyPluginPath == selectedMelodyPath && AppTheme.VstChordPluginPath == selectedChordPath)
                 {
                     return;
                 }
 
-                AppTheme.SetVstPluginPath(selectedPath);
+                AppTheme.SetVstPluginPaths(selectedMelodyPath, selectedChordPath);
                 MessageBox.Show(
                     "Audio engine setting saved. Restart Jianpu Editor for this to take effect.",
                     "Audio Engine",

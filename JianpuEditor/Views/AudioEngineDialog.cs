@@ -7,10 +7,12 @@ namespace JianpuEditor.Views
     {
         private readonly RadioButton _soundFontOption;
         private readonly RadioButton _vstOption;
-        private readonly TextBox _vstPathBox;
-        private readonly Button _browseButton;
+        private readonly TextBox _melodyVstPathBox;
+        private readonly Button _melodyBrowseButton;
+        private readonly TextBox _chordVstPathBox;
+        private readonly Button _chordBrowseButton;
 
-        public AudioEngineDialog(string currentVstPluginPath, string activeEngineName)
+        public AudioEngineDialog(string currentMelodyVstPluginPath, string currentChordVstPluginPath, string activeEngineName)
         {
             Text = "Audio Engine";
             FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -18,9 +20,9 @@ namespace JianpuEditor.Views
             MinimizeBox = false;
             MaximizeBox = false;
             ShowInTaskbar = false;
-            ClientSize = new Size(420, 214);
+            ClientSize = new Size(420, 268);
 
-            var hasVstPath = !string.IsNullOrWhiteSpace(currentVstPluginPath);
+            var hasVstPath = !string.IsNullOrWhiteSpace(currentMelodyVstPluginPath);
 
             var activeLabel = new Label
             {
@@ -40,51 +42,77 @@ namespace JianpuEditor.Views
 
             _vstOption = new RadioButton
             {
-                Text = "VST2 instrument plugin:",
+                Text = "VST2 instrument plugin(s):",
                 Location = new Point(16, 68),
                 AutoSize = true,
                 Checked = hasVstPath
             };
 
-            _vstPathBox = new TextBox
+            var melodyLabel = new Label { Text = "Melody:", Location = new Point(36, 98), AutoSize = true };
+            _melodyVstPathBox = new TextBox
             {
-                Location = new Point(36, 94),
-                Width = 300,
-                Text = currentVstPluginPath ?? string.Empty,
+                Location = new Point(100, 94),
+                Width = 236,
+                Text = currentMelodyVstPluginPath ?? string.Empty,
                 Enabled = hasVstPath
             };
-
-            _browseButton = new Button
+            _melodyBrowseButton = new Button
             {
                 Text = "Browse...",
                 Location = new Point(340, 92),
                 Width = 64,
                 Enabled = hasVstPath
             };
-            _browseButton.Click += OnBrowseClicked;
+            _melodyBrowseButton.Click += (s, e) => BrowseInto(_melodyVstPathBox);
+
+            var chordLabel = new Label { Text = "Chords:", Location = new Point(36, 126), AutoSize = true };
+            _chordVstPathBox = new TextBox
+            {
+                Location = new Point(100, 122),
+                Width = 236,
+                Text = currentChordVstPluginPath ?? string.Empty,
+                Enabled = hasVstPath
+            };
+            _chordBrowseButton = new Button
+            {
+                Text = "Browse...",
+                Location = new Point(340, 120),
+                Width = 64,
+                Enabled = hasVstPath
+            };
+            _chordBrowseButton.Click += (s, e) => BrowseInto(_chordVstPathBox);
 
             _vstOption.CheckedChanged += (s, e) =>
             {
-                _vstPathBox.Enabled = _vstOption.Checked;
-                _browseButton.Enabled = _vstOption.Checked;
+                _melodyVstPathBox.Enabled = _vstOption.Checked;
+                _melodyBrowseButton.Enabled = _vstOption.Checked;
+                _chordVstPathBox.Enabled = _vstOption.Checked;
+                _chordBrowseButton.Enabled = _vstOption.Checked;
             };
 
             var hintLabel = new Label
             {
-                Text = "Hosts a VST2 instrument DLL (not VST3) via BASSVST for both melody and chords.\nTakes effect after restarting Jianpu Editor. If the configured plugin fails to\nload, playback silently falls back to the bundled SoundFont.",
-                Location = new Point(16, 126),
-                Size = new Size(388, 50),
+                Text = "Hosts VST2 instrument DLLs (not VST3) via BASSVST -- one for melody, one for\n" +
+                       "chords. Leave Chords blank to use the melody plugin for both. Takes effect\n" +
+                       "after restarting Jianpu Editor. If a configured plugin fails to load, playback\n" +
+                       "silently falls back to the bundled SoundFont.",
+                Location = new Point(16, 152),
+                Size = new Size(388, 66),
                 ForeColor = Color.DimGray
             };
 
-            var okButton = new Button { Text = "OK", DialogResult = DialogResult.OK, Location = new Point(236, 176), Width = 76 };
-            var cancelButton = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, Location = new Point(320, 176), Width = 76 };
+            var okButton = new Button { Text = "OK", DialogResult = DialogResult.OK, Location = new Point(236, 230), Width = 76 };
+            var cancelButton = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, Location = new Point(320, 230), Width = 76 };
 
             Controls.Add(activeLabel);
             Controls.Add(_soundFontOption);
             Controls.Add(_vstOption);
-            Controls.Add(_vstPathBox);
-            Controls.Add(_browseButton);
+            Controls.Add(melodyLabel);
+            Controls.Add(_melodyVstPathBox);
+            Controls.Add(_melodyBrowseButton);
+            Controls.Add(chordLabel);
+            Controls.Add(_chordVstPathBox);
+            Controls.Add(_chordBrowseButton);
             Controls.Add(hintLabel);
             Controls.Add(okButton);
             Controls.Add(cancelButton);
@@ -93,12 +121,19 @@ namespace JianpuEditor.Views
         }
 
         /// <summary>Empty string means "use the bundled SoundFont".</summary>
-        public string SelectedVstPluginPath
+        public string SelectedMelodyVstPluginPath
         {
-            get { return _vstOption.Checked ? (_vstPathBox.Text ?? string.Empty).Trim() : string.Empty; }
+            get { return _vstOption.Checked ? (_melodyVstPathBox.Text ?? string.Empty).Trim() : string.Empty; }
         }
 
-        private void OnBrowseClicked(object sender, System.EventArgs e)
+        /// <summary>Empty string means "reuse the melody plugin for chords too" (or "use the
+        /// bundled SoundFont", if <see cref="SelectedMelodyVstPluginPath"/> is also empty).</summary>
+        public string SelectedChordVstPluginPath
+        {
+            get { return _vstOption.Checked ? (_chordVstPathBox.Text ?? string.Empty).Trim() : string.Empty; }
+        }
+
+        private void BrowseInto(TextBox targetBox)
         {
             using (var dialog = new OpenFileDialog
             {
@@ -108,7 +143,7 @@ namespace JianpuEditor.Views
             {
                 if (dialog.ShowDialog(this) == DialogResult.OK)
                 {
-                    _vstPathBox.Text = dialog.FileName;
+                    targetBox.Text = dialog.FileName;
                 }
             }
         }
