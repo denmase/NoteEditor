@@ -65,16 +65,16 @@ namespace JianpuEditor
 
         private static IMidiOutput CreateMidiOutput()
         {
-            var vstPluginPath = AppTheme.VstPluginPath;
-            if (!string.IsNullOrWhiteSpace(vstPluginPath))
+            var melodyVstPluginPath = AppTheme.VstMelodyPluginPath;
+            if (!string.IsNullOrWhiteSpace(melodyVstPluginPath))
             {
                 try
                 {
-                    return new BassVstSynthesizer(vstPluginPath);
+                    return new BassVstSynthesizer(melodyVstPluginPath, AppTheme.VstChordPluginPath);
                 }
                 catch (Exception ex)
                 {
-                    AppLog.Exception("Failed to initialize BASSVST plugin '" + vstPluginPath + "', falling back to bundled SoundFont", ex);
+                    AppLog.Exception("Failed to initialize BASSVST plugin(s) (melody='" + melodyVstPluginPath + "', chords='" + AppTheme.VstChordPluginPath + "'), falling back to bundled SoundFont", ex);
                 }
             }
 

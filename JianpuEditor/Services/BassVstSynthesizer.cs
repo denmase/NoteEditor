@@ -8,9 +8,14 @@ using ManagedBass.Vst;
 namespace JianpuEditor.Services
 {
     /// <summary>
-    /// Hosts a VST2 instrument plugin (via BASSVST) as the playback engine, as an alternative to
-    /// the bundled SoundFont. Both the melody and chord parts are sent to this one plugin instance
-    /// on separate MIDI channels (0 and 1), the same way BassMidiSynthesizer uses one SoundFont for both.
+    /// Hosts one or two VST2 instrument plugins (via BASSVST) as the playback engine, as an
+    /// alternative to the bundled SoundFont. Most VST2 instruments present a single sound
+    /// regardless of MIDI channel (unlike a GM SoundFont, which is multi-timbral across channels),
+    /// so genuinely independent melody/chord instruments need two separately loaded plugin
+    /// instances -- one per part, routed by <see cref="ScoreMidiSchedule.MelodyChannel"/> /
+    /// <see cref="ScoreMidiSchedule.ChordChannel"/>. When only a melody plugin is configured (or
+    /// the chord plugin path is the same file), both parts share that one loaded instance instead,
+    /// matching the single-plugin behavior this class originally had.
     /// </summary>
     internal sealed class BassVstSynthesizer : IMidiOutput
     {
@@ -18,16 +23,26 @@ namespace JianpuEditor.Services
         private const int SampleRate = 44100;
         private const int MidiChannelCount = 16;
 
-        private readonly int _vstHandle;
+        private readonly int _melodyHandle;
+        private readonly int _chordHandle;
+        private readonly bool _sharedHandle;
         private bool _disposed;
 
         public string EngineName { get; }
 
-        public BassVstSynthesizer(string vstPluginPath)
+        public BassVstSynthesizer(string melodyPluginPath, string chordPluginPath)
         {
-            if (string.IsNullOrWhiteSpace(vstPluginPath) || !File.Exists(vstPluginPath))
+            if (string.IsNullOrWhiteSpace(melodyPluginPath) || !File.Exists(melodyPluginPath))
             {
-                throw new FileNotFoundException("VST plugin file not found.", vstPluginPath);
+                throw new FileNotFoundException("VST plugin file not found.", melodyPluginPath);
+            }
+
+            _sharedHandle = string.IsNullOrWhiteSpace(chordPluginPath)
+                || string.Equals(Path.GetFullPath(chordPluginPath), Path.GetFullPath(melodyPluginPath), StringComparison.OrdinalIgnoreCase);
+
+            if (!_sharedHandle && !File.Exists(chordPluginPath))
+            {
+                throw new FileNotFoundException("VST plugin file not found.", chordPluginPath);
             }
 
             if (!Bass.Init())
@@ -35,42 +50,67 @@ namespace JianpuEditor.Services
                 throw new InvalidOperationException("Failed to initialize BASS audio output. Error: " + Bass.LastError);
             }
 
-            _vstHandle = BassVst.ChannelCreate(SampleRate, OutputChannels, vstPluginPath, BassFlags.Default);
-            if (_vstHandle == 0)
+            _melodyHandle = LoadPlugin(melodyPluginPath);
+            _chordHandle = _sharedHandle ? _melodyHandle : LoadPlugin(chordPluginPath);
+
+            EngineName = _sharedHandle
+                ? "VST2: " + Path.GetFileName(melodyPluginPath)
+                : "VST2: " + Path.GetFileName(melodyPluginPath) + " / " + Path.GetFileName(chordPluginPath);
+            AppLog.Info("BassVstSynthesizer initialized: melody=" + melodyPluginPath + ", chords=" + (_sharedHandle ? "(same)" : chordPluginPath));
+        }
+
+        private static int LoadPlugin(string pluginPath)
+        {
+            var handle = BassVst.ChannelCreate(SampleRate, OutputChannels, pluginPath, BassFlags.Default);
+            if (handle == 0)
             {
+                var error = Bass.LastError;
                 Bass.Free();
-                throw new InvalidOperationException("Failed to load VST plugin: " + vstPluginPath + ". Error: " + Bass.LastError);
+                throw new InvalidOperationException("Failed to load VST plugin: " + pluginPath + ". Error: " + error);
             }
 
-            if (!Bass.ChannelPlay(_vstHandle))
+            if (!Bass.ChannelPlay(handle))
             {
-                AppLog.Error("Failed to start BASSVST channel playback. Error: " + Bass.LastError);
+                AppLog.Error("Failed to start BASSVST channel playback for '" + pluginPath + "'. Error: " + Bass.LastError);
             }
 
-            EngineName = "VST2: " + Path.GetFileName(vstPluginPath);
-            AppLog.Info("BassVstSynthesizer initialized: " + vstPluginPath);
+            return handle;
+        }
+
+        private int HandleFor(int channel)
+        {
+            return channel == ScoreMidiSchedule.ChordChannel ? _chordHandle : _melodyHandle;
         }
 
         public void NoteOn(int channel, int note, int velocity)
         {
-            BassVst.ProcessEvent(_vstHandle, channel, (int)MidiEventType.Note, note | (velocity << 8));
+            BassVst.ProcessEvent(HandleFor(channel), channel, (int)MidiEventType.Note, note | (velocity << 8));
         }
 
         public void NoteOff(int channel, int note)
         {
-            BassVst.ProcessEvent(_vstHandle, channel, (int)MidiEventType.Note, note);
+            BassVst.ProcessEvent(HandleFor(channel), channel, (int)MidiEventType.Note, note);
         }
 
         public void ProgramChange(int channel, int program)
         {
-            BassVst.ProcessEvent(_vstHandle, channel, (int)MidiEventType.Program, program);
+            BassVst.ProcessEvent(HandleFor(channel), channel, (int)MidiEventType.Program, program);
         }
 
         public void AllNotesOff()
         {
+            AllNotesOff(_melodyHandle);
+            if (!_sharedHandle)
+            {
+                AllNotesOff(_chordHandle);
+            }
+        }
+
+        private static void AllNotesOff(int handle)
+        {
             for (var channel = 0; channel < MidiChannelCount; channel++)
             {
-                BassVst.ProcessEvent(_vstHandle, channel, (int)MidiEventType.NotesOff, 0);
+                BassVst.ProcessEvent(handle, channel, (int)MidiEventType.NotesOff, 0);
             }
         }
 
@@ -91,9 +131,14 @@ namespace JianpuEditor.Services
                 AppLog.Exception("Failed to send AllNotesOff before closing BASSVST", ex);
             }
 
-            if (_vstHandle != 0)
+            if (_melodyHandle != 0)
             {
-                BassVst.ChannelFree(_vstHandle);
+                BassVst.ChannelFree(_melodyHandle);
+            }
+
+            if (!_sharedHandle && _chordHandle != 0)
+            {
+                BassVst.ChannelFree(_chordHandle);
             }
 
             Bass.Free();
