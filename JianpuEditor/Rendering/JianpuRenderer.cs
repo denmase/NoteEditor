@@ -1363,7 +1363,12 @@ namespace JianpuEditor.Rendering
 
         private static bool UsesLatinOrnamentFont(OrnamentType type)
         {
-            return type == OrnamentType.Trill || type == OrnamentType.Mordent || type == OrnamentType.BreathMark;
+            return type == OrnamentType.Trill
+                || type == OrnamentType.Mordent
+                || type == OrnamentType.BreathMark
+                || type == OrnamentType.Staccato
+                || type == OrnamentType.Accent
+                || type == OrnamentType.Tenuto;
         }
 
         private static float GetOrnamentAnchorX(OrnamentType type, int noteX, int noteWidth)

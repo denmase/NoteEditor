@@ -11,6 +11,9 @@ namespace JianpuEditor.Services
         public const double TrillSegmentQuarter = 0.125;
         public const double FermataDurationMultiplier = 1.5;
         public const double MinNoteDurationQuarter = 0.0625;
+        public const double StaccatoDurationMultiplier = 0.5;
+        public const int AccentVelocityBoost = 24;
+        public const int TenutoVelocityBoost = 8;
 
         public static List<ScheduledMidiNote> ScheduleMelodyNote(
             JianpuMeasure measure,
@@ -77,6 +80,46 @@ namespace JianpuEditor.Services
             else
             {
                 events.Add(MakeEvent(cursor, duration, note, tonicMidi, channel, velocity));
+            }
+
+            return ApplyArticulation(events, ornaments);
+        }
+
+        /// <summary>Staccato/Accent/Tenuto are expressive modifiers on however many events the note
+        /// already expanded into above (a plain note, or every segment of a trill/turn/mordent/
+        /// grace note) rather than pitch-decorating ornaments of their own, so they're applied as a
+        /// uniform post-process over the whole event group instead of their own branch in the
+        /// if/else-if chain above.</summary>
+        private static List<ScheduledMidiNote> ApplyArticulation(
+            List<ScheduledMidiNote> events,
+            IReadOnlyList<JianpuOrnament> ornaments)
+        {
+            var hasStaccato = ornaments.Any(item => item.Type == OrnamentType.Staccato);
+            var hasAccent = ornaments.Any(item => item.Type == OrnamentType.Accent);
+            var hasTenuto = ornaments.Any(item => item.Type == OrnamentType.Tenuto);
+            if (!hasStaccato && !hasAccent && !hasTenuto)
+            {
+                return events;
+            }
+
+            foreach (var scheduledEvent in events)
+            {
+                if (hasStaccato)
+                {
+                    scheduledEvent.DurationQuarter = Math.Max(
+                        MinNoteDurationQuarter,
+                        scheduledEvent.DurationQuarter * StaccatoDurationMultiplier);
+                }
+
+                if (hasAccent)
+                {
+                    scheduledEvent.Velocity = Math.Min(127, scheduledEvent.Velocity + AccentVelocityBoost);
+                }
+
+                if (hasTenuto)
+                {
+                    scheduledEvent.Velocity = Math.Min(127, scheduledEvent.Velocity + TenutoVelocityBoost);
+                }
             }
 
             return events;

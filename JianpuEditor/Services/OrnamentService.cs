@@ -227,6 +227,12 @@ namespace JianpuEditor.Services
                     return "mor";
                 case OrnamentType.BreathMark:
                     return "br";
+                case OrnamentType.Staccato:
+                    return "stac";
+                case OrnamentType.Accent:
+                    return "acc";
+                case OrnamentType.Tenuto:
+                    return "ten";
                 default:
                     return type.ToString();
             }

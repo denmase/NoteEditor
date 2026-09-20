@@ -151,6 +151,20 @@ namespace JianpuEditor.Controls
                     }
 
                     return;
+                case RibbonIcon.Staccato:
+                    g.FillEllipse(brush, 8f, 8f, 4f, 4f);
+                    return;
+                case RibbonIcon.Accent:
+                    g.DrawLine(pen, 4f, 5f, 14f, 10f);
+                    g.DrawLine(pen, 14f, 10f, 4f, 15f);
+                    return;
+                case RibbonIcon.Tenuto:
+                    using (var tenutoPen = new Pen(pen.Color, pen.Width * 1.6f))
+                    {
+                        g.DrawLine(tenutoPen, 4f, 10f, 16f, 10f);
+                    }
+
+                    return;
                 case RibbonIcon.Duplicate:
                     g.DrawRectangle(pen, 3f, 6f, 10f, 10f);
                     g.DrawLine(pen, 7f, 6f, 7f, 4f);

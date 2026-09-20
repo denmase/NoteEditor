@@ -98,6 +98,9 @@ namespace JianpuEditor.Tests.Services
             Assert.Equal("trn", OrnamentService.GetPlaceholderGlyph(OrnamentType.Turn));
             Assert.Equal("ferm", OrnamentService.GetPlaceholderGlyph(OrnamentType.Fermata));
             Assert.Equal("br", OrnamentService.GetPlaceholderGlyph(OrnamentType.BreathMark));
+            Assert.Equal("stac", OrnamentService.GetPlaceholderGlyph(OrnamentType.Staccato));
+            Assert.Equal("acc", OrnamentService.GetPlaceholderGlyph(OrnamentType.Accent));
+            Assert.Equal("ten", OrnamentService.GetPlaceholderGlyph(OrnamentType.Tenuto));
         }
 
         [Fact]
