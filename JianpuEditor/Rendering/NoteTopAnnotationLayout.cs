@@ -26,12 +26,14 @@ namespace JianpuEditor.Rendering
         /// between the two layers' anchor Y values, not their actual rendered glyph heights, and
         /// 6px is well under the ornament font's real line height) -- confirmed by rendering real
         /// output via Mono+libgdiplus and visually inspecting it, something not previously possible
-        /// in this sandbox. Set to the taller of the two stacked ornament fonts' own
-        /// <see cref="System.Drawing.Font.Height"/> (Microsoft YaHei / Arial Italic, both 11pt) so
-        /// the gap is a real font metric rather than a hand-tuned guess -- see
+        /// in this sandbox. Meant to cover the taller of the two stacked ornament fonts' own
+        /// <see cref="System.Drawing.Font.Height"/> (Microsoft YaHei / Arial Italic, both 11pt) --
+        /// libgdiplus reports 18 for these (no Microsoft YaHei on Linux, so it substitutes a
+        /// fallback font), but real Windows GDI+ CI reported 20, so this carries a couple of
+        /// pixels of headroom above that measured value rather than sitting exactly on it. See
         /// <c>NoteTopAnnotationPlannerTests.AnnotationLayerClearance_CoversTheTallestStackedOrnamentFont</c>.
         /// </summary>
-        public const float AnnotationLayerClearance = 18f;
+        public const float AnnotationLayerClearance = 22f;
 
         public const float OctaveDotDiameter = 6f;
 
