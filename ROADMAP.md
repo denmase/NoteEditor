@@ -29,10 +29,12 @@ Until now, playback always used whatever General MIDI patch 0 (Acoustic Grand Pi
 
 ## Indonesian notasi angka completeness (gap analysis + plan)
 
-**Status: phase 3's bug-fix half, the Mordent half of phase 4, and phase 6 (breath marks) are
-done. Everything else below is still not started**, including phases 1-2 (`NotationStyle` + the
-accidental slash convention) -- see the note under phase 2 for why that one turned out to be more
-involved than it looked, and the new note there about the natural sign specifically.
+**Status: phase 3's bug-fix half, the Mordent half of phase 4, phase 6 (breath marks), and phase
+10 (pickup measure verification) are done. Everything else below is still not started**, including
+phases 1-2 (`NotationStyle` + the accidental slash convention) -- see the note under phase 2 for
+why that one turned out to be more involved than it looked, and the new note there about the
+natural sign specifically. Phase 10 also surfaced a separate, real gap in MIDI import (pickup
+measures aren't preserved) -- see the note under phase 10.
 
 Researched Indonesian *notasi angka* (Indonesian numbered/jianpu notation — rules, symbols,
 conventions) against what `JianpuEditor` actually implements. Full gap list and phased plan below.
@@ -165,9 +167,27 @@ here and intentionally excluded.*
    wave as items 1-8, and prototype with 2 voices before committing to 4 (SATB) — 2 voices proves
    out the whole architecture (each voice's own note list, ties, and undo integration, all
    sharing one chord-marker row/lyric block/measure grid) at half the risk.
-10. **Pickup measure.** Verify first whether a short first measure already plays/exports/renders
-    correctly (it may — nothing found in `ScoreMidiSchedule` enforcing an exact per-measure beat
-    count). If it does, this is a documentation note, not code. If not, scope it then.
+10. **Pickup measure — verified, documentation only, done.** Traced every path a manually-entered
+    short first measure touches: editing (`MeasureNavigationViewModel.ApplyAddMeasure` appends a
+    new measure unconditionally, no check that the previous one is "full"), rendering/beam
+    grouping and `ScoreMidiSchedule`/`MidiExportService` (`GetMeasureDurationUnits` sums the
+    measure's own notes, with no fixed-beat-count assumption anywhere in either file). All of it
+    derives a measure's length purely from its actual note content, so a deliberately short first
+    measure already plays, exports, and renders correctly today — confirmed with a new regression
+    test (`ScoreMidiScheduleTests.Build_PickupMeasure_SecondMeasureStartsRightAfterShortFirstMeasure`)
+    proving the second measure starts right after the short one instead of being padded out.
+    No code change needed for the editor itself.
+
+    **Found a real, separate gap while verifying this: MIDI import does not preserve a pickup
+    measure.** `MidiImportService` feeds its raw note stream through
+    `MeasureNormalizationService.NormalizeMeasures`, which flattens every note across the *entire*
+    imported file into one continuous stream and rechunks it into fixed `DefaultMeasureBeats`-size
+    measures from scratch — so a real anacrusis in the source MIDI file gets silently absorbed
+    into the reflow instead of preserved as a short first measure. Fixing this needs a way to
+    detect an intended pickup from the MIDI file itself (e.g. a shorter first bar implied by the
+    time-signature meta-event's position, which isn't reliably distinguishable from "the recording
+    just started off-beat") — real design work, scoped separately rather than folded into this
+    already-done verification.
 
 ## CLAP support (spike plan only, not started)
 
