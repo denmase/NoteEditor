@@ -23,6 +23,7 @@ namespace JianpuEditor.Controls
         Turn,
         Mordent,
         Fermata,
+        BreathMark,
         Duplicate,
         Delete,
         Library,

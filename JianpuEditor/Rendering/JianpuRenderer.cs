@@ -1363,7 +1363,7 @@ namespace JianpuEditor.Rendering
 
         private static bool UsesLatinOrnamentFont(OrnamentType type)
         {
-            return type == OrnamentType.Trill || type == OrnamentType.Mordent;
+            return type == OrnamentType.Trill || type == OrnamentType.Mordent || type == OrnamentType.BreathMark;
         }
 
         private static float GetOrnamentAnchorX(OrnamentType type, int noteX, int noteWidth)
@@ -1372,6 +1372,11 @@ namespace JianpuEditor.Rendering
             if (type == OrnamentType.GraceNote)
             {
                 return noteX + Math.Min(14f, headWidth * 0.25f);
+            }
+
+            if (type == OrnamentType.BreathMark)
+            {
+                return noteX + headWidth + BreathMarkGap;
             }
 
             return GetNoteHeadCenterX(noteX, noteWidth);
@@ -1939,6 +1944,11 @@ namespace JianpuEditor.Rendering
         }
 
         private const float CompactAccidentalFontSize = 10f;
+
+        /// <summary>Gap between a note's right edge and a breath mark anchored just after it --
+        /// breath marks sit in the space between notes, unlike every other ornament here, which is
+        /// centered above the note itself.</summary>
+        private const float BreathMarkGap = 3f;
 
         private void DrawSimultaneousNotes(
             Graphics g,

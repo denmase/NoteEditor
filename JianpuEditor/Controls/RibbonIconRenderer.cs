@@ -144,6 +144,13 @@ namespace JianpuEditor.Controls
                     g.DrawArc(pen, 3f, 6f, 14f, 12f, 180f, 180f);
                     g.FillEllipse(brush, 8.8f, 9.4f, 2.4f, 2.4f);
                     return;
+                case RibbonIcon.BreathMark:
+                    using (var breathPen = new Pen(pen.Color, pen.Width * 1.4f))
+                    {
+                        g.DrawLine(breathPen, 6f, 4f, 13f, 15f);
+                    }
+
+                    return;
                 case RibbonIcon.Duplicate:
                     g.DrawRectangle(pen, 3f, 6f, 10f, 10f);
                     g.DrawLine(pen, 7f, 6f, 7f, 4f);

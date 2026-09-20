@@ -713,6 +713,10 @@ namespace JianpuEditor
                 "Fermata",
                 Keys.None,
                 (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Fermata))));
+            ornamentMenu.DropDownItems.Add(CreateMenuItem(
+                "Breath Mark",
+                Keys.None,
+                (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.BreathMark))));
             editMenu.DropDownItems.Add(ornamentMenu);
             editMenu.DropDownItems.Add(CreateMenuItem("Clear Score", Keys.None, OnClearScore));
 
@@ -801,7 +805,8 @@ namespace JianpuEditor
                 CreateRibbonButton(RibbonIcon.Trill, "Trill", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Trill)), compact: true),
                 CreateRibbonButton(RibbonIcon.Turn, "Turn", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Turn)), compact: true),
                 CreateRibbonButton(RibbonIcon.Mordent, "Mordent", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Mordent)), compact: true),
-                CreateRibbonButton(RibbonIcon.Fermata, "Fermata", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Fermata)), compact: true));
+                CreateRibbonButton(RibbonIcon.Fermata, "Fermata", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Fermata)), compact: true),
+                CreateRibbonButton(RibbonIcon.BreathMark, "Breath mark", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.BreathMark)), compact: true));
             panel.Controls.Add(ornaments);
 
             var measures = new RibbonGroup("Measures");
@@ -1151,6 +1156,7 @@ namespace JianpuEditor
             ornamentsMenu.DropDownItems.Add("Turn", null, (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Turn)));
             ornamentsMenu.DropDownItems.Add("Mordent", null, (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Mordent)));
             ornamentsMenu.DropDownItems.Add("Fermata", null, (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Fermata)));
+            ornamentsMenu.DropDownItems.Add("Breath Mark", null, (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.BreathMark)));
             menu.Items.Add(ornamentsMenu);
 
             AddPasteItemIfAvailable(menu);
