@@ -96,6 +96,30 @@ namespace JianpuEditor.Tests.Rendering
         }
 
         [Fact]
+        public void RenderToBitmap_BarLineTypesAndRepeatStart_DoesNotThrow()
+        {
+            var repeatStartMeasure = ScoreTestHelper.Measure(ScoreTestHelper.Note(1), ScoreTestHelper.Note(2));
+            repeatStartMeasure.IsRepeatStart = true;
+            var doubleMeasure = ScoreTestHelper.Measure(ScoreTestHelper.Note(3), ScoreTestHelper.Note(4));
+            doubleMeasure.BarLineType = BarLineType.Double;
+            var repeatEndMeasure = ScoreTestHelper.Measure(ScoreTestHelper.Note(5), ScoreTestHelper.Note(6));
+            repeatEndMeasure.BarLineType = BarLineType.RepeatEnd;
+            var finalMeasure = ScoreTestHelper.Measure(ScoreTestHelper.Note(7), ScoreTestHelper.Note(1));
+            finalMeasure.BarLineType = BarLineType.Final;
+
+            var score = ScoreTestHelper.CreateScore(
+                repeatStartMeasure,
+                doubleMeasure,
+                repeatEndMeasure,
+                finalMeasure);
+            using (var renderer = new JianpuRenderer())
+            {
+                Assert.NotNull(renderer.RenderToBitmap(score, 1280, ScoreLayoutOptions.Editor));
+                Assert.NotNull(renderer.RenderToBitmap(score, 1280, ScoreLayoutOptions.Default));
+            }
+        }
+
+        [Fact]
         public void GetAccidentalMark_ReturnsSharpOrFlat()
         {
             var sharp = new JianpuNote { Type = NoteType.Note, Pitch = 1.5, Accidental = AccidentalKind.Sharp };
