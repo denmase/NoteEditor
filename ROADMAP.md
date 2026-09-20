@@ -27,6 +27,101 @@ Until now, playback always used whatever General MIDI patch 0 (Acoustic Grand Pi
   - Bundles one more native library, `bass_vst.dll` (x86 + x64), same as `bass.dll`/`bassmidi.dll` — see `JianpuEditor/Native/NOTICE.md`.
   - **Not covered:** VST *effect* plugins (reverb, EQ, etc.) — BASSVST handles those completely differently (`ChannelSetDSP`, attached to an already-existing audio stream) from instrument plugins (`ChannelCreate`, generates audio from nothing). Effects would be a separate feature using that other API.
 
+## Indonesian notasi angka completeness (gap analysis + plan, not started)
+
+Researched Indonesian *notasi angka* (Indonesian numbered/jianpu notation — rules, symbols,
+conventions) against what `JianpuEditor` actually implements. Full gap list and phased plan below.
+
+### Hard constraint: never change Chinese/Western jianpu by default
+
+Almost none of the gaps below are actually "Indonesian vs Chinese" style differences — they're
+just plain missing notation elements (dynamics, breath marks, repeat/coda navigation, multi-verse
+lyrics, natural signs, SATB) that both traditions use identically. Adding them as new, empty-by-
+default model fields cannot change how an existing score renders, because a score that never sets
+them has nothing to render — this is the same reasoning that already makes `Ornaments`, `Ties`,
+and `ChordMarkers` safe additions today.
+
+**Exactly one item is a genuine regional style difference: the accidental symbol.** Indonesian
+notasi angka suffixes a slash (`1/` = sharp, `7\` = flat); this renderer currently prefixes `#`/`b`
+(Western/Chinese staff-notation style) via `JianpuPitchCodec.GetAccidentalMark`. Switching the
+default would visibly change every existing Chinese/Western-style score's accidentals. This one
+gets gated behind a persisted `AppTheme` setting, the same pattern `UnderlinesAbove` already uses
+for the underline-position difference (Indonesian: above the melody row; Chinese/Western: below,
+the existing default). Recommendation: generalize both into one `AppTheme.NotationStyle` enum
+(`Chinese` default, `Indonesian`) rather than accumulating independent booleans, migrating the
+existing `UnderlinesAbove` setting into it on load (old `true` → `Indonesian`) so nobody's saved
+preference is silently reset.
+
+Every phase below must include, as an acceptance check: an existing score with none of the new
+fields set, and `NotationStyle = Chinese` (the default), renders pixel-identical to today.
+
+### Gaps identified
+
+| Gap | Current behavior | Indonesian convention | Gated by NotationStyle? |
+|---|---|---|---|
+| Accidental symbol | `#`/`b` prefix (`JianpuPitchCodec.GetAccidentalMark`) | `/` (kres) and `\` (mol) suffix | **Yes — the only style-gated item** |
+| Natural/pugar sign | `AccidentalKind` has only `None`/`Sharp`/`Flat` | Explicit natural sign cancelling a prior accidental | No (additive) |
+| Staccato / Accent / Tenuto / Glissando | `OrnamentType` declares these four values; zero code references them anywhere (checked rendering, editing, playback) | Standard articulation marks, same in both traditions | No (additive) |
+| Repeat bar lines, double/final bar lines | No bar-line-type concept exists on `JianpuMeasure` at all | Single/double/final/repeat bar lines | No (additive) |
+| D.C. / D.S. / Coda / Segno navigation | `OrnamentType.RepeatStart/RepeatEnd/Segno/Coda` declared, zero implementation | Standard navigation marks | No (additive) |
+| Dynamics (p, f, mf, cresc., dim.) | No model field anywhere | Standard dynamics, placed below the melody row | No (additive) |
+| Breath marks | Not modeled | Apostrophe-like mark after a note, common in choir/hymn notasi angka | No (additive) |
+| Multi-verse lyrics | `JianpuMeasure.LyricText` is a single string | Songbooks stack 2-4 numbered verses under one melody | No (additive) |
+| SATB / multi-voice | One `MelodyNotes` list per measure, period | Hymnals (*Kidung Jemaat* etc.) print 4 independent voices sharing one lyric/measure grid | No (additive, but the biggest structural change by far) |
+| Pickup measure (birama gantung) | No explicit flag; unverified whether a short first measure "just works" | A deliberately partial first measure | No (additive, needs verification not new modeling) |
+
+### Phased plan
+
+1. **`NotationStyle` setting** (foundation for everything gated). Add the enum to `AppTheme`,
+   migrate `UnderlinesAbove`, re-point the existing underline-position branch at it. No visible
+   change for anyone currently on the default.
+2. **Accidental slash convention.** Branch `JianpuPitchCodec.GetAccidentalMark`/
+   `GetPitchDisplayText` on `NotationStyle`: Indonesian returns a suffix mark (`/` or `\`) instead
+   of a prefix; Chinese/Western path is byte-for-byte what exists today. Update whichever
+   renderer code lays out glyph width around the accidental mark (it currently assumes a prefix)
+   to also handle a suffix. Add `AccidentalKind.Natural` alongside this — turns out simpler than
+   it looks, since the renderer doesn't currently carry accidentals through a measure at all
+   (each note's `Accidental` is independent), so Natural is just a third glyph state, no new
+   measure-scoped tracking needed.
+3. **Wire up the four dead `OrnamentType` articulation values** (Staccato, Accent, Tenuto,
+   Glissando): ribbon button + Edit-menu item + context-menu item each, matching the existing
+   Grace/Trill/Turn/Fermata pattern exactly, plus a glyph and a playback effect (staccato =
+   shorten sounding duration; accent = velocity boost; tenuto = slight duration/emphasis;
+   glissando = pitch-bend between notes, the one genuinely harder one — may want to split it into
+   its own step). While here, also add the missing Mordent button flagged in the last audit —
+   same gap, same fix.
+4. **Dynamics markings.** New model (a marking anchored to a beat, e.g. `mf`/`cresc.`/`dim.`,
+   plus optionally a hairpin start/end pair), a small "add dynamic here" UI mirroring how chord
+   markers already attach to a beat, rendering below the melody row, and a playback/MIDI-export
+   velocity-scaling pass applied to notes until the next marking.
+5. **Breath marks.** Simplest of the remaining additive items — fold into the existing
+   `Ornaments` per-note-index list (`OrnamentType.BreathMark`, new value), visual-only glyph, no
+   playback effect in v1 (a version that inserts a micro-rest is a possible follow-up, not v1).
+6. **Repeat bar lines + D.C./D.S./Coda/Segno navigation.** Two sub-parts with very different
+   risk:
+   - **Visual-only** (lower risk): a `BarLineType` field per measure boundary (single/double/
+     final/repeat-start/repeat-end), and `Segno`/`Coda` as measure-anchored markers using the
+     `OrnamentType` values that already exist. Playback/MIDI export keep playing straight through
+     once, same as today, with a status message noting repeat structure isn't performed.
+   - **Actually performing the repeat/jump during playback and MIDI export** (higher risk): needs
+     real changes to `ScoreMidiSchedule`/`ScorePlaybackService`/`MidiExportService`'s scheduling,
+     which today assumes one linear pass through the measures. Worth scoping and building
+     separately once the visual half has landed and been used for a while.
+7. **Multi-verse lyrics.** Change `LyricText` to a verse list (verse 1 keeps today's exact
+   field/behavior for backward compatibility; additional verses are new, optional). Inline lyric
+   editor gains a verse stepper; renderer stacks N lyric rows instead of a fixed one — a real but
+   contained rendering change, inert for every existing single-verse score.
+8. **SATB / multi-voice support.** By far the largest item — this is a core data-model change
+   (today's single `MelodyNotes` per measure would need to become one of N independent voices,
+   rippling through rendering, playback scheduling, MIDI import/export, undo/redo commands, and
+   the selection model). Treat this as its own separately-scoped project, not part of the same
+   wave as items 1-7, and prototype with 2 voices before committing to 4 (SATB) — 2 voices proves
+   out the whole architecture (each voice's own note list, ties, and undo integration, all
+   sharing one chord-marker row/lyric block/measure grid) at half the risk.
+9. **Pickup measure.** Verify first whether a short first measure already plays/exports/renders
+   correctly (it may — nothing found in `ScoreMidiSchedule` enforcing an exact per-measure beat
+   count). If it does, this is a documentation note, not code. If not, scope it then.
+
 ## CLAP support (spike plan only, not started)
 
 Unlike VST2/BASSVST, there's no existing library to build on here — no NuGet package, no .NET binding anywhere, and BASS itself has no CLAP support (CLAP is a separate standard from a different origin, u-he/Bitwig rather than Steinberg/un4seen, released well after BASS). The [CLAP SDK](https://github.com/free-audio/clap) is MIT-licensed but is just a C header — hosting a CLAP plugin means writing the host implementation from scratch.
