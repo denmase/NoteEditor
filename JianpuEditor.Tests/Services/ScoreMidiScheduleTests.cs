@@ -48,6 +48,33 @@ namespace JianpuEditor.Tests.Services
         }
 
         [Fact]
+        public void Build_PickupMeasure_SecondMeasureStartsRightAfterShortFirstMeasure()
+        {
+            // A pickup/anacrusis measure (fewer beats than the nominal time signature) isn't
+            // padded or reflowed to a fixed beat count anywhere in the schedule-building path --
+            // each measure's contribution to quarterTime comes purely from its own notes' actual
+            // durations, so a short first measure just makes the next one start earlier.
+            var score = ScoreTestHelper.CreateScore(
+                ScoreTestHelper.Measure(ScoreTestHelper.Note(1, dashes: 1)),
+                ScoreTestHelper.Measure(
+                    ScoreTestHelper.Note(2),
+                    ScoreTestHelper.Note(3),
+                    ScoreTestHelper.Note(4),
+                    ScoreTestHelper.Note(5)));
+
+            var schedule = ScoreMidiSchedule.Build(score);
+            var melodyNotes = schedule.Notes
+                .Where(note => note.Channel == ScoreMidiSchedule.MelodyChannel)
+                .OrderBy(note => note.StartQuarter)
+                .ToList();
+
+            Assert.Equal(0, melodyNotes[0].StartQuarter, 3);
+            Assert.Equal(2, melodyNotes[0].DurationQuarter, 3);
+            Assert.Equal(2, melodyNotes[1].StartQuarter, 3);
+            Assert.Equal(6, schedule.TotalQuarterLength, 3);
+        }
+
+        [Fact]
         public void Build_SuppressesTieEndNotes()
         {
             var score = ScoreTestHelper.CreateScore(ScoreTestHelper.Measure(
