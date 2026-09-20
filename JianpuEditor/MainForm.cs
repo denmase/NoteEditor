@@ -706,6 +706,10 @@ namespace JianpuEditor
                 Keys.None,
                 (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Turn))));
             ornamentMenu.DropDownItems.Add(CreateMenuItem(
+                "Mordent",
+                Keys.None,
+                (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Mordent))));
+            ornamentMenu.DropDownItems.Add(CreateMenuItem(
                 "Fermata",
                 Keys.None,
                 (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Fermata))));
@@ -796,6 +800,7 @@ namespace JianpuEditor
                 CreateRibbonButton(RibbonIcon.Grace, "Grace note", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.GraceNote)), compact: true),
                 CreateRibbonButton(RibbonIcon.Trill, "Trill", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Trill)), compact: true),
                 CreateRibbonButton(RibbonIcon.Turn, "Turn", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Turn)), compact: true),
+                CreateRibbonButton(RibbonIcon.Mordent, "Mordent", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Mordent)), compact: true),
                 CreateRibbonButton(RibbonIcon.Fermata, "Fermata", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Fermata)), compact: true));
             panel.Controls.Add(ornaments);
 
@@ -1144,6 +1149,7 @@ namespace JianpuEditor
             ornamentsMenu.DropDownItems.Add("Grace Note", null, (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.GraceNote)));
             ornamentsMenu.DropDownItems.Add("Trill", null, (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Trill)));
             ornamentsMenu.DropDownItems.Add("Turn", null, (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Turn)));
+            ornamentsMenu.DropDownItems.Add("Mordent", null, (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Mordent)));
             ornamentsMenu.DropDownItems.Add("Fermata", null, (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Fermata)));
             menu.Items.Add(ornamentsMenu);
 

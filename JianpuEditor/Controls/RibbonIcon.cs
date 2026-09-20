@@ -21,6 +21,7 @@ namespace JianpuEditor.Controls
         Grace,
         Trill,
         Turn,
+        Mordent,
         Fermata,
         Duplicate,
         Delete,

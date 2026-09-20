@@ -17,7 +17,7 @@ namespace JianpuEditor.Tests.ViewModels
             var tieEditor = ViewModelTestHelper.CreateTieEditor(document, navigation, messenger, history);
             document.EnsureMeasures();
             document.Score.Measures[0].MelodyNotes.Add(new JianpuNote { Pitch = 1 });
-            document.Score.Measures[0].MelodyNotes.Add(new JianpuNote { Pitch = 2 });
+            document.Score.Measures[0].MelodyNotes.Add(new JianpuNote { Pitch = 1 });
 
             tieEditor.ToggleTieMode();
             tieEditor.TryCompleteTie(0, 0);
