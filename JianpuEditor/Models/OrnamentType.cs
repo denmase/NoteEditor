@@ -17,6 +17,7 @@ namespace JianpuEditor.Models
         RepeatEnd = 11,
         Segno = 12,
         Coda = 13,
+        BreathMark = 14,
         Custom = 99
     }
 }

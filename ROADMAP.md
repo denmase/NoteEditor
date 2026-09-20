@@ -29,9 +29,10 @@ Until now, playback always used whatever General MIDI patch 0 (Acoustic Grand Pi
 
 ## Indonesian notasi angka completeness (gap analysis + plan)
 
-**Status: phase 3's bug-fix half and the Mordent half of phase 4 are done. Everything else below
-is still not started**, including phases 1-2 (`NotationStyle` + the accidental slash convention)
--- see the note under phase 2 for why that one turned out to be more involved than it looked.
+**Status: phase 3's bug-fix half, the Mordent half of phase 4, and phase 6 (breath marks) are
+done. Everything else below is still not started**, including phases 1-2 (`NotationStyle` + the
+accidental slash convention) -- see the note under phase 2 for why that one turned out to be more
+involved than it looked, and the new note there about the natural sign specifically.
 
 Researched Indonesian *notasi angka* (Indonesian numbered/jianpu notation — rules, symbols,
 conventions) against what `JianpuEditor` actually implements. Full gap list and phased plan below.
@@ -102,6 +103,15 @@ here and intentionally excluded.*
    doesn't carry accidentals through a measure, so it's just a third independent glyph state) can
    land separately and first, since it doesn't touch the suffix-vs-prefix positioning question at
    all.
+   **Checked before starting this, found a bigger prerequisite gap**: `AccidentalKind.Sharp`/`Flat`
+   have zero manual entry UI anywhere in the app today (`JianpuPitchCodec.SetAccidentalPitch` is
+   never called outside its own definition and tests) — the only code path that ever produces an
+   accidental note is `MidiImportService` reading a chromatic pitch out of an imported file. So
+   before a `Natural` sign is actually reachable by a user hand-notating a score (as opposed to one
+   that only shows up after a MIDI import), this needs a manual sharp/flat/natural entry command
+   too — a real, if small, UI feature of its own, not just a third glyph case. Scoping that
+   alongside the glyph work, rather than shipping a glyph nothing can ever attach, is the right
+   order once this phase is picked up.
 3. **Tie/slur pitch bug: the validation half is done; slur support is not.** Added a same-pitch
    check to `TieEditorViewModel.TryCompleteTie` (rejects with a status message and treats the
    mismatched note as a new start candidate, mirroring the existing "must come after" rejection
@@ -124,9 +134,15 @@ here and intentionally excluded.*
    plus optionally a hairpin start/end pair), a small "add dynamic here" UI mirroring how chord
    markers already attach to a beat, rendering below the melody row, and a playback/MIDI-export
    velocity-scaling pass applied to notes until the next marking.
-6. **Breath marks.** Simplest of the remaining additive items — fold into the existing
-   `Ornaments` per-note-index list (`OrnamentType.BreathMark`, new value), visual-only glyph, no
-   playback effect in v1 (a version that inserts a micro-rest is a possible follow-up, not v1).
+6. **Breath marks — done.** Added `OrnamentType.BreathMark`, folded into the existing per-note
+   ornament list/UI pattern (ribbon + Edit menu + context menu, same as Mordent). Unlike every
+   other ornament here, it's anchored just *after* the note's right edge instead of centered above
+   it (`JianpuRenderer.GetOrnamentAnchorX` / `NoteTopAnnotationLayout.GetOrnamentAnchorX`, one new
+   branch each) since that's where a breath mark actually sits in notasi angka/jianpu sheet music
+   — but it deliberately reuses the existing ornament stacking band for its Y position and doesn't
+   participate in `NoteTopAnnotationPlanner`'s accidental/octave-dot collision math at all, so it
+   carries none of the layout risk flagged under phase 2. Visual-only, no playback/MIDI-export
+   effect (a version that inserts a micro-rest is a possible follow-up, not v1).
 7. **Repeat bar lines, volta brackets, and D.C./D.S./Coda/Segno navigation.** Two sub-parts with
    very different risk:
    - **Visual-only** (lower risk): a `BarLineType` field per measure boundary (single/double/

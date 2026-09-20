@@ -31,6 +31,10 @@ namespace JianpuEditor.Rendering
 
         public const float AccidentalMarkWidth = 8f;
 
+        /// <summary>Same gap <see cref="JianpuRenderer"/>'s non-compact layout path uses -- kept as
+        /// its own constant here since this class has no reference to JianpuRenderer's.</summary>
+        private const float BreathMarkGap = 3f;
+
         public float HeadCenterX { get; set; }
 
         public float OctaveDotCenterX { get; set; }
@@ -59,9 +63,11 @@ namespace JianpuEditor.Rendering
 
         public float GetOrnamentAnchorX(OrnamentType type, int noteX, int headWidth)
         {
-            _ = type;
-            _ = noteX;
-            _ = headWidth;
+            if (type == OrnamentType.BreathMark)
+            {
+                return noteX + headWidth + BreathMarkGap;
+            }
+
             return HeadCenterX;
         }
 

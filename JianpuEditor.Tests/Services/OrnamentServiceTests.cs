@@ -97,6 +97,7 @@ namespace JianpuEditor.Tests.Services
             Assert.Equal("tr", OrnamentService.GetPlaceholderGlyph(OrnamentType.Trill));
             Assert.Equal("trn", OrnamentService.GetPlaceholderGlyph(OrnamentType.Turn));
             Assert.Equal("ferm", OrnamentService.GetPlaceholderGlyph(OrnamentType.Fermata));
+            Assert.Equal("br", OrnamentService.GetPlaceholderGlyph(OrnamentType.BreathMark));
         }
 
         [Fact]

@@ -131,6 +131,24 @@ namespace JianpuEditor.Tests.Rendering
         }
 
         [Fact]
+        public void GetOrnamentAnchorX_BreathMark_AnchorsAfterNoteInsteadOfAboveIt()
+        {
+            var layout = NoteTopAnnotationPlanner.Plan(
+                new JianpuNote { Type = NoteType.Note, Pitch = 1 },
+                100,
+                28,
+                new List<JianpuOrnament>(),
+                compactAccidentals: true);
+
+            var breathAnchor = layout.GetOrnamentAnchorX(OrnamentType.BreathMark, 100, 28);
+            var trillAnchor = layout.GetOrnamentAnchorX(OrnamentType.Trill, 100, 28);
+
+            Assert.True(breathAnchor > 100 + 28);
+            Assert.Equal(layout.HeadCenterX, trillAnchor, 1);
+            Assert.NotEqual(trillAnchor, breathAnchor);
+        }
+
+        [Fact]
         public void GetOrnamentsForNote_ReturnsOnlyMatchingOrnaments()
         {
             var measure = ScoreTestHelper.Measure(ScoreTestHelper.Note(1), ScoreTestHelper.Note(2));

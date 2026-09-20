@@ -225,6 +225,8 @@ namespace JianpuEditor.Services
                     return "ferm";
                 case OrnamentType.Mordent:
                     return "mor";
+                case OrnamentType.BreathMark:
+                    return "br";
                 default:
                     return type.ToString();
             }
