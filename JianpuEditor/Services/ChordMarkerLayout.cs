@@ -85,7 +85,7 @@ namespace JianpuEditor.Services
             int markerIndex,
             ChordMarker marker)
         {
-            var rowTop = layout.BlockTop + JianpuRenderer.MelodyRowHeight + JianpuRenderer.RowGap + 4;
+            var rowTop = JianpuRenderer.GetSecondaryRowTop(layout) + 4;
             var anchorX = GetBeatAnchorX(layout, measure, marker.BeatPosition);
             var left = (int)Math.Round(anchorX);
             var top = rowTop;
@@ -135,7 +135,7 @@ namespace JianpuEditor.Services
 
         public static Rectangle GetSecondaryRowBounds(JianpuRenderer.MeasureLayout layout)
         {
-            var top = layout.BlockTop + JianpuRenderer.MelodyRowHeight + JianpuRenderer.RowGap;
+            var top = JianpuRenderer.GetSecondaryRowTop(layout);
             return new Rectangle(layout.X, top, layout.Width, JianpuRenderer.SecondaryRowHeight);
         }
     }

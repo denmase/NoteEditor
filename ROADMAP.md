@@ -196,14 +196,23 @@ here and intentionally excluded.*
      see the note below on why `RepeatStart`/`RepeatEnd` were deliberately *not* wired the same
      way. Visual-only: no playback/MIDI-export effect, since jumping to a Segno/Coda isn't
      performed (see the third bullet below).
-   - **Repeat bar lines and volta brackets — not started.** A `BarLineType` field per measure
-     boundary (single/double/final/repeat-start/repeat-end) and a volta-bracket span (which
-     measures, which ending number) for 1st/2nd endings. `OrnamentType.RepeatStart`/`RepeatEnd`
-     exist in the enum but are deliberately being left unwired rather than reused for this — a
-     repeat bar line isn't a note-anchored ornament the way Segno/Coda are, it's a property of the
-     measure boundary itself (a thick double bar with dots, spanning the full staff height), so
-     modeling it as a `BarLineType` field (as originally planned) is the right shape, not a UI
-     wiring exercise on the existing enum values.
+   - **Repeat bar lines (visual) — done; volta brackets still not started.** Added `BarLineType`
+     (`Single`/`Double`/`Final`/`RepeatEnd`) and `IsRepeatStart` (bool) to `JianpuMeasure`, exactly
+     the field shape called out below rather than reusing `OrnamentType.RepeatStart`/`RepeatEnd`
+     (still deliberately unwired, for the same reason: a repeat bar line is a property of the
+     measure boundary, not a note-anchored ornament). Rendering is purely additive: the two
+     existing unconditional `DrawBarLine` calls in `DrawStaffLineRange` are untouched (so default
+     Single/no-repeat scores are pixel-identical to before), and a new `DrawBarLineDecoration`
+     draws the extra ink (a second parallel line for Double, a thick line for Final, a thick line
+     + two dots for RepeatEnd/RepeatStart) after them, confined to the drawing measure's own
+     horizontal footprint so it can never visually collide with a neighboring measure's own
+     decoration at the shared boundary. Edit menu > Bar Line submenu wired via
+     `MeasureContentViewModel.SetBarLineType`/`ToggleRepeatStart`, each backed by its own
+     `INoteEditCommand` (`ModifyBarLineTypeCommand`/`ModifyRepeatStartCommand`) for undo/redo,
+     mirroring `ModifyLyricTextCommand`'s exact shape. Visual-only, like Segno/Coda: no
+     playback/MIDI-export effect (see the third bullet below). Volta brackets (1st/2nd endings)
+     remain unimplemented: still need a score-level span model (which measures, which ending
+     number) plus a bracket+number rendering element spanning multiple measures above the staff.
    - **Actually performing the repeat/jump/volta-skip during playback and MIDI export** (higher
      risk): needs real changes to `ScoreMidiSchedule`/`ScorePlaybackService`/`MidiExportService`'s
      scheduling, which today assumes one linear pass through the measures. Worth scoping and

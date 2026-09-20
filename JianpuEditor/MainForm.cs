@@ -746,6 +746,29 @@ namespace JianpuEditor
             dynamicsMenu.DropDownItems.Add(CreateMenuItem("f", Keys.None, (s, e) => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.SetDynamic("f"))));
             dynamicsMenu.DropDownItems.Add(CreateMenuItem("ff", Keys.None, (s, e) => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.SetDynamic("ff"))));
             editMenu.DropDownItems.Add(dynamicsMenu);
+            var barLineMenu = new ToolStripMenuItem("Bar Line");
+            barLineMenu.DropDownItems.Add(CreateMenuItem(
+                "Single",
+                Keys.None,
+                (s, e) => ExecuteScoreEdit(() => _viewModel.MeasureContent.SetBarLineType(BarLineType.Single))));
+            barLineMenu.DropDownItems.Add(CreateMenuItem(
+                "Double",
+                Keys.None,
+                (s, e) => ExecuteScoreEdit(() => _viewModel.MeasureContent.SetBarLineType(BarLineType.Double))));
+            barLineMenu.DropDownItems.Add(CreateMenuItem(
+                "Final",
+                Keys.None,
+                (s, e) => ExecuteScoreEdit(() => _viewModel.MeasureContent.SetBarLineType(BarLineType.Final))));
+            barLineMenu.DropDownItems.Add(CreateMenuItem(
+                "Repeat End",
+                Keys.None,
+                (s, e) => ExecuteScoreEdit(() => _viewModel.MeasureContent.SetBarLineType(BarLineType.RepeatEnd))));
+            barLineMenu.DropDownItems.Add(new ToolStripSeparator());
+            barLineMenu.DropDownItems.Add(CreateMenuItem(
+                "Toggle Repeat Start",
+                Keys.None,
+                (s, e) => ExecuteScoreEdit(() => _viewModel.MeasureContent.ToggleRepeatStart())));
+            editMenu.DropDownItems.Add(barLineMenu);
             editMenu.DropDownItems.Add(CreateMenuItem("Clear Score", Keys.None, OnClearScore));
 
             var viewMenu = new ToolStripMenuItem("View");

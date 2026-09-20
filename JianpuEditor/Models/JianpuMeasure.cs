@@ -19,5 +19,11 @@ namespace JianpuEditor.Models
         public List<DynamicMarking> Dynamics { get; set; } = new List<DynamicMarking>();
 
         public string LyricText { get; set; } = string.Empty;
+
+        /// <summary>The bar line drawn at this measure's right edge.</summary>
+        public BarLineType BarLineType { get; set; } = BarLineType.Single;
+
+        /// <summary>Whether a repeat-start bar line is drawn at this measure's left edge.</summary>
+        public bool IsRepeatStart { get; set; }
     }
 }

@@ -14,7 +14,7 @@ namespace JianpuEditor.Rendering
         public const int NoteCellWidth = 96;
         public const int MinMeasureWidth = 120;
         public const int MarginLeft = 72;
-        public const int MarginTop = 72;
+        public const int MarginTop = 96;
         public const int MelodyRowHeight = 88;
         public const int DynamicsRowHeight = 24;
         public const int SecondaryRowHeight = 40;
@@ -915,6 +915,7 @@ namespace JianpuEditor.Rendering
                     !hasStructuredLyrics && string.IsNullOrWhiteSpace(measureData.LyricText));
                 DrawBarLine(g, measure.X, measure.BlockTop, StaffBlockHeight);
                 DrawBarLine(g, measure.BarLineX, measure.BlockTop, StaffBlockHeight);
+                DrawBarLineDecoration(g, measure, measureData);
             }
         }
 
@@ -2269,6 +2270,55 @@ namespace JianpuEditor.Rendering
             using (var pen = CreateInkPen(2f))
             {
                 g.DrawLine(pen, x, top + 4, x, top + height - 4);
+            }
+        }
+
+        /// <summary>Draws Double/Final/RepeatEnd/RepeatStart bar line decoration as extra ink
+        /// added after the measure's own two ordinary <see cref="DrawBarLine"/> calls, which stay
+        /// untouched so default (Single, no repeat) rendering is pixel-identical to before. Every
+        /// extra line/dot stays within this measure's own horizontal footprint (never crossing
+        /// into a neighboring measure), so there's no "which measure owns the shared boundary"
+        /// conflict at the line shared with an adjacent measure.</summary>
+        private void DrawBarLineDecoration(Graphics g, MeasureLayout measure, JianpuMeasure measureData)
+        {
+            var top = measure.BlockTop;
+            switch (measureData.BarLineType)
+            {
+                case BarLineType.Double:
+                    DrawBarLine(g, measure.BarLineX - 5, top, StaffBlockHeight);
+                    break;
+                case BarLineType.Final:
+                    DrawThickBarLine(g, measure.BarLineX - 6, top, StaffBlockHeight);
+                    break;
+                case BarLineType.RepeatEnd:
+                    DrawThickBarLine(g, measure.BarLineX - 6, top, StaffBlockHeight);
+                    DrawRepeatDots(g, measure.BarLineX - 14, top);
+                    break;
+            }
+
+            if (measureData.IsRepeatStart)
+            {
+                DrawThickBarLine(g, measure.X + 5, top, StaffBlockHeight);
+                DrawRepeatDots(g, measure.X + 13, top);
+            }
+        }
+
+        private void DrawThickBarLine(Graphics g, int x, int top, int height)
+        {
+            using (var pen = CreateInkPen(5f))
+            {
+                g.DrawLine(pen, x, top + 4, x, top + height - 4);
+            }
+        }
+
+        private void DrawRepeatDots(Graphics g, int x, int top)
+        {
+            const int radius = 4;
+            var centerY = top + MelodyRowHeight / 2;
+            using (var brush = CreateInkBrush())
+            {
+                g.FillEllipse(brush, x - radius, centerY - radius - 6, radius * 2, radius * 2);
+                g.FillEllipse(brush, x - radius, centerY + radius - 2, radius * 2, radius * 2);
             }
         }
 

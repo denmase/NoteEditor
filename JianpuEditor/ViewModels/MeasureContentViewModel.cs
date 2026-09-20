@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using JianpuEditor.Core.Abstractions;
 using JianpuEditor.Core.Messaging;
 using JianpuEditor.Core.Messaging.Messages;
+using JianpuEditor.Models;
 using JianpuEditor.Services;
 using JianpuEditor.Services.EditCommands;
 
@@ -85,6 +86,42 @@ namespace JianpuEditor.ViewModels
                 measureIndex,
                 currentText,
                 newText));
+        }
+
+        public ScoreEditResult SetBarLineType(BarLineType barLineType)
+        {
+            _document.EnsureMeasures();
+            var measureIndex = Math.Max(0, Math.Min(_navigation.CurrentMeasureIndex, _document.Score.Measures.Count - 1));
+            var measure = _document.Score.Measures[measureIndex];
+            if (measure.BarLineType == barLineType)
+            {
+                return ScoreEditResult.Unchanged;
+            }
+
+            var command = new ModifyBarLineTypeCommand(
+                _document.Score,
+                _messenger,
+                measureIndex,
+                measure.BarLineType,
+                barLineType);
+            _history.Execute(command);
+            return command.Result ?? ScoreEditResult.Unchanged;
+        }
+
+        public ScoreEditResult ToggleRepeatStart()
+        {
+            _document.EnsureMeasures();
+            var measureIndex = Math.Max(0, Math.Min(_navigation.CurrentMeasureIndex, _document.Score.Measures.Count - 1));
+            var measure = _document.Score.Measures[measureIndex];
+
+            var command = new ModifyRepeatStartCommand(
+                _document.Score,
+                _messenger,
+                measureIndex,
+                measure.IsRepeatStart,
+                !measure.IsRepeatStart);
+            _history.Execute(command);
+            return command.Result ?? ScoreEditResult.Unchanged;
         }
 
         public ScoreEditResult NotifyInlineLyricEdited(int measureIndex)
