@@ -22,8 +22,18 @@ namespace JianpuEditor.Rendering
         /// hand-picked-per-combination bands this replaced (which had no notion of, e.g., a fermata
         /// stacked above a center ornament -- both landed 2px apart regardless of what else was on
         /// the note).
+        /// Was 6f originally, which visually collided with an octave dot below it (the gap is
+        /// between the two layers' anchor Y values, not their actual rendered glyph heights, and
+        /// 6px is well under the ornament font's real line height) -- confirmed by rendering real
+        /// output via Mono+libgdiplus and visually inspecting it, something not previously possible
+        /// in this sandbox. Meant to cover the taller of the two stacked ornament fonts' own
+        /// <see cref="System.Drawing.Font.Height"/> (Microsoft YaHei / Arial Italic, both 11pt) --
+        /// libgdiplus reports 18 for these (no Microsoft YaHei on Linux, so it substitutes a
+        /// fallback font), but real Windows GDI+ CI reported 20, so this carries a couple of
+        /// pixels of headroom above that measured value rather than sitting exactly on it. See
+        /// <c>NoteTopAnnotationPlannerTests.AnnotationLayerClearance_CoversTheTallestStackedOrnamentFont</c>.
         /// </summary>
-        public const float AnnotationLayerClearance = 6f;
+        public const float AnnotationLayerClearance = 22f;
 
         public const float OctaveDotDiameter = 6f;
 

@@ -1,3 +1,5 @@
+using System;
+using System.Drawing;
 using JianpuEditor.Models;
 using JianpuEditor.Rendering;
 using JianpuEditor.Services;
@@ -8,6 +10,28 @@ namespace JianpuEditor.Tests.Rendering
 {
     public sealed class NoteTopAnnotationPlannerTests
     {
+        /// <summary>Regression guard for a real bug: AnnotationLayerClearance is a gap between two
+        /// layers' anchor Y values, not their rendered glyph heights, so it must be at least as
+        /// tall as the ornament font actually drawn there or the glyphs visually collide (confirmed
+        /// by rendering real output and inspecting it -- the original 6f let an octave dot overlap
+        /// the ornament text above it). Checks both font families/styles the stacked ornament band
+        /// actually uses (JianpuRenderer's _ornamentStackedFont/_ornamentLatinStackedFont).</summary>
+        [Fact]
+        public void AnnotationLayerClearance_CoversTheTallestStackedOrnamentFont()
+        {
+            using (var yaHei = new Font("Microsoft YaHei", 11f, FontStyle.Regular))
+            using (var arialItalic = new Font("Arial", 11f, FontStyle.Italic))
+            {
+                var tallestFontHeight = Math.Max(yaHei.Height, arialItalic.Height);
+
+                Assert.True(
+                    NoteTopAnnotationLayout.AnnotationLayerClearance >= tallestFontHeight,
+                    "AnnotationLayerClearance (" + NoteTopAnnotationLayout.AnnotationLayerClearance
+                        + ") must be at least the stacked ornament font's line height ("
+                        + tallestFontHeight + ") or stacked glyphs visually overlap.");
+            }
+        }
+
         [Fact]
         public void Plan_GraceAndSharp_PlacesAccidentalClosestToNoteAndGraceAbove()
         {
