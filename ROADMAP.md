@@ -55,14 +55,21 @@ preference is silently reset.
 Every phase below must include, as an acceptance check: an existing score with none of the new
 fields set, and `NotationStyle = Chinese` (the default), renders pixel-identical to today.
 
+*A second research pass (another agent, cross-checked against the code rather than taken at face
+value) confirmed the findings below and added two real items: the tie/slur bug and volta
+brackets. Its Kepatihan section (gamelan cipher notation — a different notation system for a
+5/7-tone non-Western-tempered orchestra, not general vocal/choral notasi angka) is out of scope
+here and intentionally excluded.*
+
 ### Gaps identified
 
 | Gap | Current behavior | Indonesian convention | Gated by NotationStyle? |
 |---|---|---|---|
 | Accidental symbol | `#`/`b` prefix (`JianpuPitchCodec.GetAccidentalMark`) | `/` (kres) and `\` (mol) suffix | **Yes — the only style-gated item** |
-| Natural/pugar sign | `AccidentalKind` has only `None`/`Sharp`/`Flat` | Explicit natural sign cancelling a prior accidental | No (additive) |
+| Natural/pugar sign | `AccidentalKind` has only `None`/`Sharp`/`Flat` | Explicit natural sign; modern typesetting increasingly just uses `♮` rather than a slash variant, so this one doesn't need a NotationStyle branch at all — same glyph either way | No (additive) |
+| **Tie tool accepts different-pitch notes — latent playback bug, not just a missing feature** | `TieEditorViewModel.TryCompleteTie` validates only that the end note comes after the start note — never that the pitches match. `ScoreMidiSchedule.BuildTieEndSet` then suppresses the end note's own `NoteOn` unconditionally, so a "tie" drawn between two *different* pitches silently drops the second note's actual pitch during playback/export instead of sounding it | A curved line between same-pitch notes is a tie (sustain); the identical-looking curve between *different* pitches is a slur (legato phrasing, both notes still sound) — two distinct marks that only look alike | No (additive/bugfix; the pitch-match validation is a bug fix independent of anything else here) |
 | Staccato / Accent / Tenuto / Glissando | `OrnamentType` declares these four values; zero code references them anywhere (checked rendering, editing, playback) | Standard articulation marks, same in both traditions | No (additive) |
-| Repeat bar lines, double/final bar lines | No bar-line-type concept exists on `JianpuMeasure` at all | Single/double/final/repeat bar lines | No (additive) |
+| Repeat bar lines, double/final bar lines, volta brackets (1st/2nd endings) | No bar-line-type concept exists on `JianpuMeasure` at all | Single/double/final/repeat bar lines, plus numbered bracket endings for a repeated section's differing last measure(s) | No (additive) |
 | D.C. / D.S. / Coda / Segno navigation | `OrnamentType.RepeatStart/RepeatEnd/Segno/Coda` declared, zero implementation | Standard navigation marks | No (additive) |
 | Dynamics (p, f, mf, cresc., dim.) | No model field anywhere | Standard dynamics, placed below the melody row | No (additive) |
 | Breath marks | Not modeled | Apostrophe-like mark after a note, common in choir/hymn notasi angka | No (additive) |
@@ -79,48 +86,58 @@ fields set, and `NotationStyle = Chinese` (the default), renders pixel-identical
    `GetPitchDisplayText` on `NotationStyle`: Indonesian returns a suffix mark (`/` or `\`) instead
    of a prefix; Chinese/Western path is byte-for-byte what exists today. Update whichever
    renderer code lays out glyph width around the accidental mark (it currently assumes a prefix)
-   to also handle a suffix. Add `AccidentalKind.Natural` alongside this — turns out simpler than
-   it looks, since the renderer doesn't currently carry accidentals through a measure at all
-   (each note's `Accidental` is independent), so Natural is just a third glyph state, no new
-   measure-scoped tracking needed.
-3. **Wire up the four dead `OrnamentType` articulation values** (Staccato, Accent, Tenuto,
+   to also handle a suffix. Add `AccidentalKind.Natural` alongside this (rendered as `♮`, no
+   NotationStyle branch needed) — turns out simpler than it looks, since the renderer doesn't
+   currently carry accidentals through a measure at all (each note's `Accidental` is
+   independent), so Natural is just a third glyph state, no new measure-scoped tracking needed.
+3. **Fix the tie/slur pitch bug, then add real slur support.** Independent of everything else
+   here and arguably the highest-priority item, since it's a correctness bug in scores that exist
+   *today*, Chinese/Western included: add a same-pitch check to `TieEditorViewModel.
+   TryCompleteTie` (reject or, better, offer to create a slur instead when the picked notes'
+   pitches differ) so the tie tool can no longer silently drop a note's pitch during playback.
+   Once that guard exists, adding actual slur support is comparatively small: a `JianpuSlur` list
+   shaped like `JianpuTie` (no pitch constraint) that only affects rendering (curved line drawn
+   over the span) — no playback/MIDI effect needed for a first version, since a slur doesn't
+   change what notes sound, only how they're described to play (legato phrasing).
+4. **Wire up the four dead `OrnamentType` articulation values** (Staccato, Accent, Tenuto,
    Glissando): ribbon button + Edit-menu item + context-menu item each, matching the existing
    Grace/Trill/Turn/Fermata pattern exactly, plus a glyph and a playback effect (staccato =
    shorten sounding duration; accent = velocity boost; tenuto = slight duration/emphasis;
    glissando = pitch-bend between notes, the one genuinely harder one — may want to split it into
    its own step). While here, also add the missing Mordent button flagged in the last audit —
    same gap, same fix.
-4. **Dynamics markings.** New model (a marking anchored to a beat, e.g. `mf`/`cresc.`/`dim.`,
+5. **Dynamics markings.** New model (a marking anchored to a beat, e.g. `mf`/`cresc.`/`dim.`,
    plus optionally a hairpin start/end pair), a small "add dynamic here" UI mirroring how chord
    markers already attach to a beat, rendering below the melody row, and a playback/MIDI-export
    velocity-scaling pass applied to notes until the next marking.
-5. **Breath marks.** Simplest of the remaining additive items — fold into the existing
+6. **Breath marks.** Simplest of the remaining additive items — fold into the existing
    `Ornaments` per-note-index list (`OrnamentType.BreathMark`, new value), visual-only glyph, no
    playback effect in v1 (a version that inserts a micro-rest is a possible follow-up, not v1).
-6. **Repeat bar lines + D.C./D.S./Coda/Segno navigation.** Two sub-parts with very different
-   risk:
+7. **Repeat bar lines, volta brackets, and D.C./D.S./Coda/Segno navigation.** Two sub-parts with
+   very different risk:
    - **Visual-only** (lower risk): a `BarLineType` field per measure boundary (single/double/
-     final/repeat-start/repeat-end), and `Segno`/`Coda` as measure-anchored markers using the
-     `OrnamentType` values that already exist. Playback/MIDI export keep playing straight through
-     once, same as today, with a status message noting repeat structure isn't performed.
-   - **Actually performing the repeat/jump during playback and MIDI export** (higher risk): needs
-     real changes to `ScoreMidiSchedule`/`ScorePlaybackService`/`MidiExportService`'s scheduling,
-     which today assumes one linear pass through the measures. Worth scoping and building
-     separately once the visual half has landed and been used for a while.
-7. **Multi-verse lyrics.** Change `LyricText` to a verse list (verse 1 keeps today's exact
+     final/repeat-start/repeat-end), a volta-bracket span (which measures, which ending number)
+     for 1st/2nd endings, and `Segno`/`Coda` as measure-anchored markers using the `OrnamentType`
+     values that already exist. Playback/MIDI export keep playing straight through once, same as
+     today, with a status message noting repeat structure isn't performed.
+   - **Actually performing the repeat/jump/volta-skip during playback and MIDI export** (higher
+     risk): needs real changes to `ScoreMidiSchedule`/`ScorePlaybackService`/`MidiExportService`'s
+     scheduling, which today assumes one linear pass through the measures. Worth scoping and
+     building separately once the visual half has landed and been used for a while.
+8. **Multi-verse lyrics.** Change `LyricText` to a verse list (verse 1 keeps today's exact
    field/behavior for backward compatibility; additional verses are new, optional). Inline lyric
    editor gains a verse stepper; renderer stacks N lyric rows instead of a fixed one — a real but
    contained rendering change, inert for every existing single-verse score.
-8. **SATB / multi-voice support.** By far the largest item — this is a core data-model change
+9. **SATB / multi-voice support.** By far the largest item — this is a core data-model change
    (today's single `MelodyNotes` per measure would need to become one of N independent voices,
    rippling through rendering, playback scheduling, MIDI import/export, undo/redo commands, and
    the selection model). Treat this as its own separately-scoped project, not part of the same
-   wave as items 1-7, and prototype with 2 voices before committing to 4 (SATB) — 2 voices proves
+   wave as items 1-8, and prototype with 2 voices before committing to 4 (SATB) — 2 voices proves
    out the whole architecture (each voice's own note list, ties, and undo integration, all
    sharing one chord-marker row/lyric block/measure grid) at half the risk.
-9. **Pickup measure.** Verify first whether a short first measure already plays/exports/renders
-   correctly (it may — nothing found in `ScoreMidiSchedule` enforcing an exact per-measure beat
-   count). If it does, this is a documentation note, not code. If not, scope it then.
+10. **Pickup measure.** Verify first whether a short first measure already plays/exports/renders
+    correctly (it may — nothing found in `ScoreMidiSchedule` enforcing an exact per-measure beat
+    count). If it does, this is a documentation note, not code. If not, scope it then.
 
 ## CLAP support (spike plan only, not started)
 
