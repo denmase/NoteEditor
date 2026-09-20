@@ -89,6 +89,9 @@ namespace JianpuEditor.Rendering
                     case OrnamentType.Trill:
                     case OrnamentType.Turn:
                     case OrnamentType.Mordent:
+                    case OrnamentType.Staccato:
+                    case OrnamentType.Accent:
+                    case OrnamentType.Tenuto:
                         layout.HasCenterOrnament = true;
                         break;
                 }

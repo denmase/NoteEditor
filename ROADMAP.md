@@ -29,12 +29,12 @@ Until now, playback always used whatever General MIDI patch 0 (Acoustic Grand Pi
 
 ## Indonesian notasi angka completeness (gap analysis + plan)
 
-**Status: phase 3's bug-fix half, the Mordent half of phase 4, phase 6 (breath marks), and phase
-10 (pickup measure verification) are done. Everything else below is still not started**, including
-phases 1-2 (`NotationStyle` + the accidental slash convention) -- see the note under phase 2 for
-why that one turned out to be more involved than it looked, and the new note there about the
-natural sign specifically. Phase 10 also surfaced a separate, real gap in MIDI import (pickup
-measures aren't preserved) -- see the note under phase 10.
+**Status: phase 3's bug-fix half, phase 4 (all of it except Glissando), phase 6 (breath marks), and
+phase 10 (pickup measure verification) are done. Everything else below is still not started**,
+including phases 1-2 (`NotationStyle` + the accidental slash convention) -- see the note under
+phase 2 for why that one turned out to be more involved than it looked, and the new note there
+about the natural sign specifically. Phase 10 also surfaced a separate, real gap in MIDI import
+(pickup measures aren't preserved) -- see the note under phase 10.
 
 Researched Indonesian *notasi angka* (Indonesian numbered/jianpu notation — rules, symbols,
 conventions) against what `JianpuEditor` actually implements. Full gap list and phased plan below.
@@ -120,18 +120,26 @@ here and intentionally excluded.*
    flow) — the tie tool can no longer silently drop a note's pitch during playback. Covered by two
    new regression tests. Real slur support (a `JianpuSlur` list shaped like `JianpuTie`, no pitch
    constraint, rendering-only) is still future work.
-4. **Wire up the dead `OrnamentType` articulation values — Mordent done, Staccato/Accent/Tenuto/
-   Glissando not started.** Added the missing Mordent button (ribbon + Edit menu + context menu,
-   plus a new `RibbonIcon.Mordent` glyph) — its backend (glyph layout, playback expansion) already
-   existed from earlier work, so this was pure UI wiring, unlike the four below:
-   Staccato/Accent/Tenuto/Glissando need a ribbon button + Edit-menu item + context-menu item each
-   (matching the now five-strong Grace/Trill/Turn/Mordent/Fermata pattern), plus a *new* glyph and
-   a *new* playback effect each (staccato = shorten sounding duration; accent = velocity boost;
-   tenuto = slight duration/emphasis; glissando = pitch-bend between notes, the one genuinely
-   harder one — may want to split it into its own step). Worth doing carefully rather than
-   bundled: new note-annotation glyphs share layout code with every existing ornament, and this
-   sandbox can't visually verify GDI+ output, so a mistake here risks every ornament's
-   positioning, not just the new ones.
+4. **Wire up the dead `OrnamentType` articulation values — Mordent, Staccato, Accent, and Tenuto
+   done; Glissando not started.** Added the missing Mordent button (ribbon + Edit menu + context
+   menu, plus a new `RibbonIcon.Mordent` glyph) — its backend (glyph layout, playback expansion)
+   already existed from earlier work, so this was pure UI wiring. Staccato/Accent/Tenuto needed
+   the full pattern: a ribbon button + Edit-menu item + context-menu item each (matching the now
+   eight-strong Grace/Trill/Turn/Mordent/Fermata/BreathMark/Staccato/Accent/Tenuto set), a new
+   placeholder glyph each (`stac`/`acc`/`ten`, following this codebase's existing text-abbreviation
+   convention rather than real notation symbols -- see the class doc comment on
+   `OrnamentService.GetPlaceholderGlyph`), and a new playback effect each in
+   `OrnamentPlaybackService`: staccato shortens the sounding duration by half (leaving a gap before
+   the next note, since the next note's start time comes from the *nominal* duration, not the
+   shortened one), accent and tenuto boost velocity (accent more than tenuto), each clamped to the
+   MIDI max. All three reuse the exact same generic ornament-band positioning Trill/Turn/Mordent
+   already use (registered into `NoteTopAnnotationPlanner`'s existing `HasCenterOrnament` stacking
+   switch so they correctly clear any accidental/octave-dot glyph on the same note) rather than any
+   new anchor-position math, and the three playback effects are applied as one uniform post-process
+   over whatever events the note already expanded into (a plain note, or every segment of a
+   trill/turn/mordent/grace note) instead of a new branch in the ornament-expansion if/else-if
+   chain -- so none of this carries the layout-band risk flagged elsewhere in this phase. Glissando
+   (pitch-bend between notes) is the one genuinely harder case -- left for its own separate step.
 5. **Dynamics markings.** New model (a marking anchored to a beat, e.g. `mf`/`cresc.`/`dim.`,
    plus optionally a hairpin start/end pair), a small "add dynamic here" UI mirroring how chord
    markers already attach to a beat, rendering below the melody row, and a playback/MIDI-export
