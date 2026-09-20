@@ -27,7 +27,11 @@ Until now, playback always used whatever General MIDI patch 0 (Acoustic Grand Pi
   - Bundles one more native library, `bass_vst.dll` (x86 + x64), same as `bass.dll`/`bassmidi.dll` — see `JianpuEditor/Native/NOTICE.md`.
   - **Not covered:** VST *effect* plugins (reverb, EQ, etc.) — BASSVST handles those completely differently (`ChannelSetDSP`, attached to an already-existing audio stream) from instrument plugins (`ChannelCreate`, generates audio from nothing). Effects would be a separate feature using that other API.
 
-## Indonesian notasi angka completeness (gap analysis + plan, not started)
+## Indonesian notasi angka completeness (gap analysis + plan)
+
+**Status: phase 3's bug-fix half and the Mordent half of phase 4 are done. Everything else below
+is still not started**, including phases 1-2 (`NotationStyle` + the accidental slash convention)
+-- see the note under phase 2 for why that one turned out to be more involved than it looked.
 
 Researched Indonesian *notasi angka* (Indonesian numbered/jianpu notation — rules, symbols,
 conventions) against what `JianpuEditor` actually implements. Full gap list and phased plan below.
@@ -82,30 +86,40 @@ here and intentionally excluded.*
 1. **`NotationStyle` setting** (foundation for everything gated). Add the enum to `AppTheme`,
    migrate `UnderlinesAbove`, re-point the existing underline-position branch at it. No visible
    change for anyone currently on the default.
-2. **Accidental slash convention.** Branch `JianpuPitchCodec.GetAccidentalMark`/
-   `GetPitchDisplayText` on `NotationStyle`: Indonesian returns a suffix mark (`/` or `\`) instead
-   of a prefix; Chinese/Western path is byte-for-byte what exists today. Update whichever
-   renderer code lays out glyph width around the accidental mark (it currently assumes a prefix)
-   to also handle a suffix. Add `AccidentalKind.Natural` alongside this (rendered as `♮`, no
-   NotationStyle branch needed) — turns out simpler than it looks, since the renderer doesn't
-   currently carry accidentals through a measure at all (each note's `Accidental` is
-   independent), so Natural is just a third glyph state, no new measure-scoped tracking needed.
-3. **Fix the tie/slur pitch bug, then add real slur support.** Independent of everything else
-   here and arguably the highest-priority item, since it's a correctness bug in scores that exist
-   *today*, Chinese/Western included: add a same-pitch check to `TieEditorViewModel.
-   TryCompleteTie` (reject or, better, offer to create a slur instead when the picked notes'
-   pitches differ) so the tie tool can no longer silently drop a note's pitch during playback.
-   Once that guard exists, adding actual slur support is comparatively small: a `JianpuSlur` list
-   shaped like `JianpuTie` (no pitch constraint) that only affects rendering (curved line drawn
-   over the span) — no playback/MIDI effect needed for a first version, since a slur doesn't
-   change what notes sound, only how they're described to play (legato phrasing).
-4. **Wire up the four dead `OrnamentType` articulation values** (Staccato, Accent, Tenuto,
-   Glissando): ribbon button + Edit-menu item + context-menu item each, matching the existing
-   Grace/Trill/Turn/Fermata pattern exactly, plus a glyph and a playback effect (staccato =
-   shorten sounding duration; accent = velocity boost; tenuto = slight duration/emphasis;
-   glissando = pitch-bend between notes, the one genuinely harder one — may want to split it into
-   its own step). While here, also add the missing Mordent button flagged in the last audit —
-   same gap, same fix.
+2. **Accidental slash convention — turned out bigger than it looked, not started.** The naive
+   plan (branch `JianpuPitchCodec.GetAccidentalMark`/`GetPitchDisplayText` on `NotationStyle`) only
+   covers one of *two* separate accidental rendering paths in `JianpuRenderer`. The other,
+   `DrawCompactAccidentalMark`, positions the mark using a dedicated layout band
+   (`NoteTopAnnotationLayout.AccidentalX/AccidentalY`, computed in
+   `NoteTopAnnotationPlanner.PlaceAccidental`) that assumes a compact mark to the upper-left of
+   the digit, at a different vertical position than the digit itself, with octave-dot placement
+   already computed to dodge it on that side. A true suffix-slash layout needs a second band
+   variant (mark to the right, at the digit's own baseline) and re-deriving the octave-dot
+   collision math for that case — real layout work, and one this sandbox can't visually verify
+   (no way to render and look at actual GDI+ output here). Recommend doing this as its own PR,
+   with a real look at the on-screen result before merging, rather than bundled with lower-risk
+   items. `AccidentalKind.Natural` (rendered as `♮`, no NotationStyle branch needed — the renderer
+   doesn't carry accidentals through a measure, so it's just a third independent glyph state) can
+   land separately and first, since it doesn't touch the suffix-vs-prefix positioning question at
+   all.
+3. **Tie/slur pitch bug: the validation half is done; slur support is not.** Added a same-pitch
+   check to `TieEditorViewModel.TryCompleteTie` (rejects with a status message and treats the
+   mismatched note as a new start candidate, mirroring the existing "must come after" rejection
+   flow) — the tie tool can no longer silently drop a note's pitch during playback. Covered by two
+   new regression tests. Real slur support (a `JianpuSlur` list shaped like `JianpuTie`, no pitch
+   constraint, rendering-only) is still future work.
+4. **Wire up the dead `OrnamentType` articulation values — Mordent done, Staccato/Accent/Tenuto/
+   Glissando not started.** Added the missing Mordent button (ribbon + Edit menu + context menu,
+   plus a new `RibbonIcon.Mordent` glyph) — its backend (glyph layout, playback expansion) already
+   existed from earlier work, so this was pure UI wiring, unlike the four below:
+   Staccato/Accent/Tenuto/Glissando need a ribbon button + Edit-menu item + context-menu item each
+   (matching the now five-strong Grace/Trill/Turn/Mordent/Fermata pattern), plus a *new* glyph and
+   a *new* playback effect each (staccato = shorten sounding duration; accent = velocity boost;
+   tenuto = slight duration/emphasis; glissando = pitch-bend between notes, the one genuinely
+   harder one — may want to split it into its own step). Worth doing carefully rather than
+   bundled: new note-annotation glyphs share layout code with every existing ornament, and this
+   sandbox can't visually verify GDI+ output, so a mistake here risks every ornament's
+   positioning, not just the new ones.
 5. **Dynamics markings.** New model (a marking anchored to a beat, e.g. `mf`/`cresc.`/`dim.`,
    plus optionally a hairpin start/end pair), a small "add dynamic here" UI mirroring how chord
    markers already attach to a beat, rendering below the melody row, and a playback/MIDI-export

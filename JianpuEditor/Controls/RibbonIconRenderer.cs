@@ -133,6 +133,13 @@ namespace JianpuEditor.Controls
                     g.DrawArc(pen, 4f, 8.6f, 8f, 6.8f, 180f, 180f);
                     g.DrawArc(pen, 12f, 8.6f, 8f, 6.8f, 0f, -180f);
                     return;
+                case RibbonIcon.Mordent:
+                    g.DrawLine(pen, 3f, 12f, 7f, 6f);
+                    g.DrawLine(pen, 7f, 6f, 11f, 12f);
+                    g.DrawLine(pen, 11f, 12f, 15f, 6f);
+                    g.DrawLine(pen, 15f, 6f, 17f, 9f);
+                    g.DrawLine(pen, 10f, 3f, 10f, 15f);
+                    return;
                 case RibbonIcon.Fermata:
                     g.DrawArc(pen, 3f, 6f, 14f, 12f, 180f, 180f);
                     g.FillEllipse(brush, 8.8f, 9.4f, 2.4f, 2.4f);

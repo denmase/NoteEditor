@@ -35,7 +35,7 @@ A Jianpu (numbered musical notation) editing tool built on C# WinForms, supporti
   - Menu **Edit → Undo** (**Ctrl+Z**) / **Redo** (**Ctrl+Y**) steps backward or forward through score edits
   - Covers note editing, deletion, measures, transposition, header/lyric/chord inline editing, ties, ornaments, bulk lyric editing, etc.; the undo/redo stack is cleared after creating, opening, or loading a score
 - **Ornaments**
-  - Toolbar "Ornaments" section: **Grace note** / **Trill** / **Turn** / **Fermata**; the menu **Edit → Ornaments** provides the same options
+  - Toolbar "Ornaments" section: **Grace note** / **Trill** / **Turn** / **Mordent** / **Fermata**; the menu **Edit → Ornaments** provides the same options
   - Select one or more notes first, then click an ornament button; with multiple selection, ornaments are added in batch
   - Clicking the same button again removes that type of ornament from the note (other types are kept)
   - Delete / "Delete" removes ornaments on the selected note first
@@ -43,6 +43,8 @@ A Jianpu (numbered musical notation) editing tool built on C# WinForms, supporti
   - Score playback and MIDI export expand grace notes, trills, turns, mordents, and fermata durations
 - **Ties**
   - Click "Tie" → select the start note → select the end note; Esc to cancel
+  - The end note must be the same pitch as the start note (a tie sustains one pitch); picking a
+    different pitch keeps tie mode active and treats that note as a new start candidate instead
   - Click the arc to select it (highlighted in blue)
   - Delete / "Delete" removes the selected tie
   - Deleting the tie's start/end note automatically clears the tie
@@ -183,7 +185,7 @@ You can also manually specify a version number in GitHub under **Actions → Rel
 | Split / Merge | Splits or merges the duration of selected notes |
 | Toolbar "From / To" + Copy Measures | Copies measures within the specified range |
 | Tie | Click "Tie" → select the start/end note; click the arc to select it, Delete to remove |
-| Ornaments | Select a note, then click "Grace Note / Trill / Turn / Fermata" in the toolbar; click the same button again to remove it |
+| Ornaments | Select a note, then click "Grace Note / Trill / Turn / Mordent / Fermata" in the toolbar; click the same button again to remove it |
 | Undo / Redo | **Edit → Undo / Redo** or **Ctrl+Z** / **Ctrl+Y** |
 | Play / Stop | Plays the score according to BPM; drag the blue progress bar to seek |
 | Transpose | Menu "Edit → Chord Transpose..."; transposes chord markers only |

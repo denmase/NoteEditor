@@ -95,6 +95,15 @@ namespace JianpuEditor.ViewModels
                 return ScoreEditResult.Unchanged;
             }
 
+            if (!HasMatchingPitch(_tieStartMeasureIndex, _tieStartNoteIndex, endMeasureIndex, endNoteIndex))
+            {
+                _tieStartMeasureIndex = endMeasureIndex;
+                _tieStartNoteIndex = endNoteIndex;
+                _messenger.Send(new StatusChangedMessage(
+                    "Tie: the ending note must have the same pitch as the starting note (a tie sustains one pitch -- a curve between different pitches is a slur, not yet supported), please reselect the ending note"));
+                return ScoreEditResult.Unchanged;
+            }
+
             var startMeasureIndex = _tieStartMeasureIndex;
             var startNoteIndex = _tieStartNoteIndex;
             return EditCommandHelper.Execute(
@@ -139,5 +148,46 @@ namespace JianpuEditor.ViewModels
 
             return noteB > noteA;
         }
+
+        /// <summary>A tie sustains one continuous pitch, so its two endpoints must actually be
+        /// the same pitch -- otherwise playback (which suppresses the end note's own NoteOn,
+        /// merging it into the start note's sustain) would silently drop the end note's real
+        /// pitch. A curved line between genuinely different pitches is a slur, a distinct
+        /// legato-phrasing mark this editor doesn't yet support.</summary>
+        private bool HasMatchingPitch(int startMeasureIndex, int startNoteIndex, int endMeasureIndex, int endNoteIndex)
+        {
+            var startNote = GetNote(startMeasureIndex, startNoteIndex);
+            var endNote = GetNote(endMeasureIndex, endNoteIndex);
+            if (startNote == null || endNote == null)
+            {
+                return false;
+            }
+
+            if (startNote.Type != NoteType.Note || endNote.Type != NoteType.Note)
+            {
+                return false;
+            }
+
+            return Math.Abs(startNote.Pitch - endNote.Pitch) < PitchEpsilon && startNote.Octave == endNote.Octave;
+        }
+
+        private JianpuNote GetNote(int measureIndex, int noteIndex)
+        {
+            var measures = _document.Score.Measures;
+            if (measures == null || measureIndex < 0 || measureIndex >= measures.Count)
+            {
+                return null;
+            }
+
+            var notes = measures[measureIndex].MelodyNotes;
+            if (notes == null || noteIndex < 0 || noteIndex >= notes.Count)
+            {
+                return null;
+            }
+
+            return notes[noteIndex];
+        }
+
+        private const double PitchEpsilon = 0.001;
     }
 }
