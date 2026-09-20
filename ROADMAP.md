@@ -36,7 +36,9 @@ phases 1-2 (`NotationStyle` + the accidental slash convention) -- see the note u
 why that one turned out to be more involved than it looked, and the new note there about the
 natural sign specifically. Phase 10 also surfaced a separate, real gap in MIDI import (pickup
 measures aren't preserved) -- see the note under phase
-10.
+10. A pre-existing ornament/octave-dot rendering collision (unrelated to any single phase, found
+while visually verifying the work above) is also fixed -- see the note right after phase 10 about
+this sandbox's new Mono+libgdiplus visual-verification capability.
 
 Researched Indonesian *notasi angka* (Indonesian numbered/jianpu notation — rules, symbols,
 conventions) against what `JianpuEditor` actually implements. Full gap list and phased plan below.
@@ -100,13 +102,15 @@ here and intentionally excluded.*
    the digit, at a different vertical position than the digit itself, with octave-dot placement
    already computed to dodge it on that side. A true suffix-slash layout needs a second band
    variant (mark to the right, at the digit's own baseline) and re-deriving the octave-dot
-   collision math for that case — real layout work, and one this sandbox can't visually verify
-   (no way to render and look at actual GDI+ output here). Recommend doing this as its own PR,
-   with a real look at the on-screen result before merging, rather than bundled with lower-risk
-   items. `AccidentalKind.Natural` (rendered as `♮`, no NotationStyle branch needed — the renderer
-   doesn't carry accidentals through a measure, so it's just a third independent glyph state) can
-   land separately and first, since it doesn't touch the suffix-vs-prefix positioning question at
-   all.
+   collision math for that case — real layout work. Recommend doing this as its own PR, with a
+   real look at the on-screen result before merging, rather than bundled with lower-risk items.
+   **Update: this sandbox can now partially self-verify GDI+ output** (see the note at the end of
+   this phased plan) via Mono+libgdiplus, which lowers but doesn't eliminate the risk here — still
+   worth its own carefully-reviewed PR given the collision-math complexity, but "no way to check at
+   all" is no longer accurate. `AccidentalKind.Natural` (rendered as `♮`, no NotationStyle branch
+   needed — the renderer doesn't carry accidentals through a measure, so it's just a third
+   independent glyph state) can land separately and first, since it doesn't touch the
+   suffix-vs-prefix positioning question at all.
    **Checked before starting this, found a bigger prerequisite gap**: `AccidentalKind.Sharp`/`Flat`
    have zero manual entry UI anywhere in the app today (`JianpuPitchCodec.SetAccidentalPitch` is
    never called outside its own definition and tests) — the only code path that ever produces an
@@ -236,6 +240,30 @@ here and intentionally excluded.*
     time-signature meta-event's position, which isn't reliably distinguishable from "the recording
     just started off-beat") — real design work, scoped separately rather than folded into this
     already-done verification.
+
+### A real visual-verification capability, discovered mid-session (updates the caveats above)
+
+Every phase above was built and reviewed blind on rendering output, citing "this sandbox can't
+visually verify GDI+ output" — that turned out to be only half true. `libgdiplus` (Mono's
+System.Drawing implementation) is installed in this sandbox, so the real `JianpuRenderer` code,
+compiled as-is via `mcs` against the actual built `JianpuEditor.exe` + `Newtonsoft.Json.dll`, can
+be driven from a small throwaway harness and actually run under `mono` — including calling
+`RenderToBitmap` and saving a real PNG, which can then be read and visually inspected directly.
+This isn't a substitute for a real Windows/GDI+ screenshot (font metrics and rasterization can
+differ slightly between libgdiplus and real GDI+), but it's much stronger evidence than reasoning
+about layout math alone, and it already found a real, previously-invisible bug:
+
+**`NoteTopAnnotationLayout.AnnotationLayerClearance` (6f) visually collided an octave dot with the
+ornament glyph above it — fixed, done.** This constant is the gap between two stacked annotation
+layers' *anchor Y values*, not their actual rendered glyph heights, so a small clearance can still
+let a tall glyph's ink overlap the layer below it. Confirmed pre-existing (not caused by any
+change this session): rendering Trill/Mordent/Turn — all untouched by this session's work — with
+a high-octave-dot note showed the exact same collision, just never previously visible since nobody
+had rendered and looked. Fixed by setting the clearance to the actual `Font.Height` of the tallest
+stacked ornament font (Microsoft YaHei / Arial Italic, both 11pt) rather than a hand-picked small
+number, confirmed visually before and after, and locked in with a real regression test
+(`NoteTopAnnotationPlannerTests.AnnotationLayerClearance_CoversTheTallestStackedOrnamentFont`) that
+measures those fonts' real height rather than asserting a hardcoded pixel value.
 
 ## CLAP support (spike plan only, not started)
 
