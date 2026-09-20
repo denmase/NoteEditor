@@ -27,6 +27,8 @@ namespace JianpuEditor.Controls
         Staccato,
         Accent,
         Tenuto,
+        Segno,
+        Coda,
         Duplicate,
         Delete,
         Library,

@@ -35,12 +35,12 @@ A Jianpu (numbered musical notation) editing tool built on C# WinForms, supporti
   - Menu **Edit → Undo** (**Ctrl+Z**) / **Redo** (**Ctrl+Y**) steps backward or forward through score edits
   - Covers note editing, deletion, measures, transposition, header/lyric/chord inline editing, ties, ornaments, bulk lyric editing, etc.; the undo/redo stack is cleared after creating, opening, or loading a score
 - **Ornaments**
-  - Toolbar "Ornaments" section: **Grace note** / **Trill** / **Turn** / **Mordent** / **Fermata** / **Breath Mark** / **Staccato** / **Accent** / **Tenuto**; the menu **Edit → Ornaments** provides the same options
+  - Toolbar "Ornaments" section: **Grace note** / **Trill** / **Turn** / **Mordent** / **Fermata** / **Breath Mark** / **Staccato** / **Accent** / **Tenuto** / **Segno** / **Coda**; the menu **Edit → Ornaments** provides the same options
   - Select one or more notes first, then click an ornament button; with multiple selection, ornaments are added in batch
   - Clicking the same button again removes that type of ornament from the note (other types are kept)
   - Delete / "Delete" removes ornaments on the selected note first
-  - The canvas and PDF export draw placeholder symbols above the note (grace / tr / turn / fermata / stac / acc / ten); a breath mark draws just after the note instead, matching where it's placed in notasi angka/jianpu sheet music
-  - Score playback and MIDI export expand grace notes, trills, turns, mordents, and fermata durations; staccato shortens the sounding duration, accent and tenuto boost velocity (accent more than tenuto); a breath mark is visual-only and doesn't affect playback/export
+  - The canvas and PDF export draw placeholder symbols above the note (grace / tr / turn / fermata / stac / acc / ten / segno / coda); a breath mark draws just after the note instead, matching where it's placed in notasi angka/jianpu sheet music
+  - Score playback and MIDI export expand grace notes, trills, turns, mordents, and fermata durations; staccato shortens the sounding duration, accent and tenuto boost velocity (accent more than tenuto); a breath mark, Segno, and Coda are visual-only and don't affect playback/export -- Segno/Coda mark where a D.S./D.C. jump would go, but the jump itself isn't performed during playback yet
 - **Ties**
   - Click "Tie" → select the start note → select the end note; Esc to cancel
   - The end note must be the same pitch as the start note (a tie sustains one pitch); picking a
@@ -185,7 +185,7 @@ You can also manually specify a version number in GitHub under **Actions → Rel
 | Split / Merge | Splits or merges the duration of selected notes |
 | Toolbar "From / To" + Copy Measures | Copies measures within the specified range |
 | Tie | Click "Tie" → select the start/end note; click the arc to select it, Delete to remove |
-| Ornaments | Select a note, then click "Grace Note / Trill / Turn / Mordent / Fermata / Breath Mark / Staccato / Accent / Tenuto" in the toolbar; click the same button again to remove it |
+| Ornaments | Select a note, then click "Grace Note / Trill / Turn / Mordent / Fermata / Breath Mark / Staccato / Accent / Tenuto / Segno / Coda" in the toolbar; click the same button again to remove it |
 | Undo / Redo | **Edit → Undo / Redo** or **Ctrl+Z** / **Ctrl+Y** |
 | Play / Stop | Plays the score according to BPM; drag the blue progress bar to seek |
 | Transpose | Menu "Edit → Chord Transpose..."; transposes chord markers only |

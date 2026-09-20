@@ -233,6 +233,10 @@ namespace JianpuEditor.Services
                     return "acc";
                 case OrnamentType.Tenuto:
                     return "ten";
+                case OrnamentType.Segno:
+                    return "segno";
+                case OrnamentType.Coda:
+                    return "coda";
                 default:
                     return type.ToString();
             }

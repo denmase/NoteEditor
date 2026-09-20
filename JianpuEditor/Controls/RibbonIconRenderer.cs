@@ -165,6 +165,16 @@ namespace JianpuEditor.Controls
                     }
 
                     return;
+                case RibbonIcon.Segno:
+                    g.DrawLine(pen, 5f, 15f, 15f, 5f);
+                    g.FillEllipse(brush, 5f, 5f, 2.6f, 2.6f);
+                    g.FillEllipse(brush, 12.4f, 12.4f, 2.6f, 2.6f);
+                    return;
+                case RibbonIcon.Coda:
+                    g.DrawEllipse(pen, 5f, 5f, 10f, 10f);
+                    g.DrawLine(pen, 10f, 2f, 10f, 18f);
+                    g.DrawLine(pen, 2f, 10f, 18f, 10f);
+                    return;
                 case RibbonIcon.Duplicate:
                     g.DrawRectangle(pen, 3f, 6f, 10f, 10f);
                     g.DrawLine(pen, 7f, 6f, 7f, 4f);

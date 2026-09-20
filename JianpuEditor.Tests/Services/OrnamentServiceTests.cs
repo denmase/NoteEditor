@@ -101,6 +101,8 @@ namespace JianpuEditor.Tests.Services
             Assert.Equal("stac", OrnamentService.GetPlaceholderGlyph(OrnamentType.Staccato));
             Assert.Equal("acc", OrnamentService.GetPlaceholderGlyph(OrnamentType.Accent));
             Assert.Equal("ten", OrnamentService.GetPlaceholderGlyph(OrnamentType.Tenuto));
+            Assert.Equal("segno", OrnamentService.GetPlaceholderGlyph(OrnamentType.Segno));
+            Assert.Equal("coda", OrnamentService.GetPlaceholderGlyph(OrnamentType.Coda));
         }
 
         [Fact]

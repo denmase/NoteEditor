@@ -729,6 +729,14 @@ namespace JianpuEditor
                 "Tenuto",
                 Keys.None,
                 (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Tenuto))));
+            ornamentMenu.DropDownItems.Add(CreateMenuItem(
+                "Segno",
+                Keys.None,
+                (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Segno))));
+            ornamentMenu.DropDownItems.Add(CreateMenuItem(
+                "Coda",
+                Keys.None,
+                (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Coda))));
             editMenu.DropDownItems.Add(ornamentMenu);
             editMenu.DropDownItems.Add(CreateMenuItem("Clear Score", Keys.None, OnClearScore));
 
@@ -822,7 +830,9 @@ namespace JianpuEditor
             ornaments.AddRow(
                 CreateRibbonButton(RibbonIcon.Staccato, "Staccato", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Staccato)), compact: true),
                 CreateRibbonButton(RibbonIcon.Accent, "Accent", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Accent)), compact: true),
-                CreateRibbonButton(RibbonIcon.Tenuto, "Tenuto", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Tenuto)), compact: true));
+                CreateRibbonButton(RibbonIcon.Tenuto, "Tenuto", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Tenuto)), compact: true),
+                CreateRibbonButton(RibbonIcon.Segno, "Segno", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Segno)), compact: true),
+                CreateRibbonButton(RibbonIcon.Coda, "Coda", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Coda)), compact: true));
             panel.Controls.Add(ornaments);
 
             var measures = new RibbonGroup("Measures");
@@ -1176,6 +1186,8 @@ namespace JianpuEditor
             ornamentsMenu.DropDownItems.Add("Staccato", null, (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Staccato)));
             ornamentsMenu.DropDownItems.Add("Accent", null, (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Accent)));
             ornamentsMenu.DropDownItems.Add("Tenuto", null, (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Tenuto)));
+            ornamentsMenu.DropDownItems.Add("Segno", null, (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Segno)));
+            ornamentsMenu.DropDownItems.Add("Coda", null, (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Coda)));
             menu.Items.Add(ornamentsMenu);
 
             AddPasteItemIfAvailable(menu);

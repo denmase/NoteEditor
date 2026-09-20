@@ -1368,7 +1368,9 @@ namespace JianpuEditor.Rendering
                 || type == OrnamentType.BreathMark
                 || type == OrnamentType.Staccato
                 || type == OrnamentType.Accent
-                || type == OrnamentType.Tenuto;
+                || type == OrnamentType.Tenuto
+                || type == OrnamentType.Segno
+                || type == OrnamentType.Coda;
         }
 
         private static float GetOrnamentAnchorX(OrnamentType type, int noteX, int noteWidth)
