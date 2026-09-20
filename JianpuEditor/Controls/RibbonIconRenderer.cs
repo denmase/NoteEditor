@@ -175,6 +175,24 @@ namespace JianpuEditor.Controls
                     g.DrawLine(pen, 10f, 2f, 10f, 18f);
                     g.DrawLine(pen, 2f, 10f, 18f, 10f);
                     return;
+                case RibbonIcon.DynamicPianissimo:
+                    DrawDynamicLabel(g, brush, "pp");
+                    return;
+                case RibbonIcon.DynamicPiano:
+                    DrawDynamicLabel(g, brush, "p");
+                    return;
+                case RibbonIcon.DynamicMezzoPiano:
+                    DrawDynamicLabel(g, brush, "mp");
+                    return;
+                case RibbonIcon.DynamicMezzoForte:
+                    DrawDynamicLabel(g, brush, "mf");
+                    return;
+                case RibbonIcon.DynamicForte:
+                    DrawDynamicLabel(g, brush, "f");
+                    return;
+                case RibbonIcon.DynamicFortissimo:
+                    DrawDynamicLabel(g, brush, "ff");
+                    return;
                 case RibbonIcon.Duplicate:
                     g.DrawRectangle(pen, 3f, 6f, 10f, 10f);
                     g.DrawLine(pen, 7f, 6f, 7f, 4f);
@@ -248,6 +266,15 @@ namespace JianpuEditor.Controls
                     g.DrawLine(pen, 12.5f, 12.5f, 17f, 17f);
                     g.DrawLine(pen, 5.5f, 8f, 10.5f, 8f);
                     return;
+            }
+        }
+
+        private static void DrawDynamicLabel(Graphics g, Brush brush, string text)
+        {
+            using (var font = new Font("Times New Roman", 11f, FontStyle.Bold | FontStyle.Italic))
+            using (var format = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
+            {
+                g.DrawString(text, font, brush, new RectangleF(0f, 0f, Space, Space), format);
             }
         }
 

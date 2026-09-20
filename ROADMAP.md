@@ -29,12 +29,13 @@ Until now, playback always used whatever General MIDI patch 0 (Acoustic Grand Pi
 
 ## Indonesian notasi angka completeness (gap analysis + plan)
 
-**Status: phase 3's bug-fix half, phase 4 (all of it except Glissando), phase 6 (breath marks),
-the Segno/Coda half of phase 7, and phase 10 (pickup measure verification) are done. Everything
-else below is still not started**, including phases 1-2 (`NotationStyle` + the accidental slash
-convention) -- see the note under phase 2 for why that one turned out to be more involved than it
-looked, and the new note there about the natural sign specifically. Phase 10 also surfaced a
-separate, real gap in MIDI import (pickup measures aren't preserved) -- see the note under phase
+**Status: phase 3's bug-fix half, phase 4 (all of it except Glissando), the discrete-levels half
+of phase 5 (dynamics), phase 6 (breath marks), the Segno/Coda half of phase 7, and phase 10
+(pickup measure verification) are done. Everything else below is still not started**, including
+phases 1-2 (`NotationStyle` + the accidental slash convention) -- see the note under phase 2 for
+why that one turned out to be more involved than it looked, and the new note there about the
+natural sign specifically. Phase 10 also surfaced a separate, real gap in MIDI import (pickup
+measures aren't preserved) -- see the note under phase
 10.
 
 Researched Indonesian *notasi angka* (Indonesian numbered/jianpu notation — rules, symbols,
@@ -141,10 +142,39 @@ here and intentionally excluded.*
    trill/turn/mordent/grace note) instead of a new branch in the ornament-expansion if/else-if
    chain -- so none of this carries the layout-band risk flagged elsewhere in this phase. Glissando
    (pitch-bend between notes) is the one genuinely harder case -- left for its own separate step.
-5. **Dynamics markings.** New model (a marking anchored to a beat, e.g. `mf`/`cresc.`/`dim.`,
-   plus optionally a hairpin start/end pair), a small "add dynamic here" UI mirroring how chord
-   markers already attach to a beat, rendering below the melody row, and a playback/MIDI-export
-   velocity-scaling pass applied to notes until the next marking.
+5. **Dynamics markings — the six discrete levels (pp/p/mp/mf/f/ff) are done; hairpins
+   (cresc./dim.) are not.** New `DynamicMarking` model (`Text` + `NoteIndex`/`BeatPosition`,
+   mirroring `JianpuOrnament`'s note-index resolution, but with "at most one marking per note"
+   toggle/replace semantics instead of ornaments' additive semantics — a note can't be both piano
+   and forte). UI is a "select a note, click a level" toolbar/menu/context-menu button set
+   (`DynamicsEditorViewModel`), not chord-marker-style click-to-add-at-a-beat/drag/inline-text-edit
+   — deliberately simpler than that richer interaction model to avoid new canvas hit-testing code,
+   since only a fixed vocabulary of levels is supported (no free-text dynamics like "molto
+   espress." in this version).
+   **Rendering got its own new row directly below the melody row** (the roadmap's original
+   ask), not the ornament band above the note — this needed expanding `StaffBlockHeight` (a
+   constant used everywhere: block bounds, hit-testing, PDF pagination content height, block
+   stacking) to insert a fourth `DynamicsRowHeight` band between the melody and the existing
+   "Secondary" (chord marker) row, touching every place that assumed exactly three rows (both
+   copies of the row-label drawing, the main `HitTest` dispatcher's row-band math, and the
+   `GetSecondaryRowTop`/`GetLyricRowTop` helper chain). This is the one item in this whole gap
+   list that carries the same category of cross-cutting layout risk flagged for the accidental
+   slash-convention work (phase 2) — done here only because the user explicitly asked for the
+   real row over the lower-risk alternative (reusing the ornament band) after being shown the
+   tradeoff. Locked in with a dedicated geometry test
+   (`StaffRowLayoutTests.RowTops_StackWithoutOverlapOrGapDrift`) asserting every row boundary
+   lines up with no gap/overlap drift, on top of the usual render-to-bitmap smoke test — but the
+   actual on-screen appearance still hasn't been visually confirmed on a real Windows machine.
+   **Playback**: a velocity-scaling pass in `ScoreMidiSchedule.BuildMelodyNotes` tracks "the
+   current dynamic level" across notes and measures (`DynamicMarkingPlaybackService` maps each
+   level to a fixed velocity 33-112), replacing the constant `MelodyVelocity` from the marked note
+   onward until the next marking or the end of the score. A score with no dynamic markings
+   schedules byte-identical output to before this existed. Applies to the melody part only, not
+   chord markers, in this version.
+   **Hairpins (cresc./dim., a gradual ramp between two points) are a separate, harder follow-up**:
+   they need continuous interpolation between two markers rather than this phase's step-function
+   level changes, plus a rendering shape (an actual `<`/`>` wedge, not text) — scoping that as its
+   own piece of work rather than folding it in here.
 6. **Breath marks — done.** Added `OrnamentType.BreathMark`, folded into the existing per-note
    ornament list/UI pattern (ribbon + Edit menu + context menu, same as Mordent). Unlike every
    other ornament here, it's anchored just *after* the note's right edge instead of centered above

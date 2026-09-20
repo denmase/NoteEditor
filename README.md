@@ -41,6 +41,12 @@ A Jianpu (numbered musical notation) editing tool built on C# WinForms, supporti
   - Delete / "Delete" removes ornaments on the selected note first
   - The canvas and PDF export draw placeholder symbols above the note (grace / tr / turn / fermata / stac / acc / ten / segno / coda); a breath mark draws just after the note instead, matching where it's placed in notasi angka/jianpu sheet music
   - Score playback and MIDI export expand grace notes, trills, turns, mordents, and fermata durations; staccato shortens the sounding duration, accent and tenuto boost velocity (accent more than tenuto); a breath mark, Segno, and Coda are visual-only and don't affect playback/export -- Segno/Coda mark where a D.S./D.C. jump would go, but the jump itself isn't performed during playback yet
+- **Dynamics**
+  - Toolbar "Dynamics" section: **pp** / **p** / **mp** / **mf** / **f** / **ff**; the menu **Edit → Dynamics** provides the same options
+  - Select a note first, then click a dynamic level; clicking the same level again removes it, clicking a different level replaces it (a note can only be at one dynamic level at a time, unlike ornaments)
+  - Dynamics render in their own row directly below the melody row, in italic bold type
+  - The dynamic level applies to that note and every note after it -- across measures -- until the next dynamic marking or the end of the score, both during playback and MIDI export (each level maps to a fixed velocity; a score with no dynamics plays exactly as before)
+  - Currently applies to the melody part only, not chord markers; there's no click-to-add-at-a-beat or drag-to-move interaction yet (select a note, then use the toolbar/menu)
 - **Ties**
   - Click "Tie" → select the start note → select the end note; Esc to cancel
   - The end note must be the same pitch as the start note (a tie sustains one pitch); picking a
@@ -186,6 +192,7 @@ You can also manually specify a version number in GitHub under **Actions → Rel
 | Toolbar "From / To" + Copy Measures | Copies measures within the specified range |
 | Tie | Click "Tie" → select the start/end note; click the arc to select it, Delete to remove |
 | Ornaments | Select a note, then click "Grace Note / Trill / Turn / Mordent / Fermata / Breath Mark / Staccato / Accent / Tenuto / Segno / Coda" in the toolbar; click the same button again to remove it |
+| Dynamics | Select a note, then click "pp / p / mp / mf / f / ff" in the toolbar; click the same level again to remove it |
 | Undo / Redo | **Edit → Undo / Redo** or **Ctrl+Z** / **Ctrl+Y** |
 | Play / Stop | Plays the score according to BPM; drag the blue progress bar to seek |
 | Transpose | Menu "Edit → Chord Transpose..."; transposes chord markers only |

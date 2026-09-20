@@ -92,12 +92,14 @@ namespace JianpuEditor.Services
             var tieExtensionCache = new Dictionary<NotePosition, double>();
             var events = new List<ScheduledMidiNote>();
             var quarterTime = 0.0;
+            var currentVelocity = MelodyVelocity;
 
             var measures = score.Measures ?? new List<JianpuMeasure>();
             for (var measureIndex = 0; measureIndex < measures.Count; measureIndex++)
             {
                 var measure = measures[measureIndex];
                 MelodyChordService.NormalizeMeasure(measure);
+                DynamicMarkingService.NormalizeMeasure(measure);
                 var notes = measure.MelodyNotes;
                 if (notes == null)
                 {
@@ -106,6 +108,12 @@ namespace JianpuEditor.Services
 
                 for (var noteIndex = 0; noteIndex < notes.Count; noteIndex++)
                 {
+                    var dynamicMarking = DynamicMarkingService.GetMarkingForNote(measure, noteIndex);
+                    if (dynamicMarking != null)
+                    {
+                        currentVelocity = DynamicMarkingPlaybackService.ResolveVelocity(dynamicMarking.Text, currentVelocity);
+                    }
+
                     var slotNote = notes[noteIndex];
                     var duration = JianpuRenderer.GetDurationUnits(slotNote);
                     var position = new NotePosition(measureIndex, noteIndex);
@@ -137,7 +145,7 @@ namespace JianpuEditor.Services
                             totalDuration,
                             tonicMidi,
                             MelodyChannel,
-                            MelodyVelocity));
+                            currentVelocity));
                     }
                     else
                     {
@@ -149,7 +157,7 @@ namespace JianpuEditor.Services
                                 DurationQuarter = totalDuration,
                                 MidiNote = ToMelodyMidiNote(note, tonicMidi),
                                 Channel = MelodyChannel,
-                                Velocity = MelodyVelocity
+                                Velocity = currentVelocity
                             });
                         }
                     }

@@ -16,6 +16,8 @@ namespace JianpuEditor.Models
 
         public List<JianpuOrnament> Ornaments { get; set; } = new List<JianpuOrnament>();
 
+        public List<DynamicMarking> Dynamics { get; set; } = new List<DynamicMarking>();
+
         public string LyricText { get; set; } = string.Empty;
     }
 }
