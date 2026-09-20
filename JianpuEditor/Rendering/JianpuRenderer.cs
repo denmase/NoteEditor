@@ -16,10 +16,11 @@ namespace JianpuEditor.Rendering
         public const int MarginLeft = 72;
         public const int MarginTop = 72;
         public const int MelodyRowHeight = 88;
+        public const int DynamicsRowHeight = 24;
         public const int SecondaryRowHeight = 40;
         public const int TextRowHeight = SecondaryRowHeight;
         public const int RowGap = 6;
-        public const int StaffBlockHeight = MelodyRowHeight + RowGap + SecondaryRowHeight + RowGap + TextRowHeight;
+        public const int StaffBlockHeight = MelodyRowHeight + RowGap + DynamicsRowHeight + RowGap + SecondaryRowHeight + RowGap + TextRowHeight;
         public const int StaffBlockSpacing = 48;
         public const int GapEdgeWidth = 10;
         public const int BarHitWidth = 10;
@@ -34,6 +35,7 @@ namespace JianpuEditor.Rendering
         private readonly Font _ornamentLatinStackedFont = new Font("Arial", 11f, FontStyle.Italic);
         private readonly Font _noteFont = new Font("Arial", 26f, FontStyle.Bold);
         private readonly Font _secondaryFont = new Font("Arial", 20f, FontStyle.Bold);
+        private readonly Font _dynamicsFont = new Font("Times New Roman", 14f, FontStyle.Bold | FontStyle.Italic);
         private bool _disposed;
         private ScoreLayoutOptions _activeLayoutOptions;
 
@@ -73,6 +75,7 @@ namespace JianpuEditor.Rendering
             _ornamentLatinStackedFont.Dispose();
             _noteFont.Dispose();
             _secondaryFont.Dispose();
+            _dynamicsFont.Dispose();
             _disposed = true;
         }
 
@@ -234,7 +237,8 @@ namespace JianpuEditor.Rendering
                 }
 
                 var melodyBottom = measure.BlockTop + MelodyRowHeight;
-                var secondaryTop = melodyBottom + RowGap;
+                var dynamicsBottom = melodyBottom + RowGap + DynamicsRowHeight;
+                var secondaryTop = dynamicsBottom + RowGap;
                 var secondaryBottom = secondaryTop + SecondaryRowHeight;
                 var lyricTop = secondaryBottom + RowGap;
                 var lyricBottom = lyricTop + TextRowHeight;
@@ -242,6 +246,15 @@ namespace JianpuEditor.Rendering
                 if (point.Y < melodyBottom)
                 {
                     return HitTestMelodyRow(score, measure, point);
+                }
+
+                if (point.Y < dynamicsBottom)
+                {
+                    return new ScoreHitResult
+                    {
+                        HitType = ScoreHitType.Measure,
+                        MeasureIndex = measure.MeasureIndex
+                    };
                 }
 
                 if (point.Y < secondaryBottom)
@@ -538,9 +551,14 @@ namespace JianpuEditor.Rendering
             return new Rectangle(measure.X + 4, rowTop + 2, measure.Width - 8, rowHeight - 4);
         }
 
-        public static int GetSecondaryRowTop(MeasureLayout measure)
+        public static int GetDynamicsRowTop(MeasureLayout measure)
         {
             return measure.BlockTop + MelodyRowHeight + RowGap;
+        }
+
+        public static int GetSecondaryRowTop(MeasureLayout measure)
+        {
+            return GetDynamicsRowTop(measure) + DynamicsRowHeight + RowGap;
         }
 
         public static int GetLyricRowTop(MeasureLayout measure)
@@ -562,8 +580,9 @@ namespace JianpuEditor.Rendering
         private void DrawRowLabelsForBlock(Graphics g, int blockTop)
         {
             DrawRowLabel(g, "Melody", blockTop + 28);
-            DrawRowLabel(g, "Secondary", blockTop + MelodyRowHeight + RowGap + 10);
-            DrawRowLabel(g, "Lyrics", blockTop + MelodyRowHeight + RowGap + SecondaryRowHeight + RowGap + 8);
+            DrawRowLabel(g, "Dynamics", blockTop + MelodyRowHeight + RowGap + 6);
+            DrawRowLabel(g, "Secondary", blockTop + MelodyRowHeight + RowGap + DynamicsRowHeight + RowGap + 10);
+            DrawRowLabel(g, "Lyrics", blockTop + MelodyRowHeight + RowGap + DynamicsRowHeight + RowGap + SecondaryRowHeight + RowGap + 8);
         }
 
         private void DrawHeader(Graphics g, JianpuScore score, int width, ScoreLayoutOptions options)
@@ -765,8 +784,9 @@ namespace JianpuEditor.Rendering
 
             var blockTop = layout.Lines[0].BlockTop;
             DrawRowLabel(g, "Melody", blockTop + 28);
-            DrawRowLabel(g, "Secondary", blockTop + MelodyRowHeight + RowGap + 10);
-            DrawRowLabel(g, "Lyrics", blockTop + MelodyRowHeight + RowGap + SecondaryRowHeight + RowGap + 8);
+            DrawRowLabel(g, "Dynamics", blockTop + MelodyRowHeight + RowGap + 6);
+            DrawRowLabel(g, "Secondary", blockTop + MelodyRowHeight + RowGap + DynamicsRowHeight + RowGap + 10);
+            DrawRowLabel(g, "Lyrics", blockTop + MelodyRowHeight + RowGap + DynamicsRowHeight + RowGap + SecondaryRowHeight + RowGap + 8);
         }
 
         private void DrawRowLabel(Graphics g, string text, float y)
@@ -876,6 +896,7 @@ namespace JianpuEditor.Rendering
                 }
 
                 DrawMelodyRow(g, measureData, measure, selectedMeasureIndex, selectedNoteIndex, selectedInsertIndex, selectedNotes);
+                DrawDynamicsRow(g, measureData, measure);
                 DrawChordMarkersRow(
                     g,
                     measureData,
@@ -1670,6 +1691,31 @@ namespace JianpuEditor.Rendering
                 MeasureIndex = measure.MeasureIndex,
                 Bounds = bounds.ToIntRect()
             };
+        }
+
+        private void DrawDynamicsRow(Graphics g, JianpuMeasure measureData, MeasureLayout measure)
+        {
+            DynamicMarkingService.NormalizeMeasure(measureData);
+            if (measureData.Dynamics.Count == 0)
+            {
+                return;
+            }
+
+            var rowBounds = DynamicMarkingLayout.GetRowBounds(measure);
+            using (var ink = CreateInkBrush())
+            {
+                foreach (var marking in measureData.Dynamics)
+                {
+                    if (string.IsNullOrWhiteSpace(marking.Text))
+                    {
+                        continue;
+                    }
+
+                    var anchorX = ChordMarkerLayout.GetBeatAnchorX(measure, measureData, marking.BeatPosition);
+                    var y = rowBounds.Top + (rowBounds.Height - _dynamicsFont.Height) / 2f;
+                    g.DrawString(marking.Text, _dynamicsFont, ink, anchorX, y);
+                }
+            }
         }
 
         private void DrawChordMarkersRow(

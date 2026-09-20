@@ -82,6 +82,20 @@ namespace JianpuEditor.Tests.Rendering
         }
 
         [Fact]
+        public void RenderToBitmap_DynamicMarking_DoesNotThrow()
+        {
+            var measure = ScoreTestHelper.Measure(ScoreTestHelper.Note(1), ScoreTestHelper.Note(2));
+            DynamicMarkingService.TrySetForNote(measure, 0, "mf");
+
+            var score = ScoreTestHelper.CreateScore(measure);
+            using (var renderer = new JianpuRenderer())
+            {
+                Assert.NotNull(renderer.RenderToBitmap(score, 1280, ScoreLayoutOptions.Editor));
+                Assert.NotNull(renderer.RenderToBitmap(score, 1280, ScoreLayoutOptions.Default));
+            }
+        }
+
+        [Fact]
         public void GetAccidentalMark_ReturnsSharpOrFlat()
         {
             var sharp = new JianpuNote { Type = NoteType.Note, Pitch = 1.5, Accidental = AccidentalKind.Sharp };

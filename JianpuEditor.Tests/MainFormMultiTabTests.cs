@@ -289,6 +289,7 @@ namespace JianpuEditor.Tests
             services.AddScoped<MeasureContentViewModel>();
             services.AddScoped<ChordEditorViewModel>();
             services.AddScoped<OrnamentEditorViewModel>();
+            services.AddScoped<DynamicsEditorViewModel>();
             services.AddScoped<ScoreEditorViewModel>();
             services.AddScoped<PlaybackViewModel>();
             services.AddScoped<MainViewModel>();

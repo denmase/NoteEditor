@@ -28,6 +28,7 @@ namespace JianpuEditor.ViewModels
             MeasureContentViewModel measureContent,
             ChordEditorViewModel chordEditor,
             OrnamentEditorViewModel ornamentEditor,
+            DynamicsEditorViewModel dynamicsEditor,
             ScoreEditorViewModel scoreEditor,
             PlaybackViewModel playback,
             SampleLibraryViewModel sampleLibrary,
@@ -45,6 +46,7 @@ namespace JianpuEditor.ViewModels
             MeasureContent = measureContent ?? throw new ArgumentNullException(nameof(measureContent));
             ChordEditor = chordEditor ?? throw new ArgumentNullException(nameof(chordEditor));
             OrnamentEditor = ornamentEditor ?? throw new ArgumentNullException(nameof(ornamentEditor));
+            DynamicsEditor = dynamicsEditor ?? throw new ArgumentNullException(nameof(dynamicsEditor));
             ScoreEditor = scoreEditor ?? throw new ArgumentNullException(nameof(scoreEditor));
             Playback = playback ?? throw new ArgumentNullException(nameof(playback));
             SampleLibrary = sampleLibrary ?? throw new ArgumentNullException(nameof(sampleLibrary));
@@ -87,6 +89,8 @@ namespace JianpuEditor.ViewModels
         public ChordEditorViewModel ChordEditor { get; }
 
         public OrnamentEditorViewModel OrnamentEditor { get; }
+
+        public DynamicsEditorViewModel DynamicsEditor { get; }
 
         public ScoreEditorViewModel ScoreEditor { get; }
 

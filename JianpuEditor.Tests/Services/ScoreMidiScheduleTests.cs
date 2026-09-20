@@ -75,6 +75,59 @@ namespace JianpuEditor.Tests.Services
         }
 
         [Fact]
+        public void Build_NoDynamicMarkings_UsesDefaultMelodyVelocityForEveryNote()
+        {
+            var score = ScoreTestHelper.CreateScore(
+                ScoreTestHelper.Measure(ScoreTestHelper.Note(1), ScoreTestHelper.Note(2)));
+
+            var schedule = ScoreMidiSchedule.Build(score);
+            var melodyNotes = schedule.Notes.Where(note => note.Channel == ScoreMidiSchedule.MelodyChannel).ToList();
+
+            Assert.All(melodyNotes, note => Assert.Equal(ScoreMidiSchedule.MelodyVelocity, note.Velocity));
+        }
+
+        [Fact]
+        public void Build_DynamicMarking_AppliesVelocityFromThatNoteOnwardAcrossMeasures()
+        {
+            var score = ScoreTestHelper.CreateScore(
+                ScoreTestHelper.Measure(ScoreTestHelper.Note(1), ScoreTestHelper.Note(2)),
+                ScoreTestHelper.Measure(ScoreTestHelper.Note(3)));
+            DynamicMarkingService.TrySetForNote(score.Measures[0], 1, "pp");
+
+            var schedule = ScoreMidiSchedule.Build(score);
+            var melodyNotes = schedule.Notes
+                .Where(note => note.Channel == ScoreMidiSchedule.MelodyChannel)
+                .OrderBy(note => note.StartQuarter)
+                .ToList();
+
+            Assert.Equal(ScoreMidiSchedule.MelodyVelocity, melodyNotes[0].Velocity);
+            Assert.Equal(DynamicMarkingPlaybackService.PianissimoVelocity, melodyNotes[1].Velocity);
+            Assert.Equal(DynamicMarkingPlaybackService.PianissimoVelocity, melodyNotes[2].Velocity);
+        }
+
+        [Fact]
+        public void Build_SecondDynamicMarking_OverridesTheFirstFromItsNoteOnward()
+        {
+            var score = ScoreTestHelper.CreateScore(
+                ScoreTestHelper.Measure(
+                    ScoreTestHelper.Note(1),
+                    ScoreTestHelper.Note(2),
+                    ScoreTestHelper.Note(3)));
+            DynamicMarkingService.TrySetForNote(score.Measures[0], 0, "ff");
+            DynamicMarkingService.TrySetForNote(score.Measures[0], 2, "pp");
+
+            var schedule = ScoreMidiSchedule.Build(score);
+            var melodyNotes = schedule.Notes
+                .Where(note => note.Channel == ScoreMidiSchedule.MelodyChannel)
+                .OrderBy(note => note.StartQuarter)
+                .ToList();
+
+            Assert.Equal(DynamicMarkingPlaybackService.FortissimoVelocity, melodyNotes[0].Velocity);
+            Assert.Equal(DynamicMarkingPlaybackService.FortissimoVelocity, melodyNotes[1].Velocity);
+            Assert.Equal(DynamicMarkingPlaybackService.PianissimoVelocity, melodyNotes[2].Velocity);
+        }
+
+        [Fact]
         public void Build_SuppressesTieEndNotes()
         {
             var score = ScoreTestHelper.CreateScore(ScoreTestHelper.Measure(

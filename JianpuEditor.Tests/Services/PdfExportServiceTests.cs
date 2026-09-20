@@ -75,7 +75,7 @@ namespace JianpuEditor.Tests.Services
 
         [Theory]
         [InlineData(1, 1)]
-        [InlineData(7, 1)]
+        [InlineData(7, 2)]
         [InlineData(8, 2)]
         public void PlanPages_LineCount_MapsToExpectedPageCount(int lineCount, int expectedPages)
         {

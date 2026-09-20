@@ -115,6 +115,7 @@ namespace JianpuEditor.ViewModels
                             MelodyChordService.RemoveSlot(targetMeasure, noteIndex);
                             TieMaintenanceService.OnNoteRemoved(_document.Score, group.Key, noteIndex);
                             OrnamentService.OnNoteRemoved(targetMeasure, noteIndex);
+                            DynamicMarkingService.OnNoteRemoved(targetMeasure, noteIndex);
                             removedCount++;
                         }
                     }
@@ -141,6 +142,7 @@ namespace JianpuEditor.ViewModels
                 MelodyChordService.RemoveSlot(measure, noteIndex);
                 TieMaintenanceService.OnNoteRemoved(_document.Score, measureIndex, noteIndex);
                 OrnamentService.OnNoteRemoved(measure, noteIndex);
+                DynamicMarkingService.OnNoteRemoved(measure, noteIndex);
                 return new ScoreEditResult
                 {
                     Changed = true,

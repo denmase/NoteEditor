@@ -738,6 +738,14 @@ namespace JianpuEditor
                 Keys.None,
                 (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Coda))));
             editMenu.DropDownItems.Add(ornamentMenu);
+            var dynamicsMenu = new ToolStripMenuItem("Dynamics");
+            dynamicsMenu.DropDownItems.Add(CreateMenuItem("pp", Keys.None, (s, e) => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.SetDynamic("pp"))));
+            dynamicsMenu.DropDownItems.Add(CreateMenuItem("p", Keys.None, (s, e) => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.SetDynamic("p"))));
+            dynamicsMenu.DropDownItems.Add(CreateMenuItem("mp", Keys.None, (s, e) => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.SetDynamic("mp"))));
+            dynamicsMenu.DropDownItems.Add(CreateMenuItem("mf", Keys.None, (s, e) => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.SetDynamic("mf"))));
+            dynamicsMenu.DropDownItems.Add(CreateMenuItem("f", Keys.None, (s, e) => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.SetDynamic("f"))));
+            dynamicsMenu.DropDownItems.Add(CreateMenuItem("ff", Keys.None, (s, e) => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.SetDynamic("ff"))));
+            editMenu.DropDownItems.Add(dynamicsMenu);
             editMenu.DropDownItems.Add(CreateMenuItem("Clear Score", Keys.None, OnClearScore));
 
             var viewMenu = new ToolStripMenuItem("View");
@@ -834,6 +842,16 @@ namespace JianpuEditor
                 CreateRibbonButton(RibbonIcon.Segno, "Segno", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Segno)), compact: true),
                 CreateRibbonButton(RibbonIcon.Coda, "Coda", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Coda)), compact: true));
             panel.Controls.Add(ornaments);
+
+            var dynamics = new RibbonGroup("Dynamics");
+            dynamics.AddRow(
+                CreateRibbonButton(RibbonIcon.DynamicPianissimo, "pp", () => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.SetDynamic("pp")), compact: true),
+                CreateRibbonButton(RibbonIcon.DynamicPiano, "p", () => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.SetDynamic("p")), compact: true),
+                CreateRibbonButton(RibbonIcon.DynamicMezzoPiano, "mp", () => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.SetDynamic("mp")), compact: true),
+                CreateRibbonButton(RibbonIcon.DynamicMezzoForte, "mf", () => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.SetDynamic("mf")), compact: true),
+                CreateRibbonButton(RibbonIcon.DynamicForte, "f", () => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.SetDynamic("f")), compact: true),
+                CreateRibbonButton(RibbonIcon.DynamicFortissimo, "ff", () => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.SetDynamic("ff")), compact: true));
+            panel.Controls.Add(dynamics);
 
             var measures = new RibbonGroup("Measures");
             _measureSelector.Minimum = 1;
@@ -1189,6 +1207,15 @@ namespace JianpuEditor
             ornamentsMenu.DropDownItems.Add("Segno", null, (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Segno)));
             ornamentsMenu.DropDownItems.Add("Coda", null, (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Coda)));
             menu.Items.Add(ornamentsMenu);
+
+            var dynamicsMenu = new ToolStripMenuItem("Dynamics");
+            dynamicsMenu.DropDownItems.Add("pp", null, (s, e) => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.SetDynamic("pp")));
+            dynamicsMenu.DropDownItems.Add("p", null, (s, e) => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.SetDynamic("p")));
+            dynamicsMenu.DropDownItems.Add("mp", null, (s, e) => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.SetDynamic("mp")));
+            dynamicsMenu.DropDownItems.Add("mf", null, (s, e) => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.SetDynamic("mf")));
+            dynamicsMenu.DropDownItems.Add("f", null, (s, e) => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.SetDynamic("f")));
+            dynamicsMenu.DropDownItems.Add("ff", null, (s, e) => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.SetDynamic("ff")));
+            menu.Items.Add(dynamicsMenu);
 
             AddPasteItemIfAvailable(menu);
         }

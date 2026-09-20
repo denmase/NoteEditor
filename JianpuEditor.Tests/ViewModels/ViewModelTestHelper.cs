@@ -113,6 +113,21 @@ namespace JianpuEditor.Tests.ViewModels
                 messenger);
         }
 
+        public static DynamicsEditorViewModel CreateDynamicsEditor(
+            ScoreDocumentViewModel document,
+            MeasureNavigationViewModel navigation,
+            ScoreSelectionViewModel selection,
+            IAppMessenger messenger,
+            IEditCommandHistory history = null)
+        {
+            return new DynamicsEditorViewModel(
+                document,
+                navigation,
+                selection,
+                history ?? CreateHistory(messenger),
+                messenger);
+        }
+
         public static ScoreEditorViewModel CreateScoreEditor(
             ScoreDocumentViewModel document,
             ScoreSelectionViewModel selection,
@@ -152,6 +167,7 @@ namespace JianpuEditor.Tests.ViewModels
                 history,
                 messenger);
             var ornamentEditor = new OrnamentEditorViewModel(document, selection, history, messenger);
+            var dynamicsEditor = new DynamicsEditorViewModel(document, measureNavigation, selection, history, messenger);
             var scoreEditor = new ScoreEditorViewModel(
                 document,
                 selection,
@@ -171,6 +187,7 @@ namespace JianpuEditor.Tests.ViewModels
                 measureContent,
                 chordEditor,
                 ornamentEditor,
+                dynamicsEditor,
                 scoreEditor,
                 playback,
                 sampleLibrary,
@@ -202,6 +219,7 @@ namespace JianpuEditor.Tests.ViewModels
                 history,
                 messenger);
             var ornamentEditor = new OrnamentEditorViewModel(document, selection, history, messenger);
+            var dynamicsEditor = new DynamicsEditorViewModel(document, measureNavigation, selection, history, messenger);
             var scoreEditor = new ScoreEditorViewModel(
                 document,
                 selection,
@@ -221,6 +239,7 @@ namespace JianpuEditor.Tests.ViewModels
                 measureContent,
                 chordEditor,
                 ornamentEditor,
+                dynamicsEditor,
                 scoreEditor,
                 playback,
                 sampleLibrary,
