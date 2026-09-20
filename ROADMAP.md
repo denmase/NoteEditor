@@ -29,12 +29,13 @@ Until now, playback always used whatever General MIDI patch 0 (Acoustic Grand Pi
 
 ## Indonesian notasi angka completeness (gap analysis + plan)
 
-**Status: phase 3's bug-fix half, phase 4 (all of it except Glissando), phase 6 (breath marks), and
-phase 10 (pickup measure verification) are done. Everything else below is still not started**,
-including phases 1-2 (`NotationStyle` + the accidental slash convention) -- see the note under
-phase 2 for why that one turned out to be more involved than it looked, and the new note there
-about the natural sign specifically. Phase 10 also surfaced a separate, real gap in MIDI import
-(pickup measures aren't preserved) -- see the note under phase 10.
+**Status: phase 3's bug-fix half, phase 4 (all of it except Glissando), phase 6 (breath marks),
+the Segno/Coda half of phase 7, and phase 10 (pickup measure verification) are done. Everything
+else below is still not started**, including phases 1-2 (`NotationStyle` + the accidental slash
+convention) -- see the note under phase 2 for why that one turned out to be more involved than it
+looked, and the new note there about the natural sign specifically. Phase 10 also surfaced a
+separate, real gap in MIDI import (pickup measures aren't preserved) -- see the note under phase
+10.
 
 Researched Indonesian *notasi angka* (Indonesian numbered/jianpu notation — rules, symbols,
 conventions) against what `JianpuEditor` actually implements. Full gap list and phased plan below.
@@ -153,13 +154,22 @@ here and intentionally excluded.*
    participate in `NoteTopAnnotationPlanner`'s accidental/octave-dot collision math at all, so it
    carries none of the layout risk flagged under phase 2. Visual-only, no playback/MIDI-export
    effect (a version that inserts a micro-rest is a possible follow-up, not v1).
-7. **Repeat bar lines, volta brackets, and D.C./D.S./Coda/Segno navigation.** Two sub-parts with
-   very different risk:
-   - **Visual-only** (lower risk): a `BarLineType` field per measure boundary (single/double/
-     final/repeat-start/repeat-end), a volta-bracket span (which measures, which ending number)
-     for 1st/2nd endings, and `Segno`/`Coda` as measure-anchored markers using the `OrnamentType`
-     values that already exist. Playback/MIDI export keep playing straight through once, same as
-     today, with a status message noting repeat structure isn't performed.
+7. **Repeat bar lines, volta brackets, and D.C./D.S./Coda/Segno navigation.** Three sub-parts:
+   - **Segno/Coda markers — done.** Wired up via the exact same ribbon/Edit-menu/context-menu/
+     glyph pattern as Staccato/Accent/Tenuto, using the `OrnamentType.Segno`/`Coda` values that
+     already existed. These two are genuinely note/beat-anchored point symbols in real notation
+     (unlike a repeat bar line, which decorates the barline itself, spanning the staff height) —
+     see the note below on why `RepeatStart`/`RepeatEnd` were deliberately *not* wired the same
+     way. Visual-only: no playback/MIDI-export effect, since jumping to a Segno/Coda isn't
+     performed (see the third bullet below).
+   - **Repeat bar lines and volta brackets — not started.** A `BarLineType` field per measure
+     boundary (single/double/final/repeat-start/repeat-end) and a volta-bracket span (which
+     measures, which ending number) for 1st/2nd endings. `OrnamentType.RepeatStart`/`RepeatEnd`
+     exist in the enum but are deliberately being left unwired rather than reused for this — a
+     repeat bar line isn't a note-anchored ornament the way Segno/Coda are, it's a property of the
+     measure boundary itself (a thick double bar with dots, spanning the full staff height), so
+     modeling it as a `BarLineType` field (as originally planned) is the right shape, not a UI
+     wiring exercise on the existing enum values.
    - **Actually performing the repeat/jump/volta-skip during playback and MIDI export** (higher
      risk): needs real changes to `ScoreMidiSchedule`/`ScorePlaybackService`/`MidiExportService`'s
      scheduling, which today assumes one linear pass through the measures. Worth scoping and
