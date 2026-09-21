@@ -72,8 +72,16 @@ namespace JianpuEditor.Services
                 if (measures[i].BarLineType == BarLineType.RepeatEnd && !repeatEndsUsed.Contains(i))
                 {
                     repeatEndsUsed.Add(i);
+                    var jumpTarget = lastRepeatStart;
+                    // A later RepeatEnd with no IsRepeatStart of its own implicitly begins right
+                    // after this resolved repeat, not back at this one's own start -- otherwise
+                    // two independent repeated sections in a row would both keep jumping back to
+                    // the first one's start, replaying the whole piece an extra time per section
+                    // instead of each section repeating independently. An explicit IsRepeatStart
+                    // encountered before the next RepeatEnd overrides this.
+                    lastRepeatStart = i + 1;
                     pass = 2;
-                    i = lastRepeatStart;
+                    i = jumpTarget;
                     continue;
                 }
 
