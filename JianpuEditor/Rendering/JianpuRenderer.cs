@@ -36,6 +36,7 @@ namespace JianpuEditor.Rendering
         private readonly Font _noteFont = new Font("Arial", 26f, FontStyle.Bold);
         private readonly Font _secondaryFont = new Font("Arial", 20f, FontStyle.Bold);
         private readonly Font _dynamicsFont = new Font("Times New Roman", 14f, FontStyle.Bold | FontStyle.Italic);
+        private readonly Font _voltaFont = new Font("Arial", 9f, FontStyle.Bold);
         private bool _disposed;
         private ScoreLayoutOptions _activeLayoutOptions;
 
@@ -76,6 +77,7 @@ namespace JianpuEditor.Rendering
             _noteFont.Dispose();
             _secondaryFont.Dispose();
             _dynamicsFont.Dispose();
+            _voltaFont.Dispose();
             _disposed = true;
         }
 
@@ -115,7 +117,7 @@ namespace JianpuEditor.Rendering
         {
             options = options ?? ScoreLayoutOptions.Default;
             var layout = BuildLayout(score, maxWidth, options);
-            var marginTop = GetMarginTop(options);
+            var marginTop = GetMarginTop(options, score);
             var height = marginTop + layout.Lines.Count * StaffBlockHeight
                          + Math.Max(0, layout.Lines.Count - 1) * StaffBlockSpacing + 48;
             return new Size(Math.Max(maxWidth, layout.TotalWidth + MarginLeft), Math.Max(320, height));
@@ -443,7 +445,7 @@ namespace JianpuEditor.Rendering
             if (layout.Lines.Count == 0 || slice.LineCount <= 0)
             {
                 var emptyHeight = slice.PageNumber == 1
-                    ? GetMarginTop(options)
+                    ? GetMarginTop(options, score)
                     : PdfPagePlanner.CompactHeaderHeight;
                 emptyHeight += PdfPagePlanner.BottomMargin;
                 var emptyBitmap = new Bitmap(Math.Max(1, width), Math.Max(1, emptyHeight));
@@ -469,7 +471,7 @@ namespace JianpuEditor.Rendering
             var lastLine = layout.Lines[start + count - 1];
             var contentHeight = lastLine.BlockTop + StaffBlockHeight - firstLine.BlockTop;
             var headerHeight = slice.PageNumber == 1
-                ? GetMarginTop(options)
+                ? GetMarginTop(options, score)
                 : PdfPagePlanner.CompactHeaderHeight;
             var bitmapHeight = headerHeight + contentHeight + PdfPagePlanner.BottomMargin;
             var bitmap = new Bitmap(width, Math.Max(1, bitmapHeight));
@@ -492,6 +494,7 @@ namespace JianpuEditor.Rendering
                 DrawRowLabelsForBlock(g, firstLine.BlockTop);
                 DrawStaffLineRange(g, score, layout, start, count, options);
                 DrawTiesForLineRange(g, score, layout, start, count, -1);
+                DrawVoltaBrackets(g, score, layout, start, count);
                 _activeLayoutOptions = null;
             }
 
@@ -624,7 +627,7 @@ namespace JianpuEditor.Rendering
         private ScoreHitResult HitTestHeader(JianpuScore score, int width, Point point, ScoreLayoutOptions options = null)
         {
             options = options ?? ScoreLayoutOptions.Default;
-            var marginTop = GetMarginTop(options);
+            var marginTop = GetMarginTop(options, score);
             if (point.Y < 0 || point.Y >= marginTop)
             {
                 return null;
@@ -823,6 +826,7 @@ namespace JianpuEditor.Rendering
                 selectedNotes,
                 layoutOptions);
             DrawTiesForLineRange(g, score, layout, 0, layout.Lines.Count, selectedTieIndex);
+            DrawVoltaBrackets(g, score, layout, 0, layout.Lines.Count);
         }
 
         private void DrawStaffLineRange(
@@ -1016,6 +1020,52 @@ namespace JianpuEditor.Rendering
                         geometry.ArchTop,
                         geometry.X2,
                         geometry.BaseY);
+                }
+            }
+        }
+
+        /// <summary>Draws numbered ending brackets in the gap above each staff line (the same
+        /// headroom "Beams Above Notes" mode already reaches into for its beam lines), so it needs
+        /// no new row and can't affect StaffBlockHeight/hit-testing/PDF pagination. A bracket whose
+        /// start and end measures land on different staff lines (a line wrap falls inside it) is
+        /// skipped rather than drawn broken across two systems -- narrow scores rarely need more
+        /// than a handful of measures per ending, so this is expected to be rare in practice.</summary>
+        private void DrawVoltaBrackets(Graphics g, JianpuScore score, ScoreLayout layout, int firstLineIndex, int lineCount)
+        {
+            if (score?.Voltas == null || score.Voltas.Count == 0)
+            {
+                return;
+            }
+
+            var visibleMeasures = BuildVisibleMeasures(layout, firstLineIndex, lineCount);
+            foreach (var volta in score.Voltas)
+            {
+                var startLayout = FindMeasureLayout(layout, volta.StartMeasureIndex);
+                var endLayout = FindMeasureLayout(layout, volta.EndMeasureIndex);
+                if (startLayout == null
+                    || endLayout == null
+                    || !visibleMeasures.Contains(startLayout)
+                    || !visibleMeasures.Contains(endLayout)
+                    || startLayout.BlockTop != endLayout.BlockTop)
+                {
+                    continue;
+                }
+
+                var lineY = startLayout.BlockTop - 24;
+                var tickBottomY = startLayout.BlockTop - 16;
+                var x1 = startLayout.X;
+                var x2 = endLayout.BarLineX;
+
+                using (var pen = CreateInkPen(1.5f))
+                {
+                    g.DrawLine(pen, x1, lineY, x2, lineY);
+                    g.DrawLine(pen, x1, lineY, x1, tickBottomY);
+                    g.DrawLine(pen, x2, lineY, x2, tickBottomY);
+                }
+
+                using (var brush = CreateInkBrush())
+                {
+                    g.DrawString(volta.Label, _voltaFont, brush, x1 + 4, lineY - 13);
                 }
             }
         }
@@ -2322,14 +2372,29 @@ namespace JianpuEditor.Rendering
             }
         }
 
-        private static int GetMarginTop(ScoreLayoutOptions options)
+        private static int GetMarginTop(ScoreLayoutOptions options, JianpuScore score = null)
         {
             var baseMargin = options.HeaderMarginTop > 0 ? options.HeaderMarginTop : MarginTop;
             // Above-mode beam lines extend upward from the first system's melody row into this
             // margin; without extra headroom here they collide with the header (title/key/tempo)
             // text that occupies the same space. Later systems already clear the gap via
             // StaffBlockSpacing, so this only needs to cover the first row.
-            return AppTheme.UnderlinesAbove ? baseMargin + 20 : baseMargin;
+            if (AppTheme.UnderlinesAbove)
+            {
+                baseMargin += 20;
+            }
+
+            // A volta bracket also draws into this same margin (see DrawVoltaBrackets), and a
+            // score's first volta can land on the very first line, which is the one system whose
+            // headroom is the header itself rather than the plain StaffBlockSpacing gap every
+            // later system gets. Only reserved when the score actually has a volta, so scores
+            // without one keep today's exact margin.
+            if (score?.Voltas != null && score.Voltas.Count > 0)
+            {
+                baseMargin += 24;
+            }
+
+            return baseMargin;
         }
 
         private ScoreLayout BuildLayout(JianpuScore score, int maxWidth, ScoreLayoutOptions options)
@@ -2341,7 +2406,7 @@ namespace JianpuEditor.Rendering
                 return layout;
             }
 
-            var marginTop = GetMarginTop(options);
+            var marginTop = GetMarginTop(options, score);
             var usableWidth = Math.Max(
                 options.MeasuresPerLine > 0 ? 200 : 500,
                 maxWidth - MarginLeft - 16);

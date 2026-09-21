@@ -120,6 +120,23 @@ namespace JianpuEditor.Tests.Rendering
         }
 
         [Fact]
+        public void RenderToBitmap_VoltaBracket_DoesNotThrow()
+        {
+            var measure0 = ScoreTestHelper.Measure(ScoreTestHelper.Note(1), ScoreTestHelper.Note(2));
+            var measure1 = ScoreTestHelper.Measure(ScoreTestHelper.Note(3), ScoreTestHelper.Note(4));
+            var measure2 = ScoreTestHelper.Measure(ScoreTestHelper.Note(5), ScoreTestHelper.Note(6));
+            var score = ScoreTestHelper.CreateScore(measure0, measure1, measure2);
+            score.Voltas.Add(new JianpuVolta { StartMeasureIndex = 1, EndMeasureIndex = 1, Label = "1." });
+            score.Voltas.Add(new JianpuVolta { StartMeasureIndex = 2, EndMeasureIndex = 2, Label = "2." });
+
+            using (var renderer = new JianpuRenderer())
+            {
+                Assert.NotNull(renderer.RenderToBitmap(score, 1280, ScoreLayoutOptions.Editor));
+                Assert.NotNull(renderer.RenderToBitmap(score, 1280, ScoreLayoutOptions.Default));
+            }
+        }
+
+        [Fact]
         public void GetAccidentalMark_ReturnsSharpOrFlat()
         {
             var sharp = new JianpuNote { Type = NoteType.Note, Pitch = 1.5, Accidental = AccidentalKind.Sharp };

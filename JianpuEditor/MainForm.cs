@@ -769,6 +769,21 @@ namespace JianpuEditor
                 Keys.None,
                 (s, e) => ExecuteScoreEdit(() => _viewModel.MeasureContent.ToggleRepeatStart())));
             editMenu.DropDownItems.Add(barLineMenu);
+            var voltaMenu = new ToolStripMenuItem("Volta Bracket");
+            voltaMenu.DropDownItems.Add(CreateMenuItem(
+                "1st Ending",
+                Keys.None,
+                (s, e) => ExecuteScoreEdit(() => _viewModel.ScoreEditor.AddVolta("1."))));
+            voltaMenu.DropDownItems.Add(CreateMenuItem(
+                "2nd Ending",
+                Keys.None,
+                (s, e) => ExecuteScoreEdit(() => _viewModel.ScoreEditor.AddVolta("2."))));
+            voltaMenu.DropDownItems.Add(new ToolStripSeparator());
+            voltaMenu.DropDownItems.Add(CreateMenuItem(
+                "Remove Volta Bracket",
+                Keys.None,
+                (s, e) => ExecuteScoreEdit(() => _viewModel.ScoreEditor.RemoveVolta())));
+            editMenu.DropDownItems.Add(voltaMenu);
             editMenu.DropDownItems.Add(CreateMenuItem("Clear Score", Keys.None, OnClearScore));
 
             var viewMenu = new ToolStripMenuItem("View");

@@ -30,12 +30,14 @@ Until now, playback always used whatever General MIDI patch 0 (Acoustic Grand Pi
 ## Indonesian notasi angka completeness (gap analysis + plan)
 
 **Status: phase 3's bug-fix half, phase 4 (all of it except Glissando), the discrete-levels half
-of phase 5 (dynamics), phase 6 (breath marks), the Segno/Coda half of phase 7, and phase 10
-(pickup measure verification) are done. Everything else below is still not started**, including
-phases 1-2 (`NotationStyle` + the accidental slash convention) -- see the note under phase 2 for
-why that one turned out to be more involved than it looked, and the new note there about the
-natural sign specifically. Phase 10 also surfaced a separate, real gap in MIDI import (pickup
-measures aren't preserved) -- see the note under phase
+of phase 5 (dynamics), phase 6 (breath marks), and phase 7 (Segno/Coda, repeat bar lines, and
+volta brackets -- the visual halves of all three) are done. Bar line types (Single/Double/Final/
+RepeatEnd/RepeatStart) and volta brackets were bundled into phase 7 as originally scoped there.
+Phase 10 (pickup measure verification) is also done. Everything else below is still not
+started**, including phases 1-2 (`NotationStyle` + the accidental slash convention) -- see the
+note under phase 2 for why that one turned out to be more involved than it looked, and the new
+note there about the natural sign specifically. Phase 10 also surfaced a separate, real gap in
+MIDI import (pickup measures aren't preserved) -- see the note under phase
 10. A pre-existing ornament/octave-dot rendering collision (unrelated to any single phase, found
 while visually verifying the work above) is also fixed -- see the note right after phase 10 about
 this sandbox's new Mono+libgdiplus visual-verification capability.
@@ -210,9 +212,26 @@ here and intentionally excluded.*
      `MeasureContentViewModel.SetBarLineType`/`ToggleRepeatStart`, each backed by its own
      `INoteEditCommand` (`ModifyBarLineTypeCommand`/`ModifyRepeatStartCommand`) for undo/redo,
      mirroring `ModifyLyricTextCommand`'s exact shape. Visual-only, like Segno/Coda: no
-     playback/MIDI-export effect (see the third bullet below). Volta brackets (1st/2nd endings)
-     remain unimplemented: still need a score-level span model (which measures, which ending
-     number) plus a bracket+number rendering element spanning multiple measures above the staff.
+     playback/MIDI-export effect (see the third bullet below).
+   - **Volta brackets (1st/2nd endings) — done, visual only.** New score-level `JianpuVolta`
+     (`StartMeasureIndex`/`EndMeasureIndex`/`Label`) list on `JianpuScore`, mirroring `JianpuTie`'s
+     shape but anchored to whole measures instead of notes. Rendered in the previously-unused gap
+     above each staff line (`DrawVoltaBrackets`, called alongside `DrawTiesForLineRange` from both
+     the screen and PDF render paths) — the same headroom "Beams Above Notes" mode already reaches
+     into for its beam lines, so this needed no new row and doesn't touch `StaffBlockHeight`/hit-
+     testing/PDF pagination at all. A bracket whose start/end measures land on different staff
+     lines (a line wrap falls inside it) is skipped rather than drawn broken across two systems.
+     One real cross-cutting fix was needed: a volta on the very first line collided with the title/
+     key/tempo header text, since that line's headroom is the header itself rather than the plain
+     `StaffBlockSpacing` gap every later system gets — `GetMarginTop` now adds extra clearance, but
+     **only when the score actually has at least one volta**, so scores without any (100% of
+     existing scores) keep today's exact margin; confirmed byte-for-byte identical PNG output for
+     an unrelated sample score before/after this change. Edit menu > Volta Bracket ("1st Ending" /
+     "2nd Ending" / "Remove Volta Bracket") operates on the current contiguous multi-measure
+     selection (falling back to just the current measure with no multi-selection), backed by
+     `VoltaService`/`VoltaMaintenanceService` (the latter mirrors `TieMaintenanceService`'s
+     measure-removal index bookkeeping) and a `ScoreSnapshotEditCommand` for undo/redo. Visual-
+     only, like the other bar-line/navigation work above: no playback/MIDI-export effect.
    - **Actually performing the repeat/jump/volta-skip during playback and MIDI export** (higher
      risk): needs real changes to `ScoreMidiSchedule`/`ScorePlaybackService`/`MidiExportService`'s
      scheduling, which today assumes one linear pass through the measures. Worth scoping and

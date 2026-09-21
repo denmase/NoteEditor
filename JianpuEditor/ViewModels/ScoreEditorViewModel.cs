@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using JianpuEditor.Core.Abstractions;
 using JianpuEditor.Core.Messaging;
+using JianpuEditor.Core.Messaging.Messages;
 using JianpuEditor.Models;
 using JianpuEditor.Services;
 using JianpuEditor.Services.EditCommands;
@@ -156,6 +157,7 @@ namespace JianpuEditor.ViewModels
             {
                 var removedMeasureIndex = measureIndex;
                 TieMaintenanceService.OnMeasureRemoved(_document.Score, removedMeasureIndex);
+                VoltaMaintenanceService.OnMeasureRemoved(_document.Score, removedMeasureIndex);
                 _document.Score.Measures.RemoveAt(removedMeasureIndex);
                 var newIndex = Math.Max(0, removedMeasureIndex - 1);
                 _navigation.SyncCurrentMeasureIndex(newIndex);
@@ -181,6 +183,46 @@ namespace JianpuEditor.ViewModels
                 Message = "Score cleared",
                 SelectMeasureIndex = 0
             };
+        }
+
+        public ScoreEditResult AddVolta(string label)
+        {
+            return EditCommandHelper.Execute(
+                _history,
+                new ScoreSnapshotEditCommand(_document, _navigation, _messenger, () => ApplyAddVolta(label), "Add volta bracket"));
+        }
+
+        public ScoreEditResult RemoveVolta()
+        {
+            return EditCommandHelper.Execute(
+                _history,
+                new ScoreSnapshotEditCommand(_document, _navigation, _messenger, ApplyRemoveVolta, "Remove volta bracket"));
+        }
+
+        private ScoreEditResult ApplyAddVolta(string label)
+        {
+            _document.EnsureMeasures();
+            _selection.TryGetContiguousMeasureRange(out var fromIndex, out var toIndex);
+            if (!VoltaService.TryAddVolta(_document.Score, fromIndex, toIndex, label, out var message))
+            {
+                _messenger.Send(new StatusChangedMessage(message));
+                return ScoreEditResult.Unchanged;
+            }
+
+            return ScoreEditResult.WithMessage(message);
+        }
+
+        private ScoreEditResult ApplyRemoveVolta()
+        {
+            _document.EnsureMeasures();
+            var measureIndex = Math.Max(0, _navigation.CurrentMeasureIndex);
+            if (!VoltaService.TryRemoveVoltaCovering(_document.Score, measureIndex, out var message))
+            {
+                _messenger.Send(new StatusChangedMessage(message));
+                return ScoreEditResult.Unchanged;
+            }
+
+            return ScoreEditResult.WithMessage(message);
         }
 
         private List<ScoreNoteRef> GetSelectedNoteRefs()
