@@ -1472,46 +1472,6 @@ namespace JianpuEditor.Rendering
             return noteX + headWidth / 2f;
         }
 
-        private static List<List<int>> GroupNotesByQuarterBeat(List<JianpuNote> notes)
-        {
-            var groups = new List<List<int>>();
-            var current = new List<int>();
-            var sum = 0.0;
-
-            for (var i = 0; i < notes.Count; i++)
-            {
-                var duration = GetDurationUnits(notes[i]);
-                if (duration <= 0)
-                {
-                    duration = 1;
-                }
-
-                if (current.Count > 0 && sum + duration > 1.0001)
-                {
-                    groups.Add(current);
-                    current = new List<int>();
-                    sum = 0;
-                }
-
-                current.Add(i);
-                sum += duration;
-
-                if (sum >= 0.9999)
-                {
-                    groups.Add(current);
-                    current = new List<int>();
-                    sum = 0;
-                }
-            }
-
-            if (current.Count > 0)
-            {
-                groups.Add(current);
-            }
-
-            return groups;
-        }
-
         private void DrawBeatGroupUnderlines(
             Graphics g,
             JianpuMeasure measure,
@@ -1523,7 +1483,7 @@ namespace JianpuEditor.Rendering
                 return;
             }
 
-            var groups = GroupNotesByQuarterBeat(notes);
+            var groups = BeatGroupUnderlinePlanner.GroupNotesByQuarterBeat(notes);
             var rowTop = layout.BlockTop;
 
             foreach (var group in groups)
@@ -1546,101 +1506,89 @@ namespace JianpuEditor.Rendering
 
                 for (var underlineIndex = 0; underlineIndex < maxUnderlines; underlineIndex++)
                 {
-                    var spanStart = -1;
-                    var spanEnd = -1;
-                    foreach (var noteIndex in group)
+                    // A shorter note (fewer underlines) interrupting the group -- e.g. an eighth
+                    // note sandwiched between two sixteenths -- must break the deeper underline
+                    // level rather than let it span across the shorter note's own region, so this
+                    // collects every contiguous run of notes that reach this underline level
+                    // instead of just the first/last matching note in the whole group.
+                    foreach (var span in BeatGroupUnderlinePlanner.CollectSpans(group, notes, underlineIndex))
                     {
-                        if (notes[noteIndex].Underlines <= underlineIndex)
+                        var spanStart = span.Start;
+                        var spanEnd = span.End;
+                        layout.GetNoteDrawBounds(spanStart, out var startX, out var spanStartWidth);
+                        var spanStartHeadWidth = Math.Min(NoteCellWidth, spanStartWidth);
+                        var spanStartHeadCenterX = startX + spanStartHeadWidth / 2f;
+                        if (AppTheme.UnderlinesAbove)
                         {
-                            continue;
+                            // A note's slot is sized proportionally to its duration (so a dotted-eighth
+                            // like "1" gets a much wider slot than a following 16th like "6"), but the
+                            // digit itself is centered within that slot -- using the slot's raw left edge
+                            // as the beam's start leaves a visible gap of dead space before the digit for
+                            // any note whose slot is wider than its rendered text. This exists in below
+                            // mode too, but that mode is the original/default Jianpu rendering and must
+                            // stay exactly as it was -- Indonesian style is an explicit opt-in via the
+                            // View menu toggle, not a replacement, so this fix is scoped to above mode
+                            // only. Measure the actual glyph and start there instead, matching
+                            // DrawCenteredNoteText's own centering math exactly.
+                            var spanStartNote = notes[spanStart];
+                            var spanStartText = spanStartNote.Type == NoteType.Rest
+                                ? "0"
+                                : JianpuPitchCodec.GetPitchDisplayText(spanStartNote);
+                            var spanStartTextWidth = g.MeasureString(spanStartText, _noteFont).Width;
+                            startX = (int)(startX + (spanStartHeadWidth - spanStartTextWidth) / 2f);
+                        }
+                        // The barline-crossing beam gap fix (using natural, un-stretched bounds for the
+                        // beam's end) is also scoped to above mode only, for the same reason as the
+                        // start-edge fix above -- below mode is the original renderer and must not change.
+                        int endX;
+                        if (AppTheme.UnderlinesAbove)
+                        {
+                            layout.GetNoteNaturalDrawBounds(spanEnd, out var endNoteX, out var endNoteWidth);
+                            endX = endNoteX + endNoteWidth;
+                        }
+                        else
+                        {
+                            layout.GetNoteDrawBounds(spanEnd, out var endNoteX, out var endNoteWidth);
+                            endX = endNoteX + endNoteWidth;
                         }
 
-                        if (spanStart < 0)
+                        // A dotted note "borrows" part of the next beat subdivision via its augmentation
+                        // dot, so a shorter (higher-index) beam that starts right after a dotted note
+                        // should extend back to cover that dot, not start at the following note's own
+                        // left edge -- otherwise the beam looks disconnected from the rhythm it's
+                        // describing. Only above mode repositions the dot near the beam (see
+                        // DrawNoteDottedAndDashes); below mode's dot sits far enough from its own beam
+                        // that this doesn't apply.
+                        if (AppTheme.UnderlinesAbove && underlineIndex > 0 && spanStart > 0
+                            && group.Contains(spanStart - 1) && notes[spanStart - 1].Dotted)
                         {
-                            spanStart = noteIndex;
+                            layout.GetNoteDrawBounds(spanStart - 1, out var prevX, out var prevWidth);
+                            var prevHeadCenterX = prevX + Math.Min(NoteCellWidth, prevWidth) / 2f;
+                            // Match DrawNoteDottedAndDashes' above-mode dot position exactly (glyph
+                            // center to glyph center, not slot edges), so the beam's start lines up with
+                            // (a hair before) the dot instead of the following note's own edge.
+                            startX = (int)((prevHeadCenterX + spanStartHeadCenterX) / 2f - 2.5f);
                         }
-
-                        spanEnd = noteIndex;
+                        // Both modes use a fixed mapping from underlineIndex to height -- NOT the
+                        // per-group maxUnderlines -- so that every group's underlineIndex-0 (full-span)
+                        // beam lands at the same height across the whole row, regardless of whether a
+                        // neighboring group happens to have a deeper (16th-note) subdivision. Note.
+                        // Underlines is capped at 2 app-wide (see NoteEditorViewModel.GetDurationTier),
+                        // so underlineIndex only ever reaches 0 or 1.
+                        // Below mode stacks the full-span (underlineIndex 0) beam closest to the row,
+                        // with the shorter partial-span (underlineIndex 1, 16th-note level) beam farther
+                        // out, starting just past the negative-octave-dot zone (y+52+).
+                        // Above mode uses the opposite stacking order -- shorter beam closest to the
+                        // row, full-span beam farthest -- matching the Indonesian Jianpu convention (see
+                        // reference), stacked upward clear of the positive-octave-dot zone (dots only
+                        // ever grow downward from y+4, so this can't collide with them regardless of a
+                        // note's octave), using the StaffBlockSpacing gap between systems as headroom.
+                        const int maxUnderlineIndex = 1;
+                        var lineY = AppTheme.UnderlinesAbove
+                            ? rowTop - 8 - (maxUnderlineIndex - underlineIndex) * 6
+                            : rowTop + 62 + underlineIndex * 6;
+                        g.DrawLine(Pens.Black, startX, lineY, endX, lineY);
                     }
-
-                    if (spanStart < 0 || spanEnd < 0)
-                    {
-                        continue;
-                    }
-
-                    layout.GetNoteDrawBounds(spanStart, out var startX, out var spanStartWidth);
-                    var spanStartHeadWidth = Math.Min(NoteCellWidth, spanStartWidth);
-                    var spanStartHeadCenterX = startX + spanStartHeadWidth / 2f;
-                    if (AppTheme.UnderlinesAbove)
-                    {
-                        // A note's slot is sized proportionally to its duration (so a dotted-eighth
-                        // like "1" gets a much wider slot than a following 16th like "6"), but the
-                        // digit itself is centered within that slot -- using the slot's raw left edge
-                        // as the beam's start leaves a visible gap of dead space before the digit for
-                        // any note whose slot is wider than its rendered text. This exists in below
-                        // mode too, but that mode is the original/default Jianpu rendering and must
-                        // stay exactly as it was -- Indonesian style is an explicit opt-in via the
-                        // View menu toggle, not a replacement, so this fix is scoped to above mode
-                        // only. Measure the actual glyph and start there instead, matching
-                        // DrawCenteredNoteText's own centering math exactly.
-                        var spanStartNote = notes[spanStart];
-                        var spanStartText = spanStartNote.Type == NoteType.Rest
-                            ? "0"
-                            : JianpuPitchCodec.GetPitchDisplayText(spanStartNote);
-                        var spanStartTextWidth = g.MeasureString(spanStartText, _noteFont).Width;
-                        startX = (int)(startX + (spanStartHeadWidth - spanStartTextWidth) / 2f);
-                    }
-                    // The barline-crossing beam gap fix (using natural, un-stretched bounds for the
-                    // beam's end) is also scoped to above mode only, for the same reason as the
-                    // start-edge fix above -- below mode is the original renderer and must not change.
-                    int endX;
-                    if (AppTheme.UnderlinesAbove)
-                    {
-                        layout.GetNoteNaturalDrawBounds(spanEnd, out var endNoteX, out var endNoteWidth);
-                        endX = endNoteX + endNoteWidth;
-                    }
-                    else
-                    {
-                        layout.GetNoteDrawBounds(spanEnd, out var endNoteX, out var endNoteWidth);
-                        endX = endNoteX + endNoteWidth;
-                    }
-
-                    // A dotted note "borrows" part of the next beat subdivision via its augmentation
-                    // dot, so a shorter (higher-index) beam that starts right after a dotted note
-                    // should extend back to cover that dot, not start at the following note's own
-                    // left edge -- otherwise the beam looks disconnected from the rhythm it's
-                    // describing. Only above mode repositions the dot near the beam (see
-                    // DrawNoteDottedAndDashes); below mode's dot sits far enough from its own beam
-                    // that this doesn't apply.
-                    if (AppTheme.UnderlinesAbove && underlineIndex > 0 && spanStart > 0
-                        && group.Contains(spanStart - 1) && notes[spanStart - 1].Dotted)
-                    {
-                        layout.GetNoteDrawBounds(spanStart - 1, out var prevX, out var prevWidth);
-                        var prevHeadCenterX = prevX + Math.Min(NoteCellWidth, prevWidth) / 2f;
-                        // Match DrawNoteDottedAndDashes' above-mode dot position exactly (glyph
-                        // center to glyph center, not slot edges), so the beam's start lines up with
-                        // (a hair before) the dot instead of the following note's own edge.
-                        startX = (int)((prevHeadCenterX + spanStartHeadCenterX) / 2f - 2.5f);
-                    }
-                    // Both modes use a fixed mapping from underlineIndex to height -- NOT the
-                    // per-group maxUnderlines -- so that every group's underlineIndex-0 (full-span)
-                    // beam lands at the same height across the whole row, regardless of whether a
-                    // neighboring group happens to have a deeper (16th-note) subdivision. Note.
-                    // Underlines is capped at 2 app-wide (see NoteEditorViewModel.GetDurationTier),
-                    // so underlineIndex only ever reaches 0 or 1.
-                    // Below mode stacks the full-span (underlineIndex 0) beam closest to the row,
-                    // with the shorter partial-span (underlineIndex 1, 16th-note level) beam farther
-                    // out, starting just past the negative-octave-dot zone (y+52+).
-                    // Above mode uses the opposite stacking order -- shorter beam closest to the
-                    // row, full-span beam farthest -- matching the Indonesian Jianpu convention (see
-                    // reference), stacked upward clear of the positive-octave-dot zone (dots only
-                    // ever grow downward from y+4, so this can't collide with them regardless of a
-                    // note's octave), using the StaffBlockSpacing gap between systems as headroom.
-                    const int maxUnderlineIndex = 1;
-                    var lineY = AppTheme.UnderlinesAbove
-                        ? rowTop - 8 - (maxUnderlineIndex - underlineIndex) * 6
-                        : rowTop + 62 + underlineIndex * 6;
-                    g.DrawLine(Pens.Black, startX, lineY, endX, lineY);
                 }
             }
         }

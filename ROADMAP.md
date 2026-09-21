@@ -312,6 +312,32 @@ number, confirmed visually before and after, and locked in with a real regressio
 (`NoteTopAnnotationPlannerTests.AnnotationLayerClearance_CoversTheTallestStackedOrnamentFont`) that
 measures those fonts' real height rather than asserting a hardcoded pixel value.
 
+## Upstream bug-fix sync (loootte/JianpuEditor)
+
+This fork shares lineage with [loootte/JianpuEditor](https://github.com/loootte/JianpuEditor).
+Checked its recent commits for bug fixes this fork should carry too:
+
+- **Beat-group underline breaking at a shorter note — done, ported.** Upstream's fix (`fix(render):
+  break duration underlines at shorter notes`): when a note with fewer underlines (e.g. an eighth
+  note) sits between two notes with more (e.g. sixteenths) in the same beat group, the deeper
+  underline level must break at the shorter note instead of drawing one continuous line across it.
+  This fork had the exact same bug -- `DrawBeatGroupUnderlines` computed a single span per
+  underline level from the first to the last matching note in the group, ignoring any gap in
+  between. Fixed the same way upstream did: extracted the grouping/span logic out of
+  `JianpuRenderer` into a new testable `BeatGroupUnderlinePlanner` (mirroring upstream's class
+  name), whose `CollectSpans` now returns every contiguous run of notes reaching a given underline
+  level rather than just the first/last. Confirmed visually via this session's Mono+libgdiplus
+  render harness (both "Beams Above Notes" and the default below-mode render the break correctly)
+  and confirmed byte-for-byte identical output for scores with no such gap (an unaffected sample,
+  and a synthetic four-consecutive-sixteenths case).
+- **MIDI import crash on B major (`1=B`) — already fixed independently, no action needed.**
+  Upstream's fix delegates key-signature parsing to `KeySignatureService.FormatKeySignature`/
+  `TryParseTonicPitchClass` instead of manually treating a leading "B" as a flat-accidental prefix.
+  Checked `ScoreMidiSchedule.ParseTonicMidi` and `MidiImportService` here: both already call
+  through to `KeySignatureService` (this must have landed independently at some earlier point in
+  this fork's history) -- `MidiImportService.TonicNames` is dead code left over from before that,
+  harmless but unused (matches a pre-existing compiler warning already present in this fork).
+
 ## CLAP support (spike plan only, not started)
 
 Unlike VST2/BASSVST, there's no existing library to build on here — no NuGet package, no .NET binding anywhere, and BASS itself has no CLAP support (CLAP is a separate standard from a different origin, u-he/Bitwig rather than Steinberg/un4seen, released well after BASS). The [CLAP SDK](https://github.com/free-audio/clap) is MIT-licensed but is just a C header — hosting a CLAP plugin means writing the host implementation from scratch.
