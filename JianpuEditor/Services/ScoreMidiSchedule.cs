@@ -93,6 +93,11 @@ namespace JianpuEditor.Services
             var events = new List<ScheduledMidiNote>();
             var quarterTime = 0.0;
             var currentVelocity = MelodyVelocity;
+            // Tracks the event(s) for whatever melody note is currently sounding, so a later
+            // continuation-dot slot ("." holding the previous pitch -- see JianpuNote.IsContinuation)
+            // can extend them instead of starting a new note-on. Cleared on silence (a true rest, or
+            // a slot with nothing playable) since there is nothing left for a dot to hold.
+            var soundingEventIndices = new List<int>();
 
             var measures = score.Measures ?? new List<JianpuMeasure>();
             for (var measureIndex = 0; measureIndex < measures.Count; measureIndex++)
@@ -120,6 +125,21 @@ namespace JianpuEditor.Services
 
                     if (suppressed.Contains(position))
                     {
+                        // Tied-to note: GetTieExtension already folded this slot's duration into the
+                        // tie start's own event, so soundingEventIndices correctly still points there
+                        // -- a continuation dot right after a tie should keep extending that same
+                        // original note-on, not this (unscheduled) slot.
+                        quarterTime += duration;
+                        continue;
+                    }
+
+                    if (slotNote.Type == NoteType.Rest && slotNote.IsContinuation)
+                    {
+                        foreach (var eventIndex in soundingEventIndices)
+                        {
+                            events[eventIndex].DurationQuarter += duration;
+                        }
+
                         quarterTime += duration;
                         continue;
                     }
@@ -130,14 +150,16 @@ namespace JianpuEditor.Services
                         .ToList();
                     if (playableNotes.Count == 0)
                     {
+                        soundingEventIndices.Clear();
                         quarterTime += duration;
                         continue;
                     }
 
                     var totalDuration = duration + GetTieExtension(score, position, tieExtensionCache);
+                    soundingEventIndices = new List<int>();
                     if (playableNotes.Count == 1)
                     {
-                        events.AddRange(OrnamentPlaybackService.ScheduleMelodyNote(
+                        var scheduled = OrnamentPlaybackService.ScheduleMelodyNote(
                             measure,
                             playableNotes[0],
                             noteIndex,
@@ -145,7 +167,16 @@ namespace JianpuEditor.Services
                             totalDuration,
                             tonicMidi,
                             MelodyChannel,
-                            currentVelocity));
+                            currentVelocity);
+                        events.AddRange(scheduled);
+                        // A plain note schedules one event; an ornamented one (grace note, trill,
+                        // turn, mordent...) can expand into several laid out in time order, so the
+                        // LAST one is whichever is still sounding when this slot ends -- that's the
+                        // one a later continuation dot should extend.
+                        if (scheduled.Count > 0)
+                        {
+                            soundingEventIndices.Add(events.Count - 1);
+                        }
                     }
                     else
                     {
@@ -159,6 +190,7 @@ namespace JianpuEditor.Services
                                 Channel = MelodyChannel,
                                 Velocity = currentVelocity
                             });
+                            soundingEventIndices.Add(events.Count - 1);
                         }
                     }
 

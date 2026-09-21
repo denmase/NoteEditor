@@ -123,6 +123,21 @@ namespace JianpuEditor.Tests.ViewModels
         }
 
         [Fact]
+        public void AddContinuationDot_InsertsRestFlaggedAsContinuation()
+        {
+            var (document, selection, messenger, _) = ViewModelTestHelper.CreateDocumentWithSelection();
+            var editor = ViewModelTestHelper.CreateNoteEditor(document, selection, messenger);
+            document.EnsureMeasures();
+            selection.UpdateFrom(new ScoreSelectionInfo { MeasureIndex = 0, InsertIndex = 0 });
+
+            editor.AddContinuationDot();
+
+            var inserted = document.Score.Measures[0].MelodyNotes[0];
+            Assert.Equal(NoteType.Rest, inserted.Type);
+            Assert.True(inserted.IsContinuation);
+        }
+
+        [Fact]
         public void AppendNote_WithSelectedNote_AppendsToMeasureEnd()
         {
             var (document, selection, messenger, history) = ViewModelTestHelper.CreateDocumentWithSelection();
@@ -201,6 +216,24 @@ namespace JianpuEditor.Tests.ViewModels
 
             Assert.Equal(2, document.Score.Measures[0].MelodyNotes.Count);
             Assert.Equal(NoteType.Rest, document.Score.Measures[0].MelodyNotes[1].Type);
+        }
+
+        [Fact]
+        public void AppendContinuationDot_AppendsRestFlaggedAsContinuation()
+        {
+            var (document, selection, messenger, history) = ViewModelTestHelper.CreateDocumentWithSelection();
+            var navigation = ViewModelTestHelper.CreateMeasureNavigation(document, selection, messenger, history);
+            var editor = ViewModelTestHelper.CreateNoteEditor(document, selection, messenger, history, navigation);
+            document.EnsureMeasures();
+            document.Score.Measures[0].MelodyNotes.Add(new JianpuNote { Pitch = 5 });
+            selection.UpdateFrom(new ScoreSelectionInfo { MeasureIndex = 0, NoteIndex = 0 });
+
+            editor.AppendContinuationDot();
+
+            Assert.Equal(2, document.Score.Measures[0].MelodyNotes.Count);
+            var appended = document.Score.Measures[0].MelodyNotes[1];
+            Assert.Equal(NoteType.Rest, appended.Type);
+            Assert.True(appended.IsContinuation);
         }
 
         [Theory]

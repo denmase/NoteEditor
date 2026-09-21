@@ -152,5 +152,21 @@ namespace JianpuEditor.Tests.Services
                 Assert.False(JianpuPitchCodec.IsSuffixAccidental(none));
             }
         }
+
+        [Fact]
+        public void GetPitchDisplayText_TrueRest_IsZero()
+        {
+            var rest = new JianpuNote { Type = NoteType.Rest, Pitch = 0 };
+
+            Assert.Equal("0", JianpuPitchCodec.GetPitchDisplayText(rest));
+        }
+
+        [Fact]
+        public void GetPitchDisplayText_ContinuationDot_IsAPeriodNotZero()
+        {
+            var continuationDot = new JianpuNote { Type = NoteType.Rest, Pitch = 0, IsContinuation = true };
+
+            Assert.Equal(".", JianpuPitchCodec.GetPitchDisplayText(continuationDot));
+        }
     }
 }

@@ -39,6 +39,7 @@ namespace JianpuEditor.ViewModels
 
             AddNoteCommand = new RelayCommand<int>(pitch => AddNote(pitch));
             AddRestCommand = new RelayCommand(() => AddRest());
+            AddContinuationDotCommand = new RelayCommand(() => AddContinuationDot());
             SetOctaveUpCommand = new RelayCommand(() => SetOctave(1));
             SetOctaveDownCommand = new RelayCommand(() => SetOctave(-1));
             ToggleDottedCommand = new RelayCommand(() => ToggleDotted());
@@ -53,6 +54,8 @@ namespace JianpuEditor.ViewModels
         public RelayCommand<int> AddNoteCommand { get; }
 
         public RelayCommand AddRestCommand { get; }
+
+        public RelayCommand AddContinuationDotCommand { get; }
 
         public RelayCommand SetOctaveUpCommand { get; }
 
@@ -135,6 +138,42 @@ namespace JianpuEditor.ViewModels
             return InsertMelodyNote(note, "Inserted rest");
         }
 
+        /// <summary>Inserts a jianpu continuation dot ("holds the previous pitch" -- see
+        /// <see cref="JianpuNote.IsContinuation"/>), not a true rest. Mirrors <see cref="AddRest"/>
+        /// exactly except for that flag.</summary>
+        public ScoreEditResult AddContinuationDot()
+        {
+            var selectedNotes = GetSelectedNotes();
+            if (selectedNotes.Count > 0)
+            {
+                var message = selectedNotes.Count > 1
+                    ? "Changed " + selectedNotes.Count + " selected notes to continuation dots"
+                    : "Changed selected note to a continuation dot";
+                return ExecuteCommand(new ModifyMelodyNotesCommand(
+                    _document.Score,
+                    _messenger,
+                    GetSelectedNoteRefs(),
+                    () =>
+                    {
+                        foreach (var selected in selectedNotes)
+                        {
+                            selected.Type = NoteType.Rest;
+                            selected.Pitch = 0;
+                            selected.Octave = 0;
+                            selected.IsContinuation = true;
+                        }
+                    },
+                    message));
+            }
+
+            var note = ClonePendingNote();
+            note.Type = NoteType.Rest;
+            note.Pitch = 0;
+            note.Octave = 0;
+            note.IsContinuation = true;
+            return InsertMelodyNote(note, "Inserted continuation dot");
+        }
+
         public ScoreEditResult AppendNote(int pitch, bool copyPreviousNoteStyle = false)
         {
             var note = CreateAppendNote(copyPreviousNoteStyle);
@@ -154,6 +193,21 @@ namespace JianpuEditor.ViewModels
             var message = copyPreviousNoteStyle
                 ? "Appended rest (copied duration/octave from previous note)"
                 : "Appended rest";
+            return InsertMelodyNoteAt(GetCurrentMeasureIndex(), note, message);
+        }
+
+        /// <summary>Appends a jianpu continuation dot. Mirrors <see cref="AppendRest"/> exactly
+        /// except for the <see cref="JianpuNote.IsContinuation"/> flag -- see <see cref="AddContinuationDot"/>.</summary>
+        public ScoreEditResult AppendContinuationDot(bool copyPreviousNoteStyle = false)
+        {
+            var note = CreateAppendNote(copyPreviousNoteStyle);
+            note.Type = NoteType.Rest;
+            note.Pitch = 0;
+            note.Octave = 0;
+            note.IsContinuation = true;
+            var message = copyPreviousNoteStyle
+                ? "Appended continuation dot (copied duration from previous note)"
+                : "Appended continuation dot";
             return InsertMelodyNoteAt(GetCurrentMeasureIndex(), note, message);
         }
 

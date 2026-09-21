@@ -29,6 +29,17 @@ namespace JianpuEditor.Tests.Helpers
             };
         }
 
+        public static JianpuNote ContinuationDot(int underlines = 0)
+        {
+            return new JianpuNote
+            {
+                Type = NoteType.Rest,
+                Pitch = 0,
+                Underlines = underlines,
+                IsContinuation = true
+            };
+        }
+
         public static JianpuMeasure Measure(params JianpuNote[] notes)
         {
             return new JianpuMeasure

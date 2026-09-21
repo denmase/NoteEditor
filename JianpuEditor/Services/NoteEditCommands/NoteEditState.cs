@@ -20,7 +20,8 @@ namespace JianpuEditor.Services.NoteEditCommands
                 Octave = source.Octave,
                 Underlines = source.Underlines,
                 Dashes = source.Dashes,
-                Dotted = source.Dotted
+                Dotted = source.Dotted,
+                IsContinuation = source.IsContinuation
             };
         }
 
@@ -54,6 +55,7 @@ namespace JianpuEditor.Services.NoteEditCommands
             target.Underlines = source.Underlines;
             target.Dashes = source.Dashes;
             target.Dotted = source.Dotted;
+            target.IsContinuation = source.IsContinuation;
         }
 
         public static Dictionary<int, List<JianpuNote>> CaptureAllMeasuresMelody(JianpuScore score)
