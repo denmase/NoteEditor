@@ -10,9 +10,17 @@ namespace JianpuEditor.Services
     {
         private const double DurationEpsilon = 0.02;
 
+        /// <summary><paramref name="firstMeasureBeats"/>, when given, caps only the very first
+        /// rebuilt measure's capacity instead of <paramref name="measureBeats"/> -- letting a
+        /// caller that detected a pickup/anacrusis (a deliberately short first measure) in the
+        /// source material preserve it instead of it being silently absorbed into the normal
+        /// fixed-beat reflow. Every measure after the first still uses <paramref
+        /// name="measureBeats"/> exactly as before. Omitting it (the default) reproduces today's
+        /// exact behavior.</summary>
         public static List<JianpuMeasure> NormalizeMeasures(
             IReadOnlyList<JianpuMeasure> measures,
-            int measureBeats = ScoreMidiSchedule.DefaultMeasureBeats)
+            int measureBeats = ScoreMidiSchedule.DefaultMeasureBeats,
+            double? firstMeasureBeats = null)
         {
             if (measures == null || measures.Count == 0)
             {
@@ -25,7 +33,7 @@ namespace JianpuEditor.Services
                 return new List<JianpuMeasure> { CreateMeasure() };
             }
 
-            var normalized = RebuildMeasures(slots, measureBeats);
+            var normalized = RebuildMeasures(slots, measureBeats, firstMeasureBeats);
             MergeShortTrailingMeasure(normalized, measureBeats);
             return normalized;
         }
@@ -61,11 +69,22 @@ namespace JianpuEditor.Services
             return slots;
         }
 
-        private static List<JianpuMeasure> RebuildMeasures(IReadOnlyList<ChordSlot> slots, int measureBeats)
+        private static List<JianpuMeasure> RebuildMeasures(
+            IReadOnlyList<ChordSlot> slots,
+            int measureBeats,
+            double? firstMeasureBeats)
         {
             var measures = new List<JianpuMeasure>();
             var current = CreateMeasure();
             var used = 0.0;
+
+            // Only the still-unflushed first measure ever uses firstMeasureBeats; the moment it's
+            // flushed into `measures`, every later measure (including this local function's own
+            // later calls) falls back to the normal fixed measureBeats capacity.
+            double GetCapacity()
+            {
+                return measures.Count == 0 && firstMeasureBeats.HasValue ? firstMeasureBeats.Value : measureBeats;
+            }
 
             foreach (var slot in slots)
             {
@@ -73,14 +92,16 @@ namespace JianpuEditor.Services
                 var remaining = JianpuRenderer.GetDurationUnits(primary);
                 while (remaining > DurationEpsilon)
                 {
-                    var room = measureBeats - used;
+                    var capacity = GetCapacity();
+                    var room = capacity - used;
                     if (room <= DurationEpsilon)
                     {
-                        PadMeasureToBeats(current, measureBeats, used);
+                        PadMeasureToBeats(current, capacity, used);
                         measures.Add(current);
                         current = CreateMeasure();
                         used = 0;
-                        room = measureBeats;
+                        capacity = GetCapacity();
+                        room = capacity;
                     }
 
                     var take = Math.Min(remaining, room);
@@ -109,7 +130,7 @@ namespace JianpuEditor.Services
 
             if (current.MelodyNotes.Count > 0 || used > DurationEpsilon)
             {
-                PadMeasureToBeats(current, measureBeats, used);
+                PadMeasureToBeats(current, GetCapacity(), used);
                 measures.Add(current);
             }
 
@@ -161,7 +182,7 @@ namespace JianpuEditor.Services
             PadMeasureToBeats(previous, measureBeats, GetMeasureDuration(previous));
         }
 
-        private static void PadMeasureToBeats(JianpuMeasure measure, int measureBeats, double used)
+        private static void PadMeasureToBeats(JianpuMeasure measure, double measureBeats, double used)
         {
             var gap = measureBeats - used;
             while (gap > DurationEpsilon)

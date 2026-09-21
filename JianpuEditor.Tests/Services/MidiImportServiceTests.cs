@@ -261,6 +261,148 @@ namespace JianpuEditor.Tests.Services
             }
         }
 
+        [Fact]
+        public void Import_ExplicitPickupTimeSignatureChange_PreservesShortFirstMeasure()
+        {
+            // A 2/4 time signature covering just the first measure, immediately followed by the
+            // piece's real 4/4 from measure 2 onward -- the standard way notation software
+            // (Finale, Sibelius, MuseScore, Logic...) exports a pickup/anacrusis measure.
+            const int ticksPerQuarter = 480;
+            var bytes = BuildPickupMidi(
+                ticksPerQuarter,
+                pickupNumerator: 2,
+                mainNumerator: 4,
+                denominatorPower: 2,
+                pickupNotes: new[] { 60, 62 },
+                mainNotes: new[] { 64, 65, 67, 69 });
+            var path = Path.Combine(Path.GetTempPath(), "jianpu-import-pickup-" + Guid.NewGuid() + ".mid");
+            try
+            {
+                File.WriteAllBytes(path, bytes);
+                var imported = MidiImportService.Import(path);
+
+                Assert.True(imported.Measures.Count >= 2);
+                var firstMeasureBeats = imported.Measures[0].MelodyNotes.Sum(note => JianpuRenderer.GetDurationUnits(note));
+                Assert.Equal(2, firstMeasureBeats, 2);
+                var secondMeasureBeats = imported.Measures[1].MelodyNotes.Sum(note => JianpuRenderer.GetDurationUnits(note));
+                Assert.Equal(4, secondMeasureBeats, 2);
+            }
+            finally
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+        }
+
+        [Fact]
+        public void Import_OrdinaryShortFinalMeasure_IsNotMisreadAsAPickup()
+        {
+            // Regression guard for an earlier version of the pickup heuristic that guessed from
+            // leftover note-duration remainder alone: a piece whose last measure simply isn't
+            // full (7 beats total = a 4-beat measure plus a 3-beat one) is completely ordinary and
+            // must NOT be reinterpreted as "a 3-beat pickup plus a 4-beat measure" just because the
+            // math would divide evenly that way. With no explicit pickup time-signature change in
+            // the file, every measure must still come out at the plain fixed 4 beats.
+            var score = ScoreTestHelper.CreateScore(
+                ScoreTestHelper.Measure(
+                    ScoreTestHelper.Note(1),
+                    ScoreTestHelper.Note(2),
+                    ScoreTestHelper.Note(3),
+                    ScoreTestHelper.Note(4)),
+                ScoreTestHelper.Measure(
+                    ScoreTestHelper.Note(5),
+                    ScoreTestHelper.Note(6),
+                    ScoreTestHelper.Note(7)));
+            score.KeySignature = "1=C";
+
+            var path = Path.Combine(Path.GetTempPath(), "jianpu-import-no-pickup-" + Guid.NewGuid() + ".mid");
+            try
+            {
+                MidiExportService.Export(score, path);
+                var imported = MidiImportService.Import(path);
+
+                foreach (var measure in imported.Measures)
+                {
+                    var beats = measure.MelodyNotes.Sum(note => JianpuRenderer.GetDurationUnits(note));
+                    Assert.Equal(4, beats, 2);
+                }
+            }
+            finally
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+        }
+
+        private static byte[] BuildPickupMidi(
+            int ticksPerQuarter,
+            int pickupNumerator,
+            int mainNumerator,
+            int denominatorPower,
+            int[] pickupNotes,
+            int[] mainNotes)
+        {
+            const int noteOffPriority = 0;
+            const int metaPriority = 1;
+            const int noteOnPriority = 2;
+            const int endOfTrackPriority = 3;
+
+            var events = new List<(long Ticks, int Priority, byte[] Data)>
+            {
+                (0, metaPriority, TimeSignatureMetaEvent(pickupNumerator, denominatorPower))
+            };
+
+            long tick = 0;
+            foreach (var note in pickupNotes)
+            {
+                events.Add((tick, noteOnPriority, new byte[] { 0x90, (byte)note, 100 }));
+                tick += ticksPerQuarter;
+                events.Add((tick, noteOffPriority, new byte[] { 0x80, (byte)note, 0 }));
+            }
+
+            var secondTimeSigTick = tick;
+            events.Add((secondTimeSigTick, metaPriority, TimeSignatureMetaEvent(mainNumerator, denominatorPower)));
+
+            foreach (var note in mainNotes)
+            {
+                events.Add((tick, noteOnPriority, new byte[] { 0x90, (byte)note, 100 }));
+                tick += ticksPerQuarter;
+                events.Add((tick, noteOffPriority, new byte[] { 0x80, (byte)note, 0 }));
+            }
+
+            events.Add((tick, endOfTrackPriority, new byte[] { 0xFF, 0x2F, 0x00 }));
+
+            var ordered = events.OrderBy(e => e.Ticks).ThenBy(e => e.Priority).ToList();
+            var trackBytes = new List<byte>();
+            long previousTicks = 0;
+            foreach (var evt in ordered)
+            {
+                trackBytes.AddRange(VariableLength((int)(evt.Ticks - previousTicks)));
+                trackBytes.AddRange(evt.Data);
+                previousTicks = evt.Ticks;
+            }
+
+            var track = BuildTrackChunk(trackBytes);
+
+            var bytes = new List<byte>();
+            bytes.AddRange(Encoding.ASCII.GetBytes("MThd"));
+            bytes.AddRange(BigEndianUInt32(6));
+            bytes.AddRange(BigEndianUInt16(0));
+            bytes.AddRange(BigEndianUInt16(1));
+            bytes.AddRange(BigEndianUInt16(ticksPerQuarter));
+            bytes.AddRange(track);
+            return bytes.ToArray();
+        }
+
+        private static byte[] TimeSignatureMetaEvent(int numerator, int denominatorPower)
+        {
+            return new byte[] { 0xFF, 0x58, 0x04, (byte)numerator, (byte)denominatorPower, 24, 8 };
+        }
+
         private static byte[] BuildTwoNoteMidiWithJitter(int ticksPerQuarter, int secondNoteStartTicks)
         {
             var events = new List<byte>();

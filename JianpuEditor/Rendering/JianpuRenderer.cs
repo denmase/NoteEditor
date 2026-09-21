@@ -495,6 +495,7 @@ namespace JianpuEditor.Rendering
                 DrawStaffLineRange(g, score, layout, start, count, options);
                 DrawTiesForLineRange(g, score, layout, start, count, -1);
                 DrawVoltaBrackets(g, score, layout, start, count);
+                DrawHairpins(g, score, layout, start, count);
                 _activeLayoutOptions = null;
             }
 
@@ -827,6 +828,7 @@ namespace JianpuEditor.Rendering
                 layoutOptions);
             DrawTiesForLineRange(g, score, layout, 0, layout.Lines.Count, selectedTieIndex);
             DrawVoltaBrackets(g, score, layout, 0, layout.Lines.Count);
+            DrawHairpins(g, score, layout, 0, layout.Lines.Count);
         }
 
         private void DrawStaffLineRange(
@@ -1068,6 +1070,112 @@ namespace JianpuEditor.Rendering
                     g.DrawString(volta.Label, _voltaFont, brush, x1 + 4, lineY - 13);
                 }
             }
+        }
+
+        /// <summary>Draws a crescendo/diminuendo wedge in the same <see cref="DynamicsRowHeight"/>
+        /// band the discrete <see cref="DynamicMarking"/> text labels use (see
+        /// <see cref="DrawDynamicsRow"/>) -- a hairpin is fundamentally a dynamics-row shape, not
+        /// an ornament-band one. Mirrors <see cref="DrawVoltaBrackets"/>'s same-staff-line
+        /// requirement: a hairpin whose start/end land on different lines (a line wrap falls
+        /// inside it) is skipped rather than drawn broken across two systems.</summary>
+        private void DrawHairpins(Graphics g, JianpuScore score, ScoreLayout layout, int firstLineIndex, int lineCount)
+        {
+            if (score?.Hairpins == null || score.Hairpins.Count == 0)
+            {
+                return;
+            }
+
+            var visibleMeasures = BuildVisibleMeasures(layout, firstLineIndex, lineCount);
+            foreach (var hairpin in score.Hairpins)
+            {
+                if (!TryGetHairpinGeometry(score, layout, hairpin, out var geometry))
+                {
+                    continue;
+                }
+
+                if (!visibleMeasures.Contains(geometry.StartLayout) || !visibleMeasures.Contains(geometry.EndLayout))
+                {
+                    continue;
+                }
+
+                using (var pen = CreateInkPen(1.5f))
+                {
+                    if (hairpin.IsCrescendo)
+                    {
+                        g.DrawLine(pen, geometry.X1, geometry.MidY, geometry.X2, geometry.Top);
+                        g.DrawLine(pen, geometry.X1, geometry.MidY, geometry.X2, geometry.Bottom);
+                    }
+                    else
+                    {
+                        g.DrawLine(pen, geometry.X1, geometry.Top, geometry.X2, geometry.MidY);
+                        g.DrawLine(pen, geometry.X1, geometry.Bottom, geometry.X2, geometry.MidY);
+                    }
+                }
+            }
+        }
+
+        private static bool TryGetHairpinGeometry(
+            JianpuScore score,
+            ScoreLayout layout,
+            JianpuHairpin hairpin,
+            out HairpinGeometry geometry)
+        {
+            geometry = default;
+            var startLayout = FindMeasureLayout(layout, hairpin.StartMeasureIndex);
+            var endLayout = FindMeasureLayout(layout, hairpin.EndMeasureIndex);
+            if (startLayout == null || endLayout == null || startLayout.BlockTop != endLayout.BlockTop)
+            {
+                return false;
+            }
+
+            if (hairpin.StartMeasureIndex < 0 || hairpin.StartMeasureIndex >= score.Measures.Count
+                || hairpin.EndMeasureIndex < 0 || hairpin.EndMeasureIndex >= score.Measures.Count)
+            {
+                return false;
+            }
+
+            var startMeasure = score.Measures[hairpin.StartMeasureIndex];
+            var endMeasure = score.Measures[hairpin.EndMeasureIndex];
+            if (startMeasure.MelodyNotes == null || endMeasure.MelodyNotes == null
+                || hairpin.StartNoteIndex < 0 || hairpin.StartNoteIndex >= startMeasure.MelodyNotes.Count
+                || hairpin.EndNoteIndex < 0 || hairpin.EndNoteIndex >= endMeasure.MelodyNotes.Count)
+            {
+                return false;
+            }
+
+            startLayout.GetNoteDrawBounds(hairpin.StartNoteIndex, out var startX, out var startWidth);
+            endLayout.GetNoteDrawBounds(hairpin.EndNoteIndex, out var endX, out var endWidth);
+
+            var x1 = GetNoteHeadCenterX(startX, startWidth);
+            var x2 = GetNoteHeadCenterX(endX, endWidth);
+            if (x2 <= x1)
+            {
+                return false;
+            }
+
+            var rowTop = GetDynamicsRowTop(startLayout);
+            geometry = new HairpinGeometry
+            {
+                X1 = x1,
+                X2 = x2,
+                StartLayout = startLayout,
+                EndLayout = endLayout,
+                Top = rowTop + 4f,
+                Bottom = rowTop + DynamicsRowHeight - 4f,
+                MidY = rowTop + DynamicsRowHeight / 2f
+            };
+            return true;
+        }
+
+        private struct HairpinGeometry
+        {
+            public float X1;
+            public float X2;
+            public float Top;
+            public float Bottom;
+            public float MidY;
+            public MeasureLayout StartLayout;
+            public MeasureLayout EndLayout;
         }
 
         private ScoreHitResult HitTestTies(JianpuScore score, ScoreLayout layout, Point point)

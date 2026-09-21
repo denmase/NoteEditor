@@ -9,12 +9,19 @@ namespace JianpuEditor.Services
     {
         public const double GraceDurationQuarter = 0.125;
         public const double TrillSegmentQuarter = 0.125;
+        public const double GlissandoSegmentQuarter = 0.0625;
         public const double FermataDurationMultiplier = 1.5;
         public const double MinNoteDurationQuarter = 0.0625;
         public const double StaccatoDurationMultiplier = 0.5;
         public const int AccentVelocityBoost = 24;
         public const int TenutoVelocityBoost = 8;
 
+        /// <summary><paramref name="nextNote"/>, when given, is the very next melody slot after
+        /// this one -- only used when this note carries <see cref="OrnamentType.Glissando"/>,
+        /// which slides chromatically from this note's pitch toward the next note's pitch (real
+        /// notation draws a glissando as a line connecting two adjacent notes, so this deliberately
+        /// doesn't try to resolve a target across a rest or a skipped slot). A caller that doesn't
+        /// pass one simply gets no glissando effect, same as a note with no ornaments at all.</summary>
         public static List<ScheduledMidiNote> ScheduleMelodyNote(
             JianpuMeasure measure,
             JianpuNote note,
@@ -23,7 +30,8 @@ namespace JianpuEditor.Services
             double durationQuarter,
             int tonicMidi,
             int channel,
-            int velocity)
+            int velocity,
+            JianpuNote nextNote = null)
         {
             if (note == null)
             {
@@ -76,6 +84,11 @@ namespace JianpuEditor.Services
             else if (ornaments.Any(item => item.Type == OrnamentType.Mordent))
             {
                 events.AddRange(BuildMordent(note, cursor, duration, tonicMidi, channel, velocity));
+            }
+            else if (ornaments.Any(item => item.Type == OrnamentType.Glissando)
+                && TryGetGlissandoTarget(note, nextNote, tonicMidi, out var startMidi, out var targetMidi))
+            {
+                events.AddRange(BuildGlissando(startMidi, targetMidi, cursor, duration, channel, velocity));
             }
             else
             {
@@ -206,6 +219,59 @@ namespace JianpuEditor.Services
                 note
             };
             return BuildPattern(pattern, startQuarter, durationQuarter, tonicMidi, channel, velocity);
+        }
+
+        private static bool TryGetGlissandoTarget(
+            JianpuNote note,
+            JianpuNote nextNote,
+            int tonicMidi,
+            out int startMidi,
+            out int targetMidi)
+        {
+            startMidi = ScoreMidiSchedule.ToMelodyMidiNote(note, tonicMidi);
+            targetMidi = 0;
+            if (nextNote == null || nextNote.Type != NoteType.Note || !JianpuPitchCodec.IsValidMelodyPitch(nextNote))
+            {
+                return false;
+            }
+
+            targetMidi = ScoreMidiSchedule.ToMelodyMidiNote(nextNote, tonicMidi);
+            return targetMidi != startMidi;
+        }
+
+        /// <summary>Fills the note's full duration with a chromatic run stepping one semitone at a
+        /// time from <paramref name="startMidi"/> toward (but never reaching) <paramref
+        /// name="targetMidi"/> -- the actual next note's own separately-scheduled event provides
+        /// the true arrival, so the run doesn't double-trigger that pitch. An adjacent target only
+        /// a semitone away degenerates to a single plain event, which is correct: there's no room
+        /// for a run between them.</summary>
+        private static List<ScheduledMidiNote> BuildGlissando(
+            int startMidi,
+            int targetMidi,
+            double startQuarter,
+            double durationQuarter,
+            int channel,
+            int velocity)
+        {
+            var semitoneSpan = Math.Abs(targetMidi - startMidi);
+            var maxSegmentsByDuration = Math.Max(1, (int)Math.Floor(durationQuarter / GlissandoSegmentQuarter));
+            var segmentCount = Math.Max(1, Math.Min(semitoneSpan, maxSegmentsByDuration));
+            var direction = targetMidi > startMidi ? 1 : -1;
+            var segmentDuration = durationQuarter / segmentCount;
+            var events = new List<ScheduledMidiNote>(segmentCount);
+            for (var i = 0; i < segmentCount; i++)
+            {
+                events.Add(new ScheduledMidiNote
+                {
+                    StartQuarter = startQuarter + i * segmentDuration,
+                    DurationQuarter = Math.Max(MinNoteDurationQuarter, segmentDuration),
+                    MidiNote = startMidi + direction * i,
+                    Channel = channel,
+                    Velocity = velocity
+                });
+            }
+
+            return events;
         }
 
         private static List<ScheduledMidiNote> BuildPattern(

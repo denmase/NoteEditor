@@ -128,6 +128,78 @@ namespace JianpuEditor.Tests.Services
         }
 
         [Fact]
+        public void Build_CrescendoHairpinWithExplicitEndMarking_RampsVelocityBetweenTheTwoLevels()
+        {
+            var score = ScoreTestHelper.CreateScore(
+                ScoreTestHelper.Measure(
+                    ScoreTestHelper.Note(1),
+                    ScoreTestHelper.Note(2),
+                    ScoreTestHelper.Note(3),
+                    ScoreTestHelper.Note(4)));
+            DynamicMarkingService.TrySetForNote(score.Measures[0], 0, "p");
+            DynamicMarkingService.TrySetForNote(score.Measures[0], 3, "ff");
+            score.Hairpins.Add(new JianpuHairpin
+            {
+                StartMeasureIndex = 0,
+                StartNoteIndex = 0,
+                EndMeasureIndex = 0,
+                EndNoteIndex = 3,
+                IsCrescendo = true
+            });
+
+            var schedule = ScoreMidiSchedule.Build(score);
+            var melodyNotes = schedule.Notes
+                .Where(note => note.Channel == ScoreMidiSchedule.MelodyChannel)
+                .OrderBy(note => note.StartQuarter)
+                .ToList();
+
+            Assert.Equal(DynamicMarkingPlaybackService.PianoVelocity, melodyNotes[0].Velocity);
+            Assert.Equal(DynamicMarkingPlaybackService.FortissimoVelocity, melodyNotes[3].Velocity);
+            // Strictly increasing in between -- a real ramp, not a step straight from p to ff.
+            Assert.True(melodyNotes[1].Velocity > melodyNotes[0].Velocity);
+            Assert.True(melodyNotes[2].Velocity > melodyNotes[1].Velocity);
+            Assert.True(melodyNotes[3].Velocity > melodyNotes[2].Velocity);
+        }
+
+        [Fact]
+        public void Build_DiminuendoHairpinWithNoExplicitEndMarking_AppliesNominalDrop()
+        {
+            var score = ScoreTestHelper.CreateScore(
+                ScoreTestHelper.Measure(ScoreTestHelper.Note(1), ScoreTestHelper.Note(2)));
+            score.Hairpins.Add(new JianpuHairpin
+            {
+                StartMeasureIndex = 0,
+                StartNoteIndex = 0,
+                EndMeasureIndex = 0,
+                EndNoteIndex = 1,
+                IsCrescendo = false
+            });
+
+            var schedule = ScoreMidiSchedule.Build(score);
+            var melodyNotes = schedule.Notes
+                .Where(note => note.Channel == ScoreMidiSchedule.MelodyChannel)
+                .OrderBy(note => note.StartQuarter)
+                .ToList();
+
+            Assert.Equal(ScoreMidiSchedule.MelodyVelocity, melodyNotes[0].Velocity);
+            Assert.Equal(
+                ScoreMidiSchedule.MelodyVelocity - DynamicMarkingPlaybackService.NominalHairpinVelocityDelta,
+                melodyNotes[1].Velocity);
+        }
+
+        [Fact]
+        public void Build_NoHairpins_SchedulesByteIdenticalVelocityToBeforeHairpinsExisted()
+        {
+            var score = ScoreTestHelper.CreateScore(
+                ScoreTestHelper.Measure(ScoreTestHelper.Note(1), ScoreTestHelper.Note(2), ScoreTestHelper.Note(3)));
+
+            var schedule = ScoreMidiSchedule.Build(score);
+            var melodyNotes = schedule.Notes.Where(note => note.Channel == ScoreMidiSchedule.MelodyChannel).ToList();
+
+            Assert.All(melodyNotes, note => Assert.Equal(ScoreMidiSchedule.MelodyVelocity, note.Velocity));
+        }
+
+        [Fact]
         public void Build_SuppressesTieEndNotes()
         {
             var score = ScoreTestHelper.CreateScore(ScoreTestHelper.Measure(

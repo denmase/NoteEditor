@@ -115,6 +115,7 @@ namespace JianpuEditor.ViewModels
 
                             MelodyChordService.RemoveSlot(targetMeasure, noteIndex);
                             TieMaintenanceService.OnNoteRemoved(_document.Score, group.Key, noteIndex);
+                            HairpinMaintenanceService.OnNoteRemoved(_document.Score, group.Key, noteIndex);
                             OrnamentService.OnNoteRemoved(targetMeasure, noteIndex);
                             DynamicMarkingService.OnNoteRemoved(targetMeasure, noteIndex);
                             removedCount++;
@@ -142,6 +143,7 @@ namespace JianpuEditor.ViewModels
                 var noteIndex = measure.MelodyNotes.Count - 1;
                 MelodyChordService.RemoveSlot(measure, noteIndex);
                 TieMaintenanceService.OnNoteRemoved(_document.Score, measureIndex, noteIndex);
+                HairpinMaintenanceService.OnNoteRemoved(_document.Score, measureIndex, noteIndex);
                 OrnamentService.OnNoteRemoved(measure, noteIndex);
                 DynamicMarkingService.OnNoteRemoved(measure, noteIndex);
                 return new ScoreEditResult
@@ -158,6 +160,7 @@ namespace JianpuEditor.ViewModels
                 var removedMeasureIndex = measureIndex;
                 TieMaintenanceService.OnMeasureRemoved(_document.Score, removedMeasureIndex);
                 VoltaMaintenanceService.OnMeasureRemoved(_document.Score, removedMeasureIndex);
+                HairpinMaintenanceService.OnMeasureRemoved(_document.Score, removedMeasureIndex);
                 _document.Score.Measures.RemoveAt(removedMeasureIndex);
                 var newIndex = Math.Max(0, removedMeasureIndex - 1);
                 _navigation.SyncCurrentMeasureIndex(newIndex);

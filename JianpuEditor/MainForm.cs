@@ -731,6 +731,10 @@ namespace JianpuEditor
                 Keys.None,
                 (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Tenuto))));
             ornamentMenu.DropDownItems.Add(CreateMenuItem(
+                "Glissando",
+                Keys.None,
+                (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Glissando))));
+            ornamentMenu.DropDownItems.Add(CreateMenuItem(
                 "Segno",
                 Keys.None,
                 (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Segno))));
@@ -758,6 +762,18 @@ namespace JianpuEditor
             dynamicsMenu.DropDownItems.Add(CreateMenuItem("mf", Keys.None, (s, e) => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.SetDynamic("mf"))));
             dynamicsMenu.DropDownItems.Add(CreateMenuItem("f", Keys.None, (s, e) => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.SetDynamic("f"))));
             dynamicsMenu.DropDownItems.Add(CreateMenuItem("ff", Keys.None, (s, e) => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.SetDynamic("ff"))));
+            dynamicsMenu.DropDownItems.Add(CreateMenuItem(
+                "Crescendo (selected notes)",
+                Keys.None,
+                (s, e) => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.AddHairpin(true))));
+            dynamicsMenu.DropDownItems.Add(CreateMenuItem(
+                "Diminuendo (selected notes)",
+                Keys.None,
+                (s, e) => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.AddHairpin(false))));
+            dynamicsMenu.DropDownItems.Add(CreateMenuItem(
+                "Remove Hairpin",
+                Keys.None,
+                (s, e) => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.RemoveHairpin())));
             editMenu.DropDownItems.Add(dynamicsMenu);
             var barLineMenu = new ToolStripMenuItem("Bar Line");
             barLineMenu.DropDownItems.Add(CreateMenuItem(
@@ -918,7 +934,8 @@ namespace JianpuEditor
                 CreateRibbonButton(RibbonIcon.Accent, "Accent", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Accent)), compact: true),
                 CreateRibbonButton(RibbonIcon.Tenuto, "Tenuto", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Tenuto)), compact: true),
                 CreateRibbonButton(RibbonIcon.Segno, "Segno", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Segno)), compact: true),
-                CreateRibbonButton(RibbonIcon.Coda, "Coda", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Coda)), compact: true));
+                CreateRibbonButton(RibbonIcon.Coda, "Coda", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Coda)), compact: true),
+                CreateRibbonButton(RibbonIcon.Glissando, "Glissando", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Glissando)), compact: true));
             ornaments.AddRow(
                 CreateRibbonButton(RibbonIcon.DaCapo, "D.C. (Da Capo)", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.DaCapo)), compact: true),
                 CreateRibbonButton(RibbonIcon.DalSegno, "D.S. (Dal Segno)", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.DalSegno)), compact: true),
@@ -933,6 +950,9 @@ namespace JianpuEditor
                 CreateRibbonButton(RibbonIcon.DynamicMezzoForte, "mf", () => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.SetDynamic("mf")), compact: true),
                 CreateRibbonButton(RibbonIcon.DynamicForte, "f", () => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.SetDynamic("f")), compact: true),
                 CreateRibbonButton(RibbonIcon.DynamicFortissimo, "ff", () => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.SetDynamic("ff")), compact: true));
+            dynamics.AddRow(
+                CreateRibbonButton(RibbonIcon.Crescendo, "Crescendo", () => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.AddHairpin(true)), compact: true),
+                CreateRibbonButton(RibbonIcon.Diminuendo, "Diminuendo", () => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.AddHairpin(false)), compact: true));
             panel.Controls.Add(dynamics);
 
             var measures = new RibbonGroup("Measures");
@@ -1314,6 +1334,7 @@ namespace JianpuEditor
             ornamentsMenu.DropDownItems.Add("D.C. (Da Capo)", null, (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.DaCapo)));
             ornamentsMenu.DropDownItems.Add("D.S. (Dal Segno)", null, (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.DalSegno)));
             ornamentsMenu.DropDownItems.Add("Fine", null, (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Fine)));
+            ornamentsMenu.DropDownItems.Add("Glissando", null, (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Glissando)));
             menu.Items.Add(ornamentsMenu);
 
             var dynamicsMenu = new ToolStripMenuItem("Dynamics");
@@ -1323,6 +1344,9 @@ namespace JianpuEditor
             dynamicsMenu.DropDownItems.Add("mf", null, (s, e) => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.SetDynamic("mf")));
             dynamicsMenu.DropDownItems.Add("f", null, (s, e) => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.SetDynamic("f")));
             dynamicsMenu.DropDownItems.Add("ff", null, (s, e) => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.SetDynamic("ff")));
+            dynamicsMenu.DropDownItems.Add("Crescendo (selected notes)", null, (s, e) => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.AddHairpin(true)));
+            dynamicsMenu.DropDownItems.Add("Diminuendo (selected notes)", null, (s, e) => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.AddHairpin(false)));
+            dynamicsMenu.DropDownItems.Add("Remove Hairpin", null, (s, e) => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.RemoveHairpin()));
             menu.Items.Add(dynamicsMenu);
 
             AddPasteItemIfAvailable(menu);
