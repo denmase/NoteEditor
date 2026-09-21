@@ -356,16 +356,17 @@ Checked its recent commits for bug fixes this fork should carry too:
   this fork's history) -- `MidiImportService.TonicNames` is dead code left over from before that,
   harmless but unused (matches a pre-existing compiler warning already present in this fork).
 
-## Beat continuation slot / held-note beaming (found against a real song, not started)
+## Beat continuation slot / held-note beaming (found against real songs, not started)
 
-Cross-checking the accidental slash convention (see phase 2 above) against a real notasi angka
-sheet ("Indonesia Pusaka", Ismail Marzuki) surfaced a genuine, separate rendering gap: a held note
-that continues into a later beat position is drawn there as its own continuation mark (printed as
-`.` in that source), occupying its own slot in the beat grid -- and that slot beams together with
-an adjacent note exactly like two real notes would (e.g. `3 . 1 5`: `3` stands alone as an
-unbeamed quarter note, then `.` and `1` share one beam as the held-through eighth position plus
-the next eighth note, then a new beam starts at `5`). A beam in this notation always ties together
-two beat-grid positions -- a continuation slot counts as one of them exactly like a real note.
+Cross-checking the accidental slash convention (see phase 2 above) against real notasi angka sheet
+music ("Indonesia Pusaka" and "Gugur Bunga", both Ismail Marzuki; "Pertolongan-Mu", Citra
+Scholastika) surfaced a genuine, separate rendering gap: a held note that continues into a later
+beat position is drawn there as its own continuation mark (printed as `.` in these sources),
+occupying its own slot in the beat grid -- and that slot beams together with an adjacent note
+exactly like two real notes would (e.g. `3 . 1 5`: `3` stands alone as an unbeamed quarter note,
+then `.` and `1` share one beam as the held-through eighth position plus the next eighth note,
+then a new beam starts at `5`). A beam in this notation always ties together two beat-grid
+positions -- a continuation slot counts as one of them exactly like a real note.
 
 **This app has no equivalent of that continuation slot.** `JianpuNote.Dashes` extends a note's own
 duration by widening *that note's own cell* (rendered as small dash marks trailing its digit, see
@@ -374,17 +375,50 @@ and beam with, a following note. So today there's no way to enter or render the 
 above the way this reference does it: our model can only produce a wide "3" cell followed
 immediately by "1", never a beam connecting a held-position slot to the next note.
 
+**The exact duration rules for the dot** (per a reference guide the user supplied, translated from
+Indonesian notasi angka teaching material), confirmed against the sheet music above:
+- **Not under any beam:** a dot is worth a full beat, same as an un-underlined note. `5 . 3 4` in
+  4/4 is beats 1-2-3-4: `5` sustains through beat 2 via the dot, `3` starts beat 3, `4` starts beat
+  4. Two consecutive dots add two beats (`1 . . 2`: `1` sustains 3 beats, `2` takes beat 4); three
+  fill a whole 4/4 measure by themselves. **This maps exactly onto `Dashes`** ("each dash adds +1
+  beat," per the comment on `JianpuRenderer.GetDurationUnits`) -- `5 . 3 4` is precisely `Dashes=1`
+  on the `5`, rhythmically identical to today's model. Only the *rendering* differs: this reference
+  draws each dash as its own separate "." token in its own cell, this app draws dash marks trailing
+  the same note's digit in one wider cell.
+- **Under a beam:** here's the part our model genuinely can't represent. The dot's value isn't
+  fixed by the preceding note's *own* underline count -- it's fixed by *whatever beam depth the dot
+  itself is drawn under*, which the sheet music examples show can differ from the preceding note's
+  depth. Worked example from the reference (`5 . 4` with two stacked beam levels: a shallow one
+  spanning all three positions, a second deeper one spanning just `.` and `4`): `5` sits under only
+  the shallow beam = 1/2 beat; `.` and `4` share the deeper beam = 1/4 beat each; total 1 beat. So
+  in that example the note and its own continuation dot are at *different* effective underline
+  depths (`5` at depth 1, its dot at depth 2) -- the dot is beamed with the *following* note at the
+  dot's own depth, not simply "half of the note before it" in a fixed recursive sense (that framing
+  in the reference guide is a simplification that happens to hold for its own worked examples, but
+  the sheet-music cross-check shows the real mechanism is "the dot's duration comes from its own
+  beam depth," matching how a real note's duration comes from its own `Underlines`).
+- **Consequence:** representing this needs each continuation unit to carry its *own* effective
+  underline depth, independent of the note it continues -- `JianpuNote.Dashes` (a bare count) can't
+  carry that. This is a real, additional data-model requirement discovered by working through the
+  reference's own examples, not just a rendering gap.
+
 Actually adding this means:
 - A new slot concept (either a new `JianpuNote`/measure-list entry type, or some other
   representation) for "hold the previous pitch here," distinct from both a real note and a
-  `NoteType.Rest`.
+  `NoteType.Rest`, and carrying its own underline/beam-depth value independent of the note it
+  continues (see above).
 - Duration/width layout, hit-testing, and MIDI playback/export all currently derive purely from
   the existing `MelodyNotes` list and `GetDurationUnits`; a continuation slot needs to participate
   in all of that (occupying real width and beat-time) without being mistaken for a playable note.
+  The existing `Dashes`-based duration math stays correct for the *unbeamed* case (a dash/dot is
+  still worth 1 full beat there) -- only the *beamed* case needs the new per-slot depth.
 - `BeatGroupUnderlinePlanner.GroupNotesByQuarterBeat`/`CollectSpans` (see the upstream-sync section
-  above) need the continuation slot to count as a normal group member for beaming purposes.
+  above) need the continuation slot to count as a normal group member for beaming purposes, keyed
+  off its own depth rather than the preceding note's.
 - Rendering: a small glyph (a dot, matching the reference, or something else) drawn in its own
   cell rather than as a trailing mark on the previous note.
+- Backward compatibility: existing scores using `Dashes` for the simple unbeamed case must keep
+  rendering exactly as they do today; this is purely additive for the new beamed-continuation case.
 
 This is real, contained scope, but not a small tweak to the just-fixed beam-span logic -- it's a
 new notation primitive touching the data model, layout, playback, and rendering simultaneously.
