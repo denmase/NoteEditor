@@ -62,5 +62,78 @@ namespace JianpuEditor.Tests.ViewModels
             Assert.True(result.Changed);
             Assert.Empty(document.Score.Measures[0].MelodyNotes);
         }
+
+        [Fact]
+        public void AddVolta_UsesContiguousMultiMeasureSelection()
+        {
+            var (document, selection, messenger, history) = ViewModelTestHelper.CreateDocumentWithSelection();
+            document.EnsureMeasures();
+            document.Score.Measures.Add(new JianpuMeasure());
+            document.Score.Measures.Add(new JianpuMeasure());
+            selection.UpdateFrom(new ScoreSelectionInfo { MeasureIndex = 1, SelectedMeasureIndices = new[] { 1, 2 } });
+            var navigation = ViewModelTestHelper.CreateMeasureNavigation(document, selection, messenger, history);
+            var chordEditor = ViewModelTestHelper.CreateChordEditor(document, selection, navigation, messenger, history: history);
+            var editor = ViewModelTestHelper.CreateScoreEditor(document, selection, navigation, chordEditor, messenger, history);
+
+            var result = editor.AddVolta("1.");
+
+            Assert.True(result.Changed);
+            Assert.Single(document.Score.Voltas);
+            Assert.Equal(1, document.Score.Voltas[0].StartMeasureIndex);
+            Assert.Equal(2, document.Score.Voltas[0].EndMeasureIndex);
+            Assert.Equal("1.", document.Score.Voltas[0].Label);
+        }
+
+        [Fact]
+        public void AddVolta_NoMultiSelection_UsesCurrentMeasureOnly()
+        {
+            var (document, selection, messenger, history) = ViewModelTestHelper.CreateDocumentWithSelection();
+            document.EnsureMeasures();
+            document.Score.Measures.Add(new JianpuMeasure());
+            selection.UpdateFrom(new ScoreSelectionInfo { MeasureIndex = 1 });
+            var navigation = ViewModelTestHelper.CreateMeasureNavigation(document, selection, messenger, history);
+            var chordEditor = ViewModelTestHelper.CreateChordEditor(document, selection, navigation, messenger, history: history);
+            var editor = ViewModelTestHelper.CreateScoreEditor(document, selection, navigation, chordEditor, messenger, history);
+
+            var result = editor.AddVolta("2.");
+
+            Assert.True(result.Changed);
+            Assert.Single(document.Score.Voltas);
+            Assert.Equal(1, document.Score.Voltas[0].StartMeasureIndex);
+            Assert.Equal(1, document.Score.Voltas[0].EndMeasureIndex);
+        }
+
+        [Fact]
+        public void RemoveVolta_RemovesVoltaCoveringCurrentMeasure()
+        {
+            var (document, selection, messenger, history) = ViewModelTestHelper.CreateDocumentWithSelection();
+            document.EnsureMeasures();
+            document.Score.Voltas.Add(new JianpuVolta { StartMeasureIndex = 0, EndMeasureIndex = 0, Label = "1." });
+            selection.UpdateFrom(new ScoreSelectionInfo { MeasureIndex = 0 });
+            var navigation = ViewModelTestHelper.CreateMeasureNavigation(document, selection, messenger, history);
+            var chordEditor = ViewModelTestHelper.CreateChordEditor(document, selection, navigation, messenger, history: history);
+            var editor = ViewModelTestHelper.CreateScoreEditor(document, selection, navigation, chordEditor, messenger, history);
+
+            var result = editor.RemoveVolta();
+
+            Assert.True(result.Changed);
+            Assert.Empty(document.Score.Voltas);
+        }
+
+        [Fact]
+        public void AddVolta_Undo_RemovesAddedVolta()
+        {
+            var (document, selection, messenger, history) = ViewModelTestHelper.CreateDocumentWithSelection();
+            document.EnsureMeasures();
+            selection.UpdateFrom(new ScoreSelectionInfo { MeasureIndex = 0 });
+            var navigation = ViewModelTestHelper.CreateMeasureNavigation(document, selection, messenger, history);
+            var chordEditor = ViewModelTestHelper.CreateChordEditor(document, selection, navigation, messenger, history: history);
+            var editor = ViewModelTestHelper.CreateScoreEditor(document, selection, navigation, chordEditor, messenger, history);
+            editor.AddVolta("1.");
+
+            history.Undo();
+
+            Assert.Empty(document.Score.Voltas);
+        }
     }
 }

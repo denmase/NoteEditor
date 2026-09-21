@@ -26,5 +26,7 @@ namespace JianpuEditor.Models
         public List<JianpuMeasure> Measures { get; set; } = new List<JianpuMeasure>();
 
         public List<JianpuTie> Ties { get; set; } = new List<JianpuTie>();
+
+        public List<JianpuVolta> Voltas { get; set; } = new List<JianpuVolta>();
     }
 }
