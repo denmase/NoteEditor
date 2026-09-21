@@ -1531,9 +1531,7 @@ namespace JianpuEditor.Rendering
                             // only. Measure the actual glyph and start there instead, matching
                             // DrawCenteredNoteText's own centering math exactly.
                             var spanStartNote = notes[spanStart];
-                            var spanStartText = spanStartNote.Type == NoteType.Rest
-                                ? "0"
-                                : JianpuPitchCodec.GetPitchDisplayText(spanStartNote);
+                            var spanStartText = JianpuPitchCodec.GetPitchDisplayText(spanStartNote);
                             var spanStartTextWidth = g.MeasureString(spanStartText, _noteFont).Width;
                             startX = (int)(startX + (spanStartHeadWidth - spanStartTextWidth) / 2f);
                         }
@@ -2108,7 +2106,7 @@ namespace JianpuEditor.Rendering
                 var headCenterX = x + headWidth / 2f;
                 if (note.Type == NoteType.Rest)
                 {
-                    DrawCenteredNoteText(g, "0", x, y, headWidth, _noteFont, ink);
+                    DrawCenteredNoteText(g, JianpuPitchCodec.GetPitchDisplayText(note), x, y, headWidth, _noteFont, ink);
                 }
                 else if (topLayout != null)
                 {

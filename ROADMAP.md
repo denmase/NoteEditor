@@ -356,7 +356,7 @@ Checked its recent commits for bug fixes this fork should carry too:
   this fork's history) -- `MidiImportService.TonicNames` is dead code left over from before that,
   harmless but unused (matches a pre-existing compiler warning already present in this fork).
 
-## Beat continuation slot / held-note beaming (found against real songs, not started)
+## Beat continuation slot / held-note beaming (done)
 
 Cross-checking the accidental slash convention (see phase 2 above) against real notasi angka sheet
 music ("Indonesia Pusaka" and "Gugur Bunga", both Ismail Marzuki; "Pertolongan-Mu", Citra
@@ -402,26 +402,50 @@ Indonesian notasi angka teaching material), confirmed against the sheet music ab
   carry that. This is a real, additional data-model requirement discovered by working through the
   reference's own examples, not just a rendering gap.
 
-Actually adding this means:
-- A new slot concept (either a new `JianpuNote`/measure-list entry type, or some other
-  representation) for "hold the previous pitch here," distinct from both a real note and a
-  `NoteType.Rest`, and carrying its own underline/beam-depth value independent of the note it
-  continues (see above).
-- Duration/width layout, hit-testing, and MIDI playback/export all currently derive purely from
-  the existing `MelodyNotes` list and `GetDurationUnits`; a continuation slot needs to participate
-  in all of that (occupying real width and beat-time) without being mistaken for a playable note.
-  The existing `Dashes`-based duration math stays correct for the *unbeamed* case (a dash/dot is
-  still worth 1 full beat there) -- only the *beamed* case needs the new per-slot depth.
-- `BeatGroupUnderlinePlanner.GroupNotesByQuarterBeat`/`CollectSpans` (see the upstream-sync section
-  above) need the continuation slot to count as a normal group member for beaming purposes, keyed
-  off its own depth rather than the preceding note's.
-- Rendering: a small glyph (a dot, matching the reference, or something else) drawn in its own
-  cell rather than as a trailing mark on the previous note.
-- Backward compatibility: existing scores using `Dashes` for the simple unbeamed case must keep
-  rendering exactly as they do today; this is purely additive for the new beamed-continuation case.
+**Implementation, once built, turned out simpler than the scope above predicted.** Rather than a
+whole new slot/entry type, it's `JianpuNote.Type = NoteType.Rest` plus one new bool,
+`IsContinuation` -- because a continuation dot genuinely *is* rest-like for every purpose except
+display glyph and playback duration: it's not a playable pitch, can't be tied, doesn't get a new
+lyric syllable, doesn't take part in chord/harmony suggestion, can't be split/merged -- and
+`Type == NoteType.Rest` was already the exclusion check used almost everywhere for exactly that
+("not a real note") meaning, across services, harmony/chord/lyric/tie code. Riding that existing
+exclusion instead of introducing a third `NoteType` meant only two real call sites needed new
+behavior, not a sweep of every `NoteType` switch in the codebase:
+- `JianpuPitchCodec.GetPitchDisplayText`: renders `.` instead of `0` when `IsContinuation` is set
+  (both `JianpuRenderer` call sites that used to hardcode `"0"` for a rest now just call this,
+  which was already correct for the plain-rest case and free for the new one).
+- `ScoreMidiSchedule.BuildMelodyNotes`: a new `soundingEventIndices` tracker records whichever
+  event(s) are currently sounding; hitting a continuation-dot slot extends their
+  `DurationQuarter` by this slot's own `GetDurationUnits` instead of scheduling a new note-on
+  (mirrors how tie extension already reaches back to the tie's start event, just without needing
+  an explicit `JianpuTie` object). Correctly keeps extending the *original* note-on across a
+  suppressed tied-to slot, and safely no-ops if a continuation dot follows a true rest (nothing to
+  hold).
+- `BeatGroupUnderlinePlanner.GroupNotesByQuarterBeat`/`CollectSpans` needed **zero changes** --
+  confirmed by both a scratchpad prototype (built before touching production code, per the user's
+  explicit request to visually validate the beam/dot rendering against real reference sheets first)
+  and by `BeatGroupUnderlinePlannerTests` -- it already operates purely on each slot's own
+  `Underlines`/`GetDurationUnits`, with no `NoteType` branching at all.
+- Manual `JianpuNote` clone/copy sites (copy-paste, undo/redo capture, measure clone, split/merge,
+  chord sync -- about eight call sites) needed `IsContinuation` added to their property lists so it
+  round-trips through those paths; JSON save/load needed nothing extra (plain reflection-based
+  property serialization, and old files simply default the new bool to `false`).
+- Editor UI: a "." button next to the existing note/rest digit row (`MainForm.CreateContinuationDotButton`),
+  a matching context-menu item, and `NoteEditorViewModel.AddContinuationDot`/`AppendContinuationDot`
+  mirroring `AddRest`/`AppendRest` exactly except for the flag.
+- Not gated by `NotationStyle`: the continuation-dot mechanism itself is notation-style-agnostic
+  (it only cares about `Underlines`/beat position), and automatically renders with beams
+  above/below via the existing `AppTheme.UnderlinesAbove` branch -- Indonesian sources are simply
+  what surfaced the gap, not a restriction on where the fix applies.
+- Checked, not touched: the octave-dot/beam vertical spacing that a scratchpad prototype needed a
+  workaround for turned out to be a false alarm in the real renderer -- `DrawNoteOctaveDots`'s
+  above-mode dot Y (`rowTop + 4`) and `DrawBeatGroupUnderlines`'s above-mode beam Y
+  (`rowTop - 8` or higher) already sit a fixed ~12px apart regardless of grouping, so no collision
+  exists there to fix.
 
-This is real, contained scope, but not a small tweak to the just-fixed beam-span logic -- it's a
-new notation primitive touching the data model, layout, playback, and rendering simultaneously.
+Existing `Dashes`-based scores are untouched -- this is purely additive for the new
+beamed-continuation case; the unbeamed case (`Dashes`, rendered as trailing marks on the previous
+note's own cell) keeps rendering exactly as it did before.
 Scoping it as its own dedicated, carefully-reviewed piece of work rather than folding it into the
 beam-fix or accidental-convention PRs.
 

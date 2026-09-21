@@ -26,5 +26,17 @@ namespace JianpuEditor.Models
         public int Dashes { get; set; }
 
         public bool Dotted { get; set; }
+
+        /// <summary>True for a jianpu continuation dot ("holds the previous pitch") when
+        /// <see cref="Type"/> is <see cref="NoteType.Rest"/> -- as opposed to a true rest (silence).
+        /// Unlike <see cref="Dashes"/> (which only widens the *preceding* note's own cell and can't
+        /// be beamed on its own), a continuation dot is its own beat-grid slot with its own
+        /// <see cref="Underlines"/> depth, so it can share a beam with an adjacent note exactly like
+        /// a real note can -- the gap found cross-checking against real notasi angka sheet music
+        /// (see ROADMAP.md). Rendered as "." instead of "0"; contributes no new MIDI note-on of its
+        /// own but extends the duration of whatever note is currently sounding (see
+        /// ScoreMidiSchedule.BuildMelodyNotes). Ignored when <see cref="Type"/> is
+        /// <see cref="NoteType.Note"/>.</summary>
+        public bool IsContinuation { get; set; }
     }
 }

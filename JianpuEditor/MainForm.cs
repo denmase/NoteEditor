@@ -864,14 +864,15 @@ namespace JianpuEditor
             playback.AddRow(_playButton, _stopButton, instrumentsButton);
             panel.Controls.Add(playback);
 
-            var notes = new RibbonGroup("Notes 1-7 . Rest");
-            var noteButtons = new Control[8];
+            var notes = new RibbonGroup("Notes 1-7 . Rest . Hold");
+            var noteButtons = new Control[9];
             for (var pitch = 1; pitch <= 7; pitch++)
             {
                 noteButtons[pitch - 1] = CreateNoteButton(pitch);
             }
 
             noteButtons[7] = CreateRestButton();
+            noteButtons[8] = CreateContinuationDotButton();
             notes.AddRow(noteButtons);
             panel.Controls.Add(notes);
 
@@ -1005,6 +1006,15 @@ namespace JianpuEditor
             return button;
         }
 
+        private DigitButton CreateContinuationDotButton()
+        {
+            var button = new DigitButton(".");
+            _toolTip.SetToolTip(button, "Continuation dot: holds the previous note's pitch through this beat "
+                + "(jianpu notation), beaming with neighbors like a real note.\r\n" + NoteButtonToolTip);
+            button.Click += (s, e) => OnContinuationDotButtonClick();
+            return button;
+        }
+
         private void OnNoteButtonClick(int pitch)
         {
             if (IsAppendModifierActive())
@@ -1027,6 +1037,18 @@ namespace JianpuEditor
             }
 
             ExecuteNoteEdit(() => _viewModel.NoteEditor.AddRest());
+        }
+
+        private void OnContinuationDotButtonClick()
+        {
+            if (IsAppendModifierActive())
+            {
+                var copyStyle = IsCopyStyleModifierActive();
+                ExecuteNoteEdit(() => _viewModel.NoteEditor.AppendContinuationDot(copyStyle));
+                return;
+            }
+
+            ExecuteNoteEdit(() => _viewModel.NoteEditor.AddContinuationDot());
         }
 
         private static bool IsAppendModifierActive()
@@ -1298,6 +1320,7 @@ namespace JianpuEditor
 
             menu.Items.Add(insertMenu);
             menu.Items.Add("Insert Rest", null, (s, e) => ExecuteNoteEdit(() => _viewModel.NoteEditor.AddRest()));
+            menu.Items.Add("Insert Continuation Dot", null, (s, e) => ExecuteNoteEdit(() => _viewModel.NoteEditor.AddContinuationDot()));
             AddPasteItemIfAvailable(menu);
         }
 

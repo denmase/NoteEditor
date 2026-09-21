@@ -158,5 +158,92 @@ namespace JianpuEditor.Tests.Services
 
             Assert.Equal(expected, JianpuRenderer.GetDurationUnits(note), 3);
         }
+
+        [Fact]
+        public void Build_ContinuationDot_ExtendsThePrecedingNoteInsteadOfSchedulingItsOwnEvent()
+        {
+            // Real notasi angka rhythm from the "Pertolongan-Mu" jianpu sheet: an eighth note held
+            // through the second half of the beat by a beamed continuation dot ("5 .", one full beat
+            // total split 0.5+0.5), matching JianpuNote.IsContinuation's doc comment.
+            var score = ScoreTestHelper.CreateScore(ScoreTestHelper.Measure(
+                ScoreTestHelper.Note(5, underlines: 1),
+                ScoreTestHelper.ContinuationDot(underlines: 1),
+                ScoreTestHelper.Note(6, underlines: 1),
+                ScoreTestHelper.Note(6, underlines: 1)));
+
+            var schedule = ScoreMidiSchedule.Build(score);
+            var melodyNotes = schedule.Notes
+                .Where(note => note.Channel == ScoreMidiSchedule.MelodyChannel)
+                .OrderBy(note => note.StartQuarter)
+                .ToList();
+
+            Assert.Equal(3, melodyNotes.Count);
+            Assert.Equal(0, melodyNotes[0].StartQuarter, 3);
+            Assert.Equal(1, melodyNotes[0].DurationQuarter, 3);
+        }
+
+        [Fact]
+        public void Build_TwoContinuationDots_EachExtendTheSameOriginalNoteOn()
+        {
+            var score = ScoreTestHelper.CreateScore(ScoreTestHelper.Measure(
+                ScoreTestHelper.Note(1),
+                ScoreTestHelper.ContinuationDot(),
+                ScoreTestHelper.ContinuationDot(),
+                ScoreTestHelper.Note(2)));
+
+            var schedule = ScoreMidiSchedule.Build(score);
+            var melodyNotes = schedule.Notes
+                .Where(note => note.Channel == ScoreMidiSchedule.MelodyChannel)
+                .OrderBy(note => note.StartQuarter)
+                .ToList();
+
+            Assert.Equal(2, melodyNotes.Count);
+            Assert.Equal(3, melodyNotes[0].DurationQuarter, 3);
+            Assert.Equal(3, melodyNotes[1].StartQuarter, 3);
+        }
+
+        [Fact]
+        public void Build_ContinuationDotAfterATrueRest_IsANoOpRatherThanCrashing()
+        {
+            var score = ScoreTestHelper.CreateScore(ScoreTestHelper.Measure(
+                ScoreTestHelper.Rest(),
+                ScoreTestHelper.ContinuationDot(),
+                ScoreTestHelper.Note(3)));
+
+            var schedule = ScoreMidiSchedule.Build(score);
+            var melodyNotes = schedule.Notes
+                .Where(note => note.Channel == ScoreMidiSchedule.MelodyChannel)
+                .ToList();
+
+            Assert.Single(melodyNotes);
+            Assert.Equal(2, melodyNotes[0].StartQuarter, 3);
+        }
+
+        [Fact]
+        public void Build_ContinuationDotAfterATiedNote_ExtendsTheOriginalTieStartEvent()
+        {
+            // The tied-to note (index 1) is suppressed from scheduling its own event -- a
+            // continuation dot right after it (index 2) must still reach back to the original
+            // note-on at index 0, not the suppressed slot.
+            var score = ScoreTestHelper.CreateScore(ScoreTestHelper.Measure(
+                ScoreTestHelper.Note(1),
+                ScoreTestHelper.Note(1),
+                ScoreTestHelper.ContinuationDot()));
+            score.Ties.Add(new JianpuTie
+            {
+                StartMeasureIndex = 0,
+                StartNoteIndex = 0,
+                EndMeasureIndex = 0,
+                EndNoteIndex = 1
+            });
+
+            var schedule = ScoreMidiSchedule.Build(score);
+            var melodyNotes = schedule.Notes
+                .Where(note => note.Channel == ScoreMidiSchedule.MelodyChannel)
+                .ToList();
+
+            Assert.Single(melodyNotes);
+            Assert.Equal(3, melodyNotes[0].DurationQuarter, 3);
+        }
     }
 }

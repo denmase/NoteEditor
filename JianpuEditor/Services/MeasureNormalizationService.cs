@@ -229,7 +229,8 @@ namespace JianpuEditor.Services
                 Octave = source.Octave,
                 Underlines = source.Underlines,
                 Dashes = source.Dashes,
-                Dotted = source.Dotted
+                Dotted = source.Dotted,
+                IsContinuation = source.IsContinuation
             };
         }
 

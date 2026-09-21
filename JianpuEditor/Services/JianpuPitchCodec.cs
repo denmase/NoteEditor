@@ -45,9 +45,14 @@ namespace JianpuEditor.Services
 
         public static string GetPitchDisplayText(JianpuNote note)
         {
-            if (note == null || note.Type == NoteType.Rest)
+            if (note == null)
             {
                 return "0";
+            }
+
+            if (note.Type == NoteType.Rest)
+            {
+                return note.IsContinuation ? "." : "0";
             }
 
             var degree = GetDisplayDegree(note);
