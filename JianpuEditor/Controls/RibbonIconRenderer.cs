@@ -175,6 +175,15 @@ namespace JianpuEditor.Controls
                     g.DrawLine(pen, 10f, 2f, 10f, 18f);
                     g.DrawLine(pen, 2f, 10f, 18f, 10f);
                     return;
+                case RibbonIcon.DaCapo:
+                    DrawDynamicLabel(g, brush, "D.C.");
+                    return;
+                case RibbonIcon.DalSegno:
+                    DrawDynamicLabel(g, brush, "D.S.");
+                    return;
+                case RibbonIcon.Fine:
+                    DrawDynamicLabel(g, brush, "Fine");
+                    return;
                 case RibbonIcon.DynamicPianissimo:
                     DrawDynamicLabel(g, brush, "pp");
                     return;

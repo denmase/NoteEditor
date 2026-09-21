@@ -245,5 +245,62 @@ namespace JianpuEditor.Tests.Services
             Assert.Single(melodyNotes);
             Assert.Equal(3, melodyNotes[0].DurationQuarter, 3);
         }
+
+        [Fact]
+        public void ComputeTotalQuarterLength_RepeatedMeasure_CountsItTwice()
+        {
+            var measure0 = ScoreTestHelper.Measure(ScoreTestHelper.Note(1), ScoreTestHelper.Note(2));
+            var measure1 = ScoreTestHelper.Measure(ScoreTestHelper.Note(3), ScoreTestHelper.Note(4));
+            measure1.BarLineType = BarLineType.RepeatEnd;
+            var score = ScoreTestHelper.CreateScore(measure0, measure1);
+
+            var total = ScoreMidiSchedule.ComputeTotalQuarterLength(score);
+
+            Assert.Equal(8, total, 3);
+        }
+
+        [Fact]
+        public void Build_RepeatedSection_SchedulesEachNoteOnceForEveryPassAtTheRightTime()
+        {
+            var measure0 = ScoreTestHelper.Measure(ScoreTestHelper.Note(1));
+            var measure1 = ScoreTestHelper.Measure(ScoreTestHelper.Note(2));
+            measure1.BarLineType = BarLineType.RepeatEnd;
+            var score = ScoreTestHelper.CreateScore(measure0, measure1);
+
+            var schedule = ScoreMidiSchedule.Build(score);
+            var melodyNotes = schedule.Notes
+                .Where(note => note.Channel == ScoreMidiSchedule.MelodyChannel)
+                .OrderBy(note => note.StartQuarter)
+                .ToList();
+
+            Assert.Equal(4, melodyNotes.Count);
+            Assert.Equal(new[] { 0d, 1d, 2d, 3d }, melodyNotes.Select(note => note.StartQuarter).ToArray());
+        }
+
+        [Fact]
+        public void Build_FirstAndSecondEndings_OnlyScheduleTheMatchingVoltaOnEachPass()
+        {
+            var measure0 = ScoreTestHelper.Measure(ScoreTestHelper.Note(1)); // A
+            var measure1 = ScoreTestHelper.Measure(ScoreTestHelper.Note(2)); // 1st ending, repeats
+            measure1.BarLineType = BarLineType.RepeatEnd;
+            var measure2 = ScoreTestHelper.Measure(ScoreTestHelper.Note(3)); // 2nd ending
+            var score = ScoreTestHelper.CreateScore(measure0, measure1, measure2);
+            score.Voltas.Add(new JianpuVolta { StartMeasureIndex = 1, EndMeasureIndex = 1, Label = "1." });
+            score.Voltas.Add(new JianpuVolta { StartMeasureIndex = 2, EndMeasureIndex = 2, Label = "2." });
+
+            var schedule = ScoreMidiSchedule.Build(score);
+            var melodyNotes = schedule.Notes
+                .Where(note => note.Channel == ScoreMidiSchedule.MelodyChannel)
+                .OrderBy(note => note.StartQuarter)
+                .ToList();
+
+            // Expected play order: A(1), 1st ending(2), A(1) again, 2nd ending(3) -- the 1st
+            // ending (pitch 2) plays exactly once, replaced by the 2nd ending (pitch 3) on the
+            // repeat, not played a second time itself.
+            var tonicMidi = 60; // KeySignature "1=C" from ScoreTestHelper.CreateScore
+            var pitches = melodyNotes.Select(note => note.MidiNote).ToArray();
+            Assert.Equal(new[] { tonicMidi, tonicMidi + 2, tonicMidi, tonicMidi + 4 }, pitches);
+            Assert.Equal(new[] { 0d, 1d, 2d, 3d }, melodyNotes.Select(note => note.StartQuarter).ToArray());
+        }
     }
 }
