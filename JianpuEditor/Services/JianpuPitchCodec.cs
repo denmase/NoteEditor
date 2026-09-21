@@ -71,6 +71,11 @@ namespace JianpuEditor.Services
                 return "b";
             }
 
+            if (note.Accidental == AccidentalKind.Natural)
+            {
+                return "♮";
+            }
+
             return null;
         }
 
@@ -81,7 +86,7 @@ namespace JianpuEditor.Services
                 return false;
             }
 
-            if (note.Accidental != AccidentalKind.None)
+            if (note.Accidental == AccidentalKind.Sharp || note.Accidental == AccidentalKind.Flat)
             {
                 return Math.Abs(note.Pitch - Math.Floor(note.Pitch) - AccidentalFraction) < PitchEpsilon
                     || Math.Abs(note.Pitch - Math.Ceiling(note.Pitch) - AccidentalFraction) < PitchEpsilon;
@@ -144,7 +149,12 @@ namespace JianpuEditor.Services
             if (accidental == AccidentalKind.Flat)
             {
                 note.Pitch = (degree - 1) + AccidentalFraction;
+                return;
             }
+
+            // None or Natural: both display as a plain integer degree, the only difference being
+            // whether GetAccidentalMark draws a natural sign (see the doc comment there).
+            note.Pitch = degree;
         }
 
         private static int GetDiatonicDegree(JianpuNote note)

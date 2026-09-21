@@ -33,11 +33,13 @@ Until now, playback always used whatever General MIDI patch 0 (Acoustic Grand Pi
 of phase 5 (dynamics), phase 6 (breath marks), and phase 7 (Segno/Coda, repeat bar lines, and
 volta brackets -- the visual halves of all three) are done. Bar line types (Single/Double/Final/
 RepeatEnd/RepeatStart) and volta brackets were bundled into phase 7 as originally scoped there.
-Phase 10 (pickup measure verification) is also done. Everything else below is still not
-started**, including phases 1-2 (`NotationStyle` + the accidental slash convention) -- see the
-note under phase 2 for why that one turned out to be more involved than it looked, and the new
-note there about the natural sign specifically. Phase 10 also surfaced a separate, real gap in
-MIDI import (pickup measures aren't preserved) -- see the note under phase
+Phase 10 (pickup measure verification) is also done. Phase 2's `AccidentalKind.Natural` +
+manual accidental entry piece is also done (see the note under phase 2) -- the accidental slash
+convention itself (the one genuinely `NotationStyle`-gated item, and phase 1's `NotationStyle`
+foundation it depends on) is still not started. Everything else below is still not
+started**, including phases 1-2's remaining slash-convention work -- see the note under phase 2
+for why that one turned out to be more involved than it looked. Phase 10 also surfaced a separate,
+real gap in MIDI import (pickup measures aren't preserved) -- see the note under phase
 10. A pre-existing ornament/octave-dot rendering collision (unrelated to any single phase, found
 while visually verifying the work above) is also fixed -- see the note right after phase 10 about
 this sandbox's new Mono+libgdiplus visual-verification capability.
@@ -109,19 +111,36 @@ here and intentionally excluded.*
    **Update: this sandbox can now partially self-verify GDI+ output** (see the note at the end of
    this phased plan) via Mono+libgdiplus, which lowers but doesn't eliminate the risk here — still
    worth its own carefully-reviewed PR given the collision-math complexity, but "no way to check at
-   all" is no longer accurate. `AccidentalKind.Natural` (rendered as `♮`, no NotationStyle branch
-   needed — the renderer doesn't carry accidentals through a measure, so it's just a third
-   independent glyph state) can land separately and first, since it doesn't touch the
-   suffix-vs-prefix positioning question at all.
-   **Checked before starting this, found a bigger prerequisite gap**: `AccidentalKind.Sharp`/`Flat`
-   have zero manual entry UI anywhere in the app today (`JianpuPitchCodec.SetAccidentalPitch` is
-   never called outside its own definition and tests) — the only code path that ever produces an
-   accidental note is `MidiImportService` reading a chromatic pitch out of an imported file. So
-   before a `Natural` sign is actually reachable by a user hand-notating a score (as opposed to one
-   that only shows up after a MIDI import), this needs a manual sharp/flat/natural entry command
-   too — a real, if small, UI feature of its own, not just a third glyph case. Scoping that
-   alongside the glyph work, rather than shipping a glyph nothing can ever attach, is the right
-   order once this phase is picked up.
+   all" is no longer accurate. `AccidentalKind.Natural` doesn't touch the suffix-vs-prefix
+   positioning question at all, so it's landed separately and first, described below.
+   **`AccidentalKind.Natural` + manual sharp/flat/natural entry — done.** Confirmed the previously-
+   noted prerequisite gap first: `AccidentalKind.Sharp`/`Flat` had zero manual entry UI anywhere in
+   the app (`JianpuPitchCodec.SetAccidentalPitch` was never called outside its own definition and
+   tests) -- the only code path that ever produced an accidental note was `MidiImportService`
+   reading a chromatic pitch out of an imported file. Fixed both gaps together rather than shipping
+   a glyph nothing could ever attach: a new `NoteEditorViewModel.SetAccidental(AccidentalKind)`
+   (mirroring `SetOctave`'s exact shape -- toggles the selected note(s) off back to `None` on a
+   second click of the same value, or sets the *pending* note's accidental when nothing is selected
+   so it carries onto the next digit typed) wired to a new Edit > Accidental menu (Sharp/Flat/
+   Natural/None). `SetAccidentalPitch` (previously only handling Sharp/Flat) now also assigns the
+   plain integer pitch for `None`/`Natural` so it's a complete "set pitch from degree + accidental"
+   function usable from all four call sites (`AddNote`'s selected-note and new-note-entry branches,
+   `AppendNote`, and the new `SetAccidental`) -- fixing, as a side effect, a latent pre-existing
+   inconsistency where retyping a digit over an already-accidented note left a stale `Accidental`
+   flag paired with a mismatched integer `Pitch`.
+   **The `♮` glyph itself is hand-drawn as vector strokes, not the Unicode natural-sign character
+   (U+266E).** Tried the Unicode character first and caught a real rendering bug with this
+   session's Mono+libgdiplus visual-verification harness: libgdiplus's Arial substitute doesn't
+   carry a proper glyph for that code point and rendered an unrecognizable fallback mark instead of
+   a natural sign. Rather than gamble on whether real Windows GDI+ has better luck, `DrawCompactAccidentalMark`
+   special-cases `Natural` and draws two vertical strokes plus two thick diagonal connectors
+   directly (`DrawNaturalSignGlyph`) -- guaranteed to look the same on every platform, confirmed
+   visually via the same harness (including alongside an octave dot, to confirm no collision with
+   `NoteTopAnnotationPlanner`'s existing dodge-the-accidental math). `GetAccidentalMark` still
+   returns the Unicode character for the non-compact legacy layout path (`ScoreLayoutOptions.
+   Default`), which nothing in the real app actually renders through -- only `Editor`/`PdfExport`
+   (both `CompactAccidentalGlyphs = true`) are used on screen or in PDF export, and both go through
+   the fixed vector path.
 3. **Tie/slur pitch bug: the validation half is done; slur support is not.** Added a same-pitch
    check to `TieEditorViewModel.TryCompleteTie` (rejects with a status message and treats the
    mismatched note as a new start candidate, mirroring the existing "must come after" rejection

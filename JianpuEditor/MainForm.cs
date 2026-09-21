@@ -784,6 +784,25 @@ namespace JianpuEditor
                 Keys.None,
                 (s, e) => ExecuteScoreEdit(() => _viewModel.ScoreEditor.RemoveVolta())));
             editMenu.DropDownItems.Add(voltaMenu);
+            var accidentalMenu = new ToolStripMenuItem("Accidental");
+            accidentalMenu.DropDownItems.Add(CreateMenuItem(
+                "Sharp",
+                Keys.None,
+                (s, e) => ExecuteNoteEdit(() => _viewModel.NoteEditor.SetAccidental(AccidentalKind.Sharp))));
+            accidentalMenu.DropDownItems.Add(CreateMenuItem(
+                "Flat",
+                Keys.None,
+                (s, e) => ExecuteNoteEdit(() => _viewModel.NoteEditor.SetAccidental(AccidentalKind.Flat))));
+            accidentalMenu.DropDownItems.Add(CreateMenuItem(
+                "Natural",
+                Keys.None,
+                (s, e) => ExecuteNoteEdit(() => _viewModel.NoteEditor.SetAccidental(AccidentalKind.Natural))));
+            accidentalMenu.DropDownItems.Add(new ToolStripSeparator());
+            accidentalMenu.DropDownItems.Add(CreateMenuItem(
+                "None",
+                Keys.None,
+                (s, e) => ExecuteNoteEdit(() => _viewModel.NoteEditor.SetAccidental(AccidentalKind.None))));
+            editMenu.DropDownItems.Add(accidentalMenu);
             editMenu.DropDownItems.Add(CreateMenuItem("Clear Score", Keys.None, OnClearScore));
 
             var viewMenu = new ToolStripMenuItem("View");

@@ -44,6 +44,72 @@ namespace JianpuEditor.Tests.ViewModels
         }
 
         [Fact]
+        public void SetAccidental_OnSelectedNote_AppliesSharp()
+        {
+            var (document, selection, messenger, _) = ViewModelTestHelper.CreateDocumentWithSelection();
+            var editor = ViewModelTestHelper.CreateNoteEditor(document, selection, messenger);
+            document.EnsureMeasures();
+            document.Score.Measures[0].MelodyNotes.Add(new JianpuNote { Type = NoteType.Note, Pitch = 4 });
+            selection.UpdateFrom(new ScoreSelectionInfo { MeasureIndex = 0, NoteIndex = 0 });
+
+            var result = editor.SetAccidental(AccidentalKind.Sharp);
+
+            Assert.True(result.Changed);
+            var note = document.Score.Measures[0].MelodyNotes[0];
+            Assert.Equal(AccidentalKind.Sharp, note.Accidental);
+            Assert.Equal(4.5, note.Pitch);
+        }
+
+        [Fact]
+        public void SetAccidental_SameAccidentalTwice_TogglesOff()
+        {
+            var (document, selection, messenger, _) = ViewModelTestHelper.CreateDocumentWithSelection();
+            var editor = ViewModelTestHelper.CreateNoteEditor(document, selection, messenger);
+            document.EnsureMeasures();
+            document.Score.Measures[0].MelodyNotes.Add(new JianpuNote { Type = NoteType.Note, Pitch = 4 });
+            selection.UpdateFrom(new ScoreSelectionInfo { MeasureIndex = 0, NoteIndex = 0 });
+            editor.SetAccidental(AccidentalKind.Flat);
+
+            editor.SetAccidental(AccidentalKind.Flat);
+
+            var note = document.Score.Measures[0].MelodyNotes[0];
+            Assert.Equal(AccidentalKind.None, note.Accidental);
+            Assert.Equal(4, note.Pitch);
+        }
+
+        [Fact]
+        public void SetAccidental_Natural_KeepsIntegerPitch()
+        {
+            var (document, selection, messenger, _) = ViewModelTestHelper.CreateDocumentWithSelection();
+            var editor = ViewModelTestHelper.CreateNoteEditor(document, selection, messenger);
+            document.EnsureMeasures();
+            document.Score.Measures[0].MelodyNotes.Add(new JianpuNote { Type = NoteType.Note, Pitch = 3 });
+            selection.UpdateFrom(new ScoreSelectionInfo { MeasureIndex = 0, NoteIndex = 0 });
+
+            editor.SetAccidental(AccidentalKind.Natural);
+
+            var note = document.Score.Measures[0].MelodyNotes[0];
+            Assert.Equal(AccidentalKind.Natural, note.Accidental);
+            Assert.Equal(3, note.Pitch);
+        }
+
+        [Fact]
+        public void SetAccidental_NoSelection_AppliesToNextEnteredNote()
+        {
+            var (document, selection, messenger, _) = ViewModelTestHelper.CreateDocumentWithSelection();
+            var editor = ViewModelTestHelper.CreateNoteEditor(document, selection, messenger);
+            document.EnsureMeasures();
+            selection.UpdateFrom(new ScoreSelectionInfo { MeasureIndex = 0, InsertIndex = 0 });
+
+            editor.SetAccidental(AccidentalKind.Sharp);
+            editor.AddNote(5);
+
+            var note = document.Score.Measures[0].MelodyNotes[0];
+            Assert.Equal(AccidentalKind.Sharp, note.Accidental);
+            Assert.Equal(5.5, note.Pitch);
+        }
+
+        [Fact]
         public void AddRest_InsertsRestNote()
         {
             var (document, selection, messenger, _) = ViewModelTestHelper.CreateDocumentWithSelection();

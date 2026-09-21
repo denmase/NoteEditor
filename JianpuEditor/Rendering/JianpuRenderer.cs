@@ -2218,6 +2218,17 @@ namespace JianpuEditor.Rendering
                 return;
             }
 
+            if (note.Accidental == AccidentalKind.Natural)
+            {
+                // Drawn as vector strokes rather than the Unicode natural-sign character (U+266E):
+                // that glyph isn't reliably present in every font this app might run under (found
+                // via this sandbox's Mono+libgdiplus render harness -- Arial there substitutes a
+                // fallback glyph that doesn't read as a natural sign at all), so this avoids the
+                // font-coverage risk entirely rather than gambling on a specific font/platform.
+                DrawNaturalSignGlyph(g, topLayout.AccidentalX, y + topLayout.AccidentalY);
+                return;
+            }
+
             var mark = JianpuPitchCodec.GetAccidentalMark(note);
             if (string.IsNullOrEmpty(mark))
             {
@@ -2227,6 +2238,20 @@ namespace JianpuEditor.Rendering
             using (var accidentalFont = new Font("Arial", CompactAccidentalFontSize, FontStyle.Bold))
             {
                 g.DrawString(mark, accidentalFont, ink, topLayout.AccidentalX, y + topLayout.AccidentalY);
+            }
+        }
+
+        private void DrawNaturalSignGlyph(Graphics g, float x, float y)
+        {
+            var leftX = x + 1f;
+            var rightX = x + 6f;
+            using (var thinPen = CreateInkPen(1.3f))
+            using (var thickPen = CreateInkPen(2.4f))
+            {
+                g.DrawLine(thinPen, leftX, y + 4f, leftX, y + 16f);
+                g.DrawLine(thinPen, rightX, y, rightX, y + 12f);
+                g.DrawLine(thickPen, leftX, y + 6.5f, rightX, y + 2.5f);
+                g.DrawLine(thickPen, leftX, y + 13.5f, rightX, y + 9.5f);
             }
         }
 

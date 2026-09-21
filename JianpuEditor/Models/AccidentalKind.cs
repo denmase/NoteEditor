@@ -4,6 +4,7 @@ namespace JianpuEditor.Models
     {
         None = 0,
         Sharp = 1,
-        Flat = 2
+        Flat = 2,
+        Natural = 3
     }
 }
