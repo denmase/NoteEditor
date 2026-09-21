@@ -61,7 +61,8 @@ namespace JianpuEditor
         private ContextMenuStrip _sampleLibraryMenu;
         private ToolStripMenuItem _darkModeMenuItem;
         private ToolStripMenuItem _fillPlaceholdersMenuItem;
-        private ToolStripMenuItem _underlinesAboveMenuItem;
+        private ToolStripMenuItem _notationStyleChineseMenuItem;
+        private ToolStripMenuItem _notationStyleIndonesianMenuItem;
         private ToolStripMenuItem _undoMenuItem;
         private ToolStripMenuItem _redoMenuItem;
         private readonly ToolTip _toolTip = new ToolTip();
@@ -820,13 +821,20 @@ namespace JianpuEditor
             };
             _fillPlaceholdersMenuItem.CheckedChanged += OnFillPlaceholdersToggled;
             viewMenu.DropDownItems.Add(_fillPlaceholdersMenuItem);
-            _underlinesAboveMenuItem = new ToolStripMenuItem("Beams Above Notes (Indonesian Jianpu style)")
+            var notationStyleMenu = new ToolStripMenuItem("Notation Style");
+            _notationStyleChineseMenuItem = new ToolStripMenuItem("Chinese / Western (default)")
             {
-                CheckOnClick = true,
-                Checked = AppTheme.UnderlinesAbove
+                Checked = AppTheme.NotationStyle == NotationStyle.Chinese
             };
-            _underlinesAboveMenuItem.CheckedChanged += OnUnderlinesAboveToggled;
-            viewMenu.DropDownItems.Add(_underlinesAboveMenuItem);
+            _notationStyleChineseMenuItem.Click += (s, e) => SetNotationStyle(NotationStyle.Chinese);
+            notationStyleMenu.DropDownItems.Add(_notationStyleChineseMenuItem);
+            _notationStyleIndonesianMenuItem = new ToolStripMenuItem("Indonesian (kres/mol accidentals, beams above)")
+            {
+                Checked = AppTheme.NotationStyle == NotationStyle.Indonesian
+            };
+            _notationStyleIndonesianMenuItem.Click += (s, e) => SetNotationStyle(NotationStyle.Indonesian);
+            notationStyleMenu.DropDownItems.Add(_notationStyleIndonesianMenuItem);
+            viewMenu.DropDownItems.Add(notationStyleMenu);
             viewMenu.DropDownItems.Add(new ToolStripSeparator());
             viewMenu.DropDownItems.Add(CreateMenuItem("Zoom In", Keys.Control | Keys.Oemplus, (s, e) => _canvas.ZoomIn()));
             viewMenu.DropDownItems.Add(CreateMenuItem("Zoom Out", Keys.Control | Keys.OemMinus, (s, e) => _canvas.ZoomOut()));
@@ -1042,9 +1050,11 @@ namespace JianpuEditor
             AppTheme.SetFillMeasurePlaceholdersOnAdd(_fillPlaceholdersMenuItem.Checked);
         }
 
-        private void OnUnderlinesAboveToggled(object sender, EventArgs e)
+        private void SetNotationStyle(NotationStyle style)
         {
-            AppTheme.SetUnderlinesAbove(_underlinesAboveMenuItem.Checked);
+            AppTheme.SetNotationStyle(style);
+            _notationStyleChineseMenuItem.Checked = style == NotationStyle.Chinese;
+            _notationStyleIndonesianMenuItem.Checked = style == NotationStyle.Indonesian;
         }
 
         private static ToolStripMenuItem CreateMenuItem(string text, Keys shortcut, EventHandler handler)

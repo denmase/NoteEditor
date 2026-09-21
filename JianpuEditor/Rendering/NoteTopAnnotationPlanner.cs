@@ -113,6 +113,7 @@ namespace JianpuEditor.Rendering
 
             layout.HasAccidental = true;
             layout.AccidentalKind = note.Accidental;
+            layout.AccidentalIsSuffix = JianpuPitchCodec.IsSuffixAccidental(note);
             layout.AccidentalX = noteX + AccidentalLeftPadding;
             layout.AccidentalY = NoteTopAnnotationLayout.AccidentalBandY;
         }
@@ -125,11 +126,12 @@ namespace JianpuEditor.Rendering
             }
 
             layout.HasHighOctaveDots = true;
-            layout.OctaveDotBaseY = layout.HasAccidental
+            var accidentalOccupiesUpperLeft = layout.HasAccidental && !layout.AccidentalIsSuffix;
+            layout.OctaveDotBaseY = accidentalOccupiesUpperLeft
                 ? NoteTopAnnotationLayout.OctaveDotBandY
                 : NoteTopAnnotationLayout.OctaveDotBandYWithoutAccidental;
 
-            if (layout.HasAccidental)
+            if (accidentalOccupiesUpperLeft)
             {
                 var minCenterX = layout.AccidentalX
                     + NoteTopAnnotationLayout.AccidentalMarkWidth
@@ -154,7 +156,7 @@ namespace JianpuEditor.Rendering
         private static void PlaceOrnamentBands(NoteTopAnnotationLayout layout)
         {
             var boundaryY = NoteTopAnnotationLayout.DigitTextY;
-            if (layout.HasAccidental)
+            if (layout.HasAccidental && !layout.AccidentalIsSuffix)
             {
                 boundaryY = Math.Min(boundaryY, layout.AccidentalY);
             }

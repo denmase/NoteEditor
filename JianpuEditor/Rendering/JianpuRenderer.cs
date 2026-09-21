@@ -2177,6 +2177,35 @@ namespace JianpuEditor.Rendering
                 return;
             }
 
+            if (topLayout.AccidentalIsSuffix)
+            {
+                // Indonesian kres/mol isn't a separate character next to the digit -- it's a
+                // diagonal stroke drawn through the digit itself (kres `/` sharp bottom-left to
+                // top-right, mol `\` flat top-left to bottom-right), the way it appears in real
+                // notasi angka sheet music. Measure the digit's actual rendered box (font metrics
+                // vary per platform, so a fixed size would drift) and draw the stroke corner to
+                // corner across it.
+                var degreeText = JianpuPitchCodec.GetDisplayDegree(note).ToString();
+                var digitSize = g.MeasureString(degreeText, _noteFont);
+                var left = topLayout.HeadCenterX - digitSize.Width / 2f;
+                var right = topLayout.HeadCenterX + digitSize.Width / 2f;
+                var top = y + NoteTopAnnotationLayout.DigitTextY;
+                var bottom = top + digitSize.Height;
+                using (var pen = CreateInkPen(2.5f))
+                {
+                    if (note.Accidental == AccidentalKind.Sharp)
+                    {
+                        g.DrawLine(pen, left, bottom, right, top);
+                    }
+                    else
+                    {
+                        g.DrawLine(pen, left, top, right, bottom);
+                    }
+                }
+
+                return;
+            }
+
             var mark = JianpuPitchCodec.GetAccidentalMark(note);
             if (string.IsNullOrEmpty(mark))
             {

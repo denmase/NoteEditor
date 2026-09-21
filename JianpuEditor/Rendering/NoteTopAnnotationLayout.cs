@@ -53,6 +53,15 @@ namespace JianpuEditor.Rendering
 
         public bool HasAccidental { get; set; }
 
+        /// <summary>True for a Sharp/Flat accidental under <see cref="Models.NotationStyle.Indonesian"/>
+        /// (kres `/` / mol `\`), which draws as a suffix to the right of the digit at its own
+        /// baseline instead of the stacked upper-left band <see cref="AccidentalX"/>/<see
+        /// cref="AccidentalY"/> describe -- so it needs neither the octave-dot dodge nor the
+        /// ornament-band headroom those positions exist for. A Natural sign stays in the upper-left
+        /// band under both notation styles (see the note on <c>JianpuPitchCodec.IsSuffixAccidental</c>),
+        /// so this is false for it even when the style is Indonesian.</summary>
+        public bool AccidentalIsSuffix { get; set; }
+
         public bool HasHighOctaveDots { get; set; }
 
         public float AccidentalX { get; set; }

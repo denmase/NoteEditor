@@ -29,16 +29,13 @@ Until now, playback always used whatever General MIDI patch 0 (Acoustic Grand Pi
 
 ## Indonesian notasi angka completeness (gap analysis + plan)
 
-**Status: phase 3's bug-fix half, phase 4 (all of it except Glissando), the discrete-levels half
-of phase 5 (dynamics), phase 6 (breath marks), and phase 7 (Segno/Coda, repeat bar lines, and
-volta brackets -- the visual halves of all three) are done. Bar line types (Single/Double/Final/
-RepeatEnd/RepeatStart) and volta brackets were bundled into phase 7 as originally scoped there.
-Phase 10 (pickup measure verification) is also done. Phase 2's `AccidentalKind.Natural` +
-manual accidental entry piece is also done (see the note under phase 2) -- the accidental slash
-convention itself (the one genuinely `NotationStyle`-gated item, and phase 1's `NotationStyle`
-foundation it depends on) is still not started. Everything else below is still not
-started**, including phases 1-2's remaining slash-convention work -- see the note under phase 2
-for why that one turned out to be more involved than it looked. Phase 10 also surfaced a separate,
+**Status: phases 1 and 2 (`NotationStyle` foundation and the accidental slash convention -- the
+one genuinely regional-style-gated item in this whole list) are done, along with phase 3's bug-fix
+half, phase 4 (all of it except Glissando), the discrete-levels half of phase 5 (dynamics), phase
+6 (breath marks), and phase 7 (Segno/Coda, repeat bar lines, and volta brackets -- the visual
+halves of all three). Bar line types (Single/Double/Final/RepeatEnd/RepeatStart) and volta
+brackets were bundled into phase 7 as originally scoped there. Phase 10 (pickup measure
+verification) is also done. Everything else below is still not started.** Phase 10 also surfaced a separate,
 real gap in MIDI import (pickup measures aren't preserved) -- see the note under phase
 10. A pre-existing ornament/octave-dot rendering collision (unrelated to any single phase, found
 while visually verifying the work above) is also fixed -- see the note right after phase 10 about
@@ -94,25 +91,46 @@ here and intentionally excluded.*
 
 ### Phased plan
 
-1. **`NotationStyle` setting** (foundation for everything gated). Add the enum to `AppTheme`,
-   migrate `UnderlinesAbove`, re-point the existing underline-position branch at it. No visible
-   change for anyone currently on the default.
-2. **Accidental slash convention — turned out bigger than it looked, not started.** The naive
-   plan (branch `JianpuPitchCodec.GetAccidentalMark`/`GetPitchDisplayText` on `NotationStyle`) only
-   covers one of *two* separate accidental rendering paths in `JianpuRenderer`. The other,
-   `DrawCompactAccidentalMark`, positions the mark using a dedicated layout band
-   (`NoteTopAnnotationLayout.AccidentalX/AccidentalY`, computed in
-   `NoteTopAnnotationPlanner.PlaceAccidental`) that assumes a compact mark to the upper-left of
-   the digit, at a different vertical position than the digit itself, with octave-dot placement
-   already computed to dodge it on that side. A true suffix-slash layout needs a second band
-   variant (mark to the right, at the digit's own baseline) and re-deriving the octave-dot
-   collision math for that case — real layout work. Recommend doing this as its own PR, with a
-   real look at the on-screen result before merging, rather than bundled with lower-risk items.
-   **Update: this sandbox can now partially self-verify GDI+ output** (see the note at the end of
-   this phased plan) via Mono+libgdiplus, which lowers but doesn't eliminate the risk here — still
-   worth its own carefully-reviewed PR given the collision-math complexity, but "no way to check at
-   all" is no longer accurate. `AccidentalKind.Natural` doesn't touch the suffix-vs-prefix
-   positioning question at all, so it's landed separately and first, described below.
+1. **`NotationStyle` setting — done.** Added `Models.NotationStyle` (`Chinese` default,
+   `Indonesian`) and `AppTheme.NotationStyle` as the persisted source of truth. `UnderlinesAbove`
+   is now a computed pass-through (`NotationStyle == Indonesian`) rather than its own independent
+   flag, so every existing call site reading it (the beam-position branches in `JianpuRenderer`)
+   keeps working completely unchanged -- only the *setter* path changed. A settings file saved by
+   a build from before this existed has only the old `UnderlinesAbove` bool; `AppTheme.Load`
+   migrates `true` there to `Indonesian` (`ResolveNotationStyle`) so nobody's saved preference is
+   silently reset back to Chinese. The View menu's old single "Beams Above Notes (Indonesian
+   Jianpu style)" checkbox is now a proper "Notation Style" submenu (Chinese/Western default vs.
+   Indonesian), reflecting that this one setting now also gates the accidental convention below,
+   not just beam position.
+2. **Accidental slash convention — done.** Landed in two pieces:
+   - `AccidentalKind.Natural` + manual sharp/flat/natural entry landed first (see the note right
+     below this list) since it doesn't touch the suffix-vs-prefix positioning question at all.
+   - **The kres/mol stroke-through layout itself.** The naive plan (branch
+     `JianpuPitchCodec.GetAccidentalMark`/`GetPitchDisplayText` on `NotationStyle`, drawing a
+     separate `/`/`\` character next to the digit) turned out visually wrong on the first real
+     rendered look, caught after comparing against a real notasi angka sheet music example: kres
+     and mol aren't a separate character positioned next to the digit at all -- they're a diagonal
+     stroke drawn *through* the digit itself (kres bottom-left to top-right, mol top-left to
+     bottom-right), the way `#`/`b` sit as a prefix rather than a same-size neighboring glyph.
+     `DrawCompactAccidentalMark` (the real production path -- the other, `NoteTopAnnotationLayout.
+     AccidentalX/AccidentalY`-based upper-left band computed in `NoteTopAnnotationPlanner.
+     PlaceAccidental`, is what `#`/`b`/`♮` still use) now measures the digit's actual rendered box
+     at draw time (`g.MeasureString`, since font metrics vary per platform) and draws the stroke
+     corner-to-corner across it with `Graphics.DrawLine` instead of drawing separate glyph text. A
+     new `NoteTopAnnotationLayout.AccidentalIsSuffix` flag (true only for Sharp/Flat under
+     Indonesian style -- Natural stays a prefix under both styles, since this renderer doesn't
+     carry accidentals through a measure the way real key-signature-aware notation does, so a
+     natural sign here is always a standalone cancel-mark rather than something that needs to
+     visually match a stroke-through accidental within a phrase) tells `PlaceOctaveDots`/
+     `PlaceOrnamentBands` to skip their accidental-dodge math for it (nothing occupies the
+     upper-left band to dodge anymore, since the stroke sits on top of the digit instead), so
+     octave dots and ornaments center normally instead of being pushed aside for no reason. `#`/
+     `b`/`♮` and their upper-left positioning are completely untouched for Chinese style --
+     confirmed with byte-for-byte identical PNG output for the built-in "Ode to Joy" sample before/
+     after this change, and confirmed visually via this session's Mono+libgdiplus harness (compared
+     directly against a real Indonesian notasi angka sheet music image) that kres/mol read clearly
+     as a stroke through the digit and don't collide with an octave dot or a stacked ornament (e.g.
+     a grace note) on the same note.
    **`AccidentalKind.Natural` + manual sharp/flat/natural entry — done.** Confirmed the previously-
    noted prerequisite gap first: `AccidentalKind.Sharp`/`Flat` had zero manual entry UI anywhere in
    the app (`JianpuPitchCodec.SetAccidentalPitch` was never called outside its own definition and

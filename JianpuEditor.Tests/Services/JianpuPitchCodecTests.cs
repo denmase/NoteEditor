@@ -1,5 +1,6 @@
 using JianpuEditor.Models;
 using JianpuEditor.Services;
+using JianpuEditor.Tests.Helpers;
 using Xunit;
 
 namespace JianpuEditor.Tests.Services
@@ -79,6 +80,77 @@ namespace JianpuEditor.Tests.Services
         {
             var note = new JianpuNote { Type = NoteType.Note, Pitch = 5, Accidental = AccidentalKind.Natural };
             Assert.True(JianpuPitchCodec.IsValidMelodyPitch(note));
+        }
+
+        [Fact]
+        public void GetAccidentalMark_IndonesianStyle_UsesKresAndMolSlashes()
+        {
+            using (new NotationStyleScope(NotationStyle.Indonesian))
+            {
+                var sharp = new JianpuNote { Type = NoteType.Note, Pitch = 1.5, Accidental = AccidentalKind.Sharp };
+                var flat = new JianpuNote { Type = NoteType.Note, Pitch = 2.5, Accidental = AccidentalKind.Flat };
+
+                Assert.Equal("/", JianpuPitchCodec.GetAccidentalMark(sharp));
+                Assert.Equal("\\", JianpuPitchCodec.GetAccidentalMark(flat));
+            }
+        }
+
+        [Fact]
+        public void GetAccidentalMark_IndonesianStyle_NaturalStaysUnicodeGlyph()
+        {
+            using (new NotationStyleScope(NotationStyle.Indonesian))
+            {
+                var natural = new JianpuNote { Type = NoteType.Note, Pitch = 4, Accidental = AccidentalKind.Natural };
+                Assert.Equal("♮", JianpuPitchCodec.GetAccidentalMark(natural));
+            }
+        }
+
+        [Fact]
+        public void GetPitchDisplayText_IndonesianStyle_SuffixesSharpAndFlat()
+        {
+            using (new NotationStyleScope(NotationStyle.Indonesian))
+            {
+                var sharp = new JianpuNote { Type = NoteType.Note, Pitch = 1.5, Accidental = AccidentalKind.Sharp };
+                var flat = new JianpuNote { Type = NoteType.Note, Pitch = 2.5, Accidental = AccidentalKind.Flat };
+
+                Assert.Equal("1/", JianpuPitchCodec.GetPitchDisplayText(sharp));
+                Assert.Equal("3\\", JianpuPitchCodec.GetPitchDisplayText(flat));
+            }
+        }
+
+        [Fact]
+        public void GetPitchDisplayText_IndonesianStyle_NaturalStaysPrefixed()
+        {
+            using (new NotationStyleScope(NotationStyle.Indonesian))
+            {
+                var natural = new JianpuNote { Type = NoteType.Note, Pitch = 4, Accidental = AccidentalKind.Natural };
+                Assert.Equal("♮4", JianpuPitchCodec.GetPitchDisplayText(natural));
+            }
+        }
+
+        [Fact]
+        public void IsSuffixAccidental_ChineseStyle_AlwaysFalse()
+        {
+            using (new NotationStyleScope(NotationStyle.Chinese))
+            {
+                var sharp = new JianpuNote { Type = NoteType.Note, Pitch = 1.5, Accidental = AccidentalKind.Sharp };
+                Assert.False(JianpuPitchCodec.IsSuffixAccidental(sharp));
+            }
+        }
+
+        [Fact]
+        public void IsSuffixAccidental_IndonesianStyle_TrueOnlyForSharpAndFlat()
+        {
+            using (new NotationStyleScope(NotationStyle.Indonesian))
+            {
+                var sharp = new JianpuNote { Type = NoteType.Note, Pitch = 1.5, Accidental = AccidentalKind.Sharp };
+                var natural = new JianpuNote { Type = NoteType.Note, Pitch = 4, Accidental = AccidentalKind.Natural };
+                var none = new JianpuNote { Type = NoteType.Note, Pitch = 4 };
+
+                Assert.True(JianpuPitchCodec.IsSuffixAccidental(sharp));
+                Assert.False(JianpuPitchCodec.IsSuffixAccidental(natural));
+                Assert.False(JianpuPitchCodec.IsSuffixAccidental(none));
+            }
         }
     }
 }

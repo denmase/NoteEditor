@@ -1,5 +1,6 @@
 using System;
 using JianpuEditor.Models;
+using JianpuEditor.Rendering;
 
 namespace JianpuEditor.Services
 {
@@ -51,7 +52,27 @@ namespace JianpuEditor.Services
 
             var degree = GetDisplayDegree(note);
             var mark = GetAccidentalMark(note);
-            return mark == null ? degree.ToString() : mark + degree;
+            if (mark == null)
+            {
+                return degree.ToString();
+            }
+
+            return IsSuffixAccidental(note) ? degree + mark : mark + degree;
+        }
+
+        /// <summary>True for a Sharp/Flat accidental when the active <see cref="AppTheme.NotationStyle"/>
+        /// is <see cref="NotationStyle.Indonesian"/> -- notasi angka suffixes kres (`/`, sharp) and
+        /// mol (`\`, flat) after the digit instead of the Chinese/Western `#`/`b` prefix. A Natural
+        /// sign stays a prefix under both styles: this renderer doesn't carry accidentals through a
+        /// measure the way real key-signature-aware notation does, so a natural sign here is always
+        /// a standalone cancel-mark on one note rather than something that needs to visually match
+        /// a preceding suffixed accidental within a phrase, and Indonesian sources don't establish a
+        /// suffix convention for it the way they do for kres/mol.</summary>
+        public static bool IsSuffixAccidental(JianpuNote note)
+        {
+            return note != null
+                && AppTheme.NotationStyle == NotationStyle.Indonesian
+                && (note.Accidental == AccidentalKind.Sharp || note.Accidental == AccidentalKind.Flat);
         }
 
         public static string GetAccidentalMark(JianpuNote note)
@@ -63,12 +84,12 @@ namespace JianpuEditor.Services
 
             if (note.Accidental == AccidentalKind.Sharp)
             {
-                return "#";
+                return AppTheme.NotationStyle == NotationStyle.Indonesian ? "/" : "#";
             }
 
             if (note.Accidental == AccidentalKind.Flat)
             {
-                return "b";
+                return AppTheme.NotationStyle == NotationStyle.Indonesian ? "\\" : "b";
             }
 
             if (note.Accidental == AccidentalKind.Natural)

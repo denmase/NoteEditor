@@ -154,6 +154,33 @@ namespace JianpuEditor.Tests.Rendering
         }
 
         [Fact]
+        public void RenderToBitmap_IndonesianAccidentals_DoesNotThrow()
+        {
+            using (new NotationStyleScope(NotationStyle.Indonesian))
+            {
+                var measure = ScoreTestHelper.Measure(
+                    ScoreTestHelper.Note(1, octave: 1),
+                    ScoreTestHelper.Note(2, octave: -1));
+                measure.MelodyNotes[0].Pitch = 1.5;
+                measure.MelodyNotes[0].Accidental = AccidentalKind.Sharp;
+                measure.MelodyNotes[1].Pitch = 2.5;
+                measure.MelodyNotes[1].Accidental = AccidentalKind.Flat;
+                measure.Ornaments = new List<JianpuOrnament>
+                {
+                    new JianpuOrnament { Type = OrnamentType.GraceNote, NoteIndex = 0 }
+                };
+                OrnamentService.NormalizeMeasure(measure);
+
+                var score = ScoreTestHelper.CreateScore(measure);
+                using (var renderer = new JianpuRenderer())
+                {
+                    Assert.NotNull(renderer.RenderToBitmap(score, 1280, ScoreLayoutOptions.Editor));
+                    Assert.NotNull(renderer.RenderToBitmap(score, 1280, ScoreLayoutOptions.PdfExport));
+                }
+            }
+        }
+
+        [Fact]
         public void GetAccidentalMark_ReturnsSharpOrFlat()
         {
             var sharp = new JianpuNote { Type = NoteType.Note, Pitch = 1.5, Accidental = AccidentalKind.Sharp };
