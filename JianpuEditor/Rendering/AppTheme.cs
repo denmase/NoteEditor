@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.IO;
+using JianpuEditor.Models;
 using Newtonsoft.Json;
 
 namespace JianpuEditor.Rendering
@@ -46,10 +47,19 @@ namespace JianpuEditor.Rendering
 
         public static bool FillMeasurePlaceholdersOnAdd { get; private set; } = true;
 
+        /// <summary>Which regional jianpu convention is active. Source of truth for every style
+        /// difference between the two conventions -- see <see cref="Models.NotationStyle"/>.</summary>
+        public static NotationStyle NotationStyle { get; private set; } = NotationStyle.Chinese;
+
         /// <summary>When true, beat-group duration underlines are drawn above the melody row instead
         /// of below it -- the notation convention used in the Indonesian Jianpu variant, as opposed
-        /// to the Chinese/Western convention (lines below) this renderer defaults to.</summary>
-        public static bool UnderlinesAbove { get; private set; }
+        /// to the Chinese/Western convention (lines below) this renderer defaults to. Computed from
+        /// <see cref="NotationStyle"/> rather than its own independent flag, so every existing call
+        /// site that reads this keeps working unchanged.</summary>
+        public static bool UnderlinesAbove
+        {
+            get { return NotationStyle == NotationStyle.Indonesian; }
+        }
 
         /// <summary>Path to a VST2 instrument plugin DLL to use for the melody part instead of the
         /// bundled SoundFont, or empty to use the SoundFont. Required for VST playback; the chord
@@ -84,7 +94,7 @@ namespace JianpuEditor.Rendering
                 VstMelodyPluginPath = settings?.VstMelodyPluginPath ?? settings?.VstPluginPath ?? string.Empty;
                 VstChordPluginPath = settings?.VstChordPluginPath ?? string.Empty;
                 CustomSoundFontPath = settings?.CustomSoundFontPath ?? string.Empty;
-                UnderlinesAbove = settings?.UnderlinesAbove ?? false;
+                NotationStyle = ResolveNotationStyle(settings);
             }
             catch
             {
@@ -93,8 +103,27 @@ namespace JianpuEditor.Rendering
                 VstMelodyPluginPath = string.Empty;
                 VstChordPluginPath = string.Empty;
                 CustomSoundFontPath = string.Empty;
-                UnderlinesAbove = false;
+                NotationStyle = NotationStyle.Chinese;
             }
+        }
+
+        /// <summary>A settings file saved by a build from before <see cref="NotationStyle"/>
+        /// existed only has the old <c>UnderlinesAbove</c> bool -- migrate `true` there to
+        /// `Indonesian` so nobody's saved preference is silently reset back to Chinese.</summary>
+        private static NotationStyle ResolveNotationStyle(ThemeSettings settings)
+        {
+            if (settings == null)
+            {
+                return NotationStyle.Chinese;
+            }
+
+            if (!string.IsNullOrEmpty(settings.NotationStyle)
+                && Enum.TryParse(settings.NotationStyle, out NotationStyle parsed))
+            {
+                return parsed;
+            }
+
+            return settings.UnderlinesAbove ? NotationStyle.Indonesian : NotationStyle.Chinese;
         }
 
         public static void SetDarkMode(bool enabled, bool persist = true)
@@ -128,14 +157,14 @@ namespace JianpuEditor.Rendering
             }
         }
 
-        public static void SetUnderlinesAbove(bool enabled, bool persist = true)
+        public static void SetNotationStyle(NotationStyle style, bool persist = true)
         {
-            if (UnderlinesAbove == enabled)
+            if (NotationStyle == style)
             {
                 return;
             }
 
-            UnderlinesAbove = enabled;
+            NotationStyle = style;
             if (persist)
             {
                 Save();
@@ -284,7 +313,7 @@ namespace JianpuEditor.Rendering
                         VstMelodyPluginPath = VstMelodyPluginPath,
                         VstChordPluginPath = VstChordPluginPath,
                         CustomSoundFontPath = CustomSoundFontPath,
-                        UnderlinesAbove = UnderlinesAbove
+                        NotationStyle = NotationStyle.ToString()
                     },
                     Formatting.Indented);
                 File.WriteAllText(SettingsPath, json);
@@ -311,7 +340,11 @@ namespace JianpuEditor.Rendering
 
             public string CustomSoundFontPath { get; set; } = string.Empty;
 
+            /// <summary>Legacy field from before NotationStyle existed; read as a migration
+            /// fallback (see ResolveNotationStyle), never written.</summary>
             public bool UnderlinesAbove { get; set; }
+
+            public string NotationStyle { get; set; }
         }
     }
 }

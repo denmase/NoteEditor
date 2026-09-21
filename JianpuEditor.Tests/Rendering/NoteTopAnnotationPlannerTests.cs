@@ -173,6 +173,52 @@ namespace JianpuEditor.Tests.Rendering
         }
 
         [Fact]
+        public void Plan_IndonesianSharp_AccidentalIsSuffixAndOctaveDotDoesNotDodge()
+        {
+            using (new NotationStyleScope(NotationStyle.Indonesian))
+            {
+                var note = new JianpuNote
+                {
+                    Type = NoteType.Note,
+                    Pitch = 1.5,
+                    Accidental = AccidentalKind.Sharp,
+                    Octave = 1
+                };
+
+                var layout = NoteTopAnnotationPlanner.Plan(note, 100, 28, new List<JianpuOrnament>(), compactAccidentals: true);
+
+                Assert.True(layout.HasAccidental);
+                Assert.True(layout.AccidentalIsSuffix);
+                // Same as the no-accidental case (Plan_OctaveOnly_PlacesDotsClosestToNote above) --
+                // a suffix accidental sits to the right of the digit, so the octave dot doesn't need
+                // to dodge it the way a prefix accidental (Chinese style) requires.
+                Assert.Equal(NoteTopAnnotationLayout.OctaveDotBandYWithoutAccidental, layout.OctaveDotBaseY);
+                Assert.Equal(layout.HeadCenterX - 3f, layout.OctaveDotCenterX, 1);
+            }
+        }
+
+        [Fact]
+        public void Plan_IndonesianNatural_AccidentalStaysPrefixedNotSuffix()
+        {
+            using (new NotationStyleScope(NotationStyle.Indonesian))
+            {
+                var note = new JianpuNote
+                {
+                    Type = NoteType.Note,
+                    Pitch = 4,
+                    Accidental = AccidentalKind.Natural,
+                    Octave = 1
+                };
+
+                var layout = NoteTopAnnotationPlanner.Plan(note, 100, 28, new List<JianpuOrnament>(), compactAccidentals: true);
+
+                Assert.True(layout.HasAccidental);
+                Assert.False(layout.AccidentalIsSuffix);
+                Assert.Equal(NoteTopAnnotationLayout.OctaveDotBandY, layout.OctaveDotBaseY);
+            }
+        }
+
+        [Fact]
         public void GetOrnamentsForNote_ReturnsOnlyMatchingOrnaments()
         {
             var measure = ScoreTestHelper.Measure(ScoreTestHelper.Note(1), ScoreTestHelper.Note(2));

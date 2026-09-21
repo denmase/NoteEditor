@@ -29,16 +29,13 @@ Until now, playback always used whatever General MIDI patch 0 (Acoustic Grand Pi
 
 ## Indonesian notasi angka completeness (gap analysis + plan)
 
-**Status: phase 3's bug-fix half, phase 4 (all of it except Glissando), the discrete-levels half
-of phase 5 (dynamics), phase 6 (breath marks), and phase 7 (Segno/Coda, repeat bar lines, and
-volta brackets -- the visual halves of all three) are done. Bar line types (Single/Double/Final/
-RepeatEnd/RepeatStart) and volta brackets were bundled into phase 7 as originally scoped there.
-Phase 10 (pickup measure verification) is also done. Phase 2's `AccidentalKind.Natural` +
-manual accidental entry piece is also done (see the note under phase 2) -- the accidental slash
-convention itself (the one genuinely `NotationStyle`-gated item, and phase 1's `NotationStyle`
-foundation it depends on) is still not started. Everything else below is still not
-started**, including phases 1-2's remaining slash-convention work -- see the note under phase 2
-for why that one turned out to be more involved than it looked. Phase 10 also surfaced a separate,
+**Status: phases 1 and 2 (`NotationStyle` foundation and the accidental slash convention -- the
+one genuinely regional-style-gated item in this whole list) are done, along with phase 3's bug-fix
+half, phase 4 (all of it except Glissando), the discrete-levels half of phase 5 (dynamics), phase
+6 (breath marks), and phase 7 (Segno/Coda, repeat bar lines, and volta brackets -- the visual
+halves of all three). Bar line types (Single/Double/Final/RepeatEnd/RepeatStart) and volta
+brackets were bundled into phase 7 as originally scoped there. Phase 10 (pickup measure
+verification) is also done. Everything else below is still not started.** Phase 10 also surfaced a separate,
 real gap in MIDI import (pickup measures aren't preserved) -- see the note under phase
 10. A pre-existing ornament/octave-dot rendering collision (unrelated to any single phase, found
 while visually verifying the work above) is also fixed -- see the note right after phase 10 about
@@ -94,25 +91,46 @@ here and intentionally excluded.*
 
 ### Phased plan
 
-1. **`NotationStyle` setting** (foundation for everything gated). Add the enum to `AppTheme`,
-   migrate `UnderlinesAbove`, re-point the existing underline-position branch at it. No visible
-   change for anyone currently on the default.
-2. **Accidental slash convention — turned out bigger than it looked, not started.** The naive
-   plan (branch `JianpuPitchCodec.GetAccidentalMark`/`GetPitchDisplayText` on `NotationStyle`) only
-   covers one of *two* separate accidental rendering paths in `JianpuRenderer`. The other,
-   `DrawCompactAccidentalMark`, positions the mark using a dedicated layout band
-   (`NoteTopAnnotationLayout.AccidentalX/AccidentalY`, computed in
-   `NoteTopAnnotationPlanner.PlaceAccidental`) that assumes a compact mark to the upper-left of
-   the digit, at a different vertical position than the digit itself, with octave-dot placement
-   already computed to dodge it on that side. A true suffix-slash layout needs a second band
-   variant (mark to the right, at the digit's own baseline) and re-deriving the octave-dot
-   collision math for that case — real layout work. Recommend doing this as its own PR, with a
-   real look at the on-screen result before merging, rather than bundled with lower-risk items.
-   **Update: this sandbox can now partially self-verify GDI+ output** (see the note at the end of
-   this phased plan) via Mono+libgdiplus, which lowers but doesn't eliminate the risk here — still
-   worth its own carefully-reviewed PR given the collision-math complexity, but "no way to check at
-   all" is no longer accurate. `AccidentalKind.Natural` doesn't touch the suffix-vs-prefix
-   positioning question at all, so it's landed separately and first, described below.
+1. **`NotationStyle` setting — done.** Added `Models.NotationStyle` (`Chinese` default,
+   `Indonesian`) and `AppTheme.NotationStyle` as the persisted source of truth. `UnderlinesAbove`
+   is now a computed pass-through (`NotationStyle == Indonesian`) rather than its own independent
+   flag, so every existing call site reading it (the beam-position branches in `JianpuRenderer`)
+   keeps working completely unchanged -- only the *setter* path changed. A settings file saved by
+   a build from before this existed has only the old `UnderlinesAbove` bool; `AppTheme.Load`
+   migrates `true` there to `Indonesian` (`ResolveNotationStyle`) so nobody's saved preference is
+   silently reset back to Chinese. The View menu's old single "Beams Above Notes (Indonesian
+   Jianpu style)" checkbox is now a proper "Notation Style" submenu (Chinese/Western default vs.
+   Indonesian), reflecting that this one setting now also gates the accidental convention below,
+   not just beam position.
+2. **Accidental slash convention — done.** Landed in two pieces:
+   - `AccidentalKind.Natural` + manual sharp/flat/natural entry landed first (see the note right
+     below this list) since it doesn't touch the suffix-vs-prefix positioning question at all.
+   - **The kres/mol stroke-through layout itself.** The naive plan (branch
+     `JianpuPitchCodec.GetAccidentalMark`/`GetPitchDisplayText` on `NotationStyle`, drawing a
+     separate `/`/`\` character next to the digit) turned out visually wrong on the first real
+     rendered look, caught after comparing against a real notasi angka sheet music example: kres
+     and mol aren't a separate character positioned next to the digit at all -- they're a diagonal
+     stroke drawn *through* the digit itself (kres bottom-left to top-right, mol top-left to
+     bottom-right), the way `#`/`b` sit as a prefix rather than a same-size neighboring glyph.
+     `DrawCompactAccidentalMark` (the real production path -- the other, `NoteTopAnnotationLayout.
+     AccidentalX/AccidentalY`-based upper-left band computed in `NoteTopAnnotationPlanner.
+     PlaceAccidental`, is what `#`/`b`/`♮` still use) now measures the digit's actual rendered box
+     at draw time (`g.MeasureString`, since font metrics vary per platform) and draws the stroke
+     corner-to-corner across it with `Graphics.DrawLine` instead of drawing separate glyph text. A
+     new `NoteTopAnnotationLayout.AccidentalIsSuffix` flag (true only for Sharp/Flat under
+     Indonesian style -- Natural stays a prefix under both styles, since this renderer doesn't
+     carry accidentals through a measure the way real key-signature-aware notation does, so a
+     natural sign here is always a standalone cancel-mark rather than something that needs to
+     visually match a stroke-through accidental within a phrase) tells `PlaceOctaveDots`/
+     `PlaceOrnamentBands` to skip their accidental-dodge math for it (nothing occupies the
+     upper-left band to dodge anymore, since the stroke sits on top of the digit instead), so
+     octave dots and ornaments center normally instead of being pushed aside for no reason. `#`/
+     `b`/`♮` and their upper-left positioning are completely untouched for Chinese style --
+     confirmed with byte-for-byte identical PNG output for the built-in "Ode to Joy" sample before/
+     after this change, and confirmed visually via this session's Mono+libgdiplus harness (compared
+     directly against a real Indonesian notasi angka sheet music image) that kres/mol read clearly
+     as a stroke through the digit and don't collide with an octave dot or a stacked ornament (e.g.
+     a grace note) on the same note.
    **`AccidentalKind.Natural` + manual sharp/flat/natural entry — done.** Confirmed the previously-
    noted prerequisite gap first: `AccidentalKind.Sharp`/`Flat` had zero manual entry UI anywhere in
    the app (`JianpuPitchCodec.SetAccidentalPitch` was never called outside its own definition and
@@ -337,6 +355,75 @@ Checked its recent commits for bug fixes this fork should carry too:
   through to `KeySignatureService` (this must have landed independently at some earlier point in
   this fork's history) -- `MidiImportService.TonicNames` is dead code left over from before that,
   harmless but unused (matches a pre-existing compiler warning already present in this fork).
+
+## Beat continuation slot / held-note beaming (found against real songs, not started)
+
+Cross-checking the accidental slash convention (see phase 2 above) against real notasi angka sheet
+music ("Indonesia Pusaka" and "Gugur Bunga", both Ismail Marzuki; "Pertolongan-Mu", Citra
+Scholastika) surfaced a genuine, separate rendering gap: a held note that continues into a later
+beat position is drawn there as its own continuation mark (printed as `.` in these sources),
+occupying its own slot in the beat grid -- and that slot beams together with an adjacent note
+exactly like two real notes would (e.g. `3 . 1 5`: `3` stands alone as an unbeamed quarter note,
+then `.` and `1` share one beam as the held-through eighth position plus the next eighth note,
+then a new beam starts at `5`). A beam in this notation always ties together two beat-grid
+positions -- a continuation slot counts as one of them exactly like a real note.
+
+**This app has no equivalent of that continuation slot.** `JianpuNote.Dashes` extends a note's own
+duration by widening *that note's own cell* (rendered as small dash marks trailing its digit, see
+`DrawNoteDottedAndDashes`) -- it isn't a separate position in the beat grid that could sit next to,
+and beam with, a following note. So today there's no way to enter or render the `3 . 1 5` pattern
+above the way this reference does it: our model can only produce a wide "3" cell followed
+immediately by "1", never a beam connecting a held-position slot to the next note.
+
+**The exact duration rules for the dot** (per a reference guide the user supplied, translated from
+Indonesian notasi angka teaching material), confirmed against the sheet music above:
+- **Not under any beam:** a dot is worth a full beat, same as an un-underlined note. `5 . 3 4` in
+  4/4 is beats 1-2-3-4: `5` sustains through beat 2 via the dot, `3` starts beat 3, `4` starts beat
+  4. Two consecutive dots add two beats (`1 . . 2`: `1` sustains 3 beats, `2` takes beat 4); three
+  fill a whole 4/4 measure by themselves. **This maps exactly onto `Dashes`** ("each dash adds +1
+  beat," per the comment on `JianpuRenderer.GetDurationUnits`) -- `5 . 3 4` is precisely `Dashes=1`
+  on the `5`, rhythmically identical to today's model. Only the *rendering* differs: this reference
+  draws each dash as its own separate "." token in its own cell, this app draws dash marks trailing
+  the same note's digit in one wider cell.
+- **Under a beam:** here's the part our model genuinely can't represent. The dot's value isn't
+  fixed by the preceding note's *own* underline count -- it's fixed by *whatever beam depth the dot
+  itself is drawn under*, which the sheet music examples show can differ from the preceding note's
+  depth. Worked example from the reference (`5 . 4` with two stacked beam levels: a shallow one
+  spanning all three positions, a second deeper one spanning just `.` and `4`): `5` sits under only
+  the shallow beam = 1/2 beat; `.` and `4` share the deeper beam = 1/4 beat each; total 1 beat. So
+  in that example the note and its own continuation dot are at *different* effective underline
+  depths (`5` at depth 1, its dot at depth 2) -- the dot is beamed with the *following* note at the
+  dot's own depth, not simply "half of the note before it" in a fixed recursive sense (that framing
+  in the reference guide is a simplification that happens to hold for its own worked examples, but
+  the sheet-music cross-check shows the real mechanism is "the dot's duration comes from its own
+  beam depth," matching how a real note's duration comes from its own `Underlines`).
+- **Consequence:** representing this needs each continuation unit to carry its *own* effective
+  underline depth, independent of the note it continues -- `JianpuNote.Dashes` (a bare count) can't
+  carry that. This is a real, additional data-model requirement discovered by working through the
+  reference's own examples, not just a rendering gap.
+
+Actually adding this means:
+- A new slot concept (either a new `JianpuNote`/measure-list entry type, or some other
+  representation) for "hold the previous pitch here," distinct from both a real note and a
+  `NoteType.Rest`, and carrying its own underline/beam-depth value independent of the note it
+  continues (see above).
+- Duration/width layout, hit-testing, and MIDI playback/export all currently derive purely from
+  the existing `MelodyNotes` list and `GetDurationUnits`; a continuation slot needs to participate
+  in all of that (occupying real width and beat-time) without being mistaken for a playable note.
+  The existing `Dashes`-based duration math stays correct for the *unbeamed* case (a dash/dot is
+  still worth 1 full beat there) -- only the *beamed* case needs the new per-slot depth.
+- `BeatGroupUnderlinePlanner.GroupNotesByQuarterBeat`/`CollectSpans` (see the upstream-sync section
+  above) need the continuation slot to count as a normal group member for beaming purposes, keyed
+  off its own depth rather than the preceding note's.
+- Rendering: a small glyph (a dot, matching the reference, or something else) drawn in its own
+  cell rather than as a trailing mark on the previous note.
+- Backward compatibility: existing scores using `Dashes` for the simple unbeamed case must keep
+  rendering exactly as they do today; this is purely additive for the new beamed-continuation case.
+
+This is real, contained scope, but not a small tweak to the just-fixed beam-span logic -- it's a
+new notation primitive touching the data model, layout, playback, and rendering simultaneously.
+Scoping it as its own dedicated, carefully-reviewed piece of work rather than folding it into the
+beam-fix or accidental-convention PRs.
 
 ## CLAP support (spike plan only, not started)
 
