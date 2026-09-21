@@ -237,6 +237,12 @@ namespace JianpuEditor.Services
                     return "segno";
                 case OrnamentType.Coda:
                     return "coda";
+                case OrnamentType.DaCapo:
+                    return "D.C.";
+                case OrnamentType.DalSegno:
+                    return "D.S.";
+                case OrnamentType.Fine:
+                    return "Fine";
                 default:
                     return type.ToString();
             }

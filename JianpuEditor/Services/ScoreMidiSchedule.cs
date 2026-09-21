@@ -42,17 +42,37 @@ namespace JianpuEditor.Services
             }
 
             var schedule = new ScoreMidiSchedule();
-            var melody = BuildMelodyNotes(score);
-            var chords = BuildChordNotes(score);
+            var playOrder = SegnoCodaPlaybackExpander.ApplyNavigation(
+                score.Measures,
+                RepeatPlaybackExpander.Expand(score.Measures, score.Voltas));
+            var melody = BuildMelodyNotes(score, playOrder);
+            var chords = BuildChordNotes(score, playOrder);
             var notes = new List<ScheduledMidiNote>(melody.Count + chords.Count);
             notes.AddRange(melody);
             notes.AddRange(chords);
             schedule.Notes = notes;
-            schedule.TotalQuarterLength = ComputeTotalQuarterLength(score);
+            schedule.TotalQuarterLength = ComputeTotalQuarterLength(score, playOrder);
             return schedule;
         }
 
+        /// <summary>Total playback length in quarter-note units, following repeats and volta
+        /// skips (see <see cref="RepeatPlaybackExpander"/>) rather than one straight pass through
+        /// <c>Measures</c> -- a score with a repeat sign genuinely takes longer to play than its
+        /// raw measure count would suggest.</summary>
         public static double ComputeTotalQuarterLength(JianpuScore score)
+        {
+            if (score?.Measures == null)
+            {
+                return 0;
+            }
+
+            var playOrder = SegnoCodaPlaybackExpander.ApplyNavigation(
+                score.Measures,
+                RepeatPlaybackExpander.Expand(score.Measures, score.Voltas));
+            return ComputeTotalQuarterLength(score, playOrder);
+        }
+
+        private static double ComputeTotalQuarterLength(JianpuScore score, IReadOnlyList<int> playOrder)
         {
             var total = 0.0;
             var measures = score?.Measures;
@@ -61,8 +81,9 @@ namespace JianpuEditor.Services
                 return 0;
             }
 
-            foreach (var measure in measures)
+            foreach (var measureIndex in playOrder)
             {
+                var measure = measures[measureIndex];
                 MelodyChordService.NormalizeMeasure(measure);
                 total += GetMeasureDurationUnits(measure);
             }
@@ -85,7 +106,7 @@ namespace JianpuEditor.Services
             return duration > 0 ? duration : DefaultMeasureBeats;
         }
 
-        private static List<ScheduledMidiNote> BuildMelodyNotes(JianpuScore score)
+        private static List<ScheduledMidiNote> BuildMelodyNotes(JianpuScore score, IReadOnlyList<int> playOrder)
         {
             var tonicMidi = ParseTonicMidi(score.KeySignature);
             var suppressed = BuildTieEndSet(score.Ties);
@@ -100,7 +121,7 @@ namespace JianpuEditor.Services
             var soundingEventIndices = new List<int>();
 
             var measures = score.Measures ?? new List<JianpuMeasure>();
-            for (var measureIndex = 0; measureIndex < measures.Count; measureIndex++)
+            foreach (var measureIndex in playOrder)
             {
                 var measure = measures[measureIndex];
                 MelodyChordService.NormalizeMeasure(measure);
@@ -201,13 +222,13 @@ namespace JianpuEditor.Services
             return events;
         }
 
-        private static List<ScheduledMidiNote> BuildChordNotes(JianpuScore score)
+        private static List<ScheduledMidiNote> BuildChordNotes(JianpuScore score, IReadOnlyList<int> playOrder)
         {
             var events = new List<ScheduledMidiNote>();
             var measures = score.Measures ?? new List<JianpuMeasure>();
             var measureStart = 0.0;
 
-            for (var measureIndex = 0; measureIndex < measures.Count; measureIndex++)
+            foreach (var measureIndex in playOrder)
             {
                 var measure = measures[measureIndex];
                 var measureDuration = GetMeasureDurationUnits(measure);

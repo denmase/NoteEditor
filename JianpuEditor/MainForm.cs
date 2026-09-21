@@ -738,6 +738,18 @@ namespace JianpuEditor
                 "Coda",
                 Keys.None,
                 (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Coda))));
+            ornamentMenu.DropDownItems.Add(CreateMenuItem(
+                "D.C. (Da Capo)",
+                Keys.None,
+                (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.DaCapo))));
+            ornamentMenu.DropDownItems.Add(CreateMenuItem(
+                "D.S. (Dal Segno)",
+                Keys.None,
+                (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.DalSegno))));
+            ornamentMenu.DropDownItems.Add(CreateMenuItem(
+                "Fine",
+                Keys.None,
+                (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Fine))));
             editMenu.DropDownItems.Add(ornamentMenu);
             var dynamicsMenu = new ToolStripMenuItem("Dynamics");
             dynamicsMenu.DropDownItems.Add(CreateMenuItem("pp", Keys.None, (s, e) => ExecuteScoreEdit(() => _viewModel.DynamicsEditor.SetDynamic("pp"))));
@@ -907,6 +919,10 @@ namespace JianpuEditor
                 CreateRibbonButton(RibbonIcon.Tenuto, "Tenuto", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Tenuto)), compact: true),
                 CreateRibbonButton(RibbonIcon.Segno, "Segno", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Segno)), compact: true),
                 CreateRibbonButton(RibbonIcon.Coda, "Coda", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Coda)), compact: true));
+            ornaments.AddRow(
+                CreateRibbonButton(RibbonIcon.DaCapo, "D.C. (Da Capo)", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.DaCapo)), compact: true),
+                CreateRibbonButton(RibbonIcon.DalSegno, "D.S. (Dal Segno)", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.DalSegno)), compact: true),
+                CreateRibbonButton(RibbonIcon.Fine, "Fine", () => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Fine)), compact: true));
             panel.Controls.Add(ornaments);
 
             var dynamics = new RibbonGroup("Dynamics");
@@ -1295,6 +1311,9 @@ namespace JianpuEditor
             ornamentsMenu.DropDownItems.Add("Tenuto", null, (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Tenuto)));
             ornamentsMenu.DropDownItems.Add("Segno", null, (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Segno)));
             ornamentsMenu.DropDownItems.Add("Coda", null, (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Coda)));
+            ornamentsMenu.DropDownItems.Add("D.C. (Da Capo)", null, (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.DaCapo)));
+            ornamentsMenu.DropDownItems.Add("D.S. (Dal Segno)", null, (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.DalSegno)));
+            ornamentsMenu.DropDownItems.Add("Fine", null, (s, e) => ExecuteScoreEdit(() => _viewModel.OrnamentEditor.AddOrnament(OrnamentType.Fine)));
             menu.Items.Add(ornamentsMenu);
 
             var dynamicsMenu = new ToolStripMenuItem("Dynamics");

@@ -94,6 +94,9 @@ namespace JianpuEditor.Rendering
                     case OrnamentType.Tenuto:
                     case OrnamentType.Segno:
                     case OrnamentType.Coda:
+                    case OrnamentType.DaCapo:
+                    case OrnamentType.DalSegno:
+                    case OrnamentType.Fine:
                         layout.HasCenterOrnament = true;
                         break;
                 }

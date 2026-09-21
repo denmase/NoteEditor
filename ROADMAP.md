@@ -32,10 +32,12 @@ Until now, playback always used whatever General MIDI patch 0 (Acoustic Grand Pi
 **Status: phases 1 and 2 (`NotationStyle` foundation and the accidental slash convention -- the
 one genuinely regional-style-gated item in this whole list) are done, along with phase 3's bug-fix
 half, phase 4 (all of it except Glissando), the discrete-levels half of phase 5 (dynamics), phase
-6 (breath marks), and phase 7 (Segno/Coda, repeat bar lines, and volta brackets -- the visual
-halves of all three). Bar line types (Single/Double/Final/RepeatEnd/RepeatStart) and volta
-brackets were bundled into phase 7 as originally scoped there. Phase 10 (pickup measure
-verification) is also done. Everything else below is still not started.** Phase 10 also surfaced a separate,
+6 (breath marks), and phase 7 (Segno/Coda, repeat bar lines, volta brackets, and D.C./D.S./Fine/
+Coda navigation -- both the visual halves of all three original items and the playback/MIDI-export
+scheduling that was originally left as a follow-up). Bar line types
+(Single/Double/Final/RepeatEnd/RepeatStart) and volta brackets were bundled into phase 7 as
+originally scoped there. Phase 10 (pickup measure verification) is also done. Everything else
+below is still not started.** Phase 10 also surfaced a separate,
 real gap in MIDI import (pickup measures aren't preserved) -- see the note under phase
 10. A pre-existing ornament/octave-dot rendering collision (unrelated to any single phase, found
 while visually verifying the work above) is also fixed -- see the note right after phase 10 about
@@ -227,30 +229,29 @@ here and intentionally excluded.*
    participate in `NoteTopAnnotationPlanner`'s accidental/octave-dot collision math at all, so it
    carries none of the layout risk flagged under phase 2. Visual-only, no playback/MIDI-export
    effect (a version that inserts a micro-rest is a possible follow-up, not v1).
-7. **Repeat bar lines, volta brackets, and D.C./D.S./Coda/Segno navigation.** Three sub-parts:
+7. **Repeat bar lines, volta brackets, and D.C./D.S./Coda/Segno navigation — done, including
+   playback/MIDI export.** Four sub-parts:
    - **Segno/Coda markers — done.** Wired up via the exact same ribbon/Edit-menu/context-menu/
      glyph pattern as Staccato/Accent/Tenuto, using the `OrnamentType.Segno`/`Coda` values that
      already existed. These two are genuinely note/beat-anchored point symbols in real notation
      (unlike a repeat bar line, which decorates the barline itself, spanning the staff height) —
      see the note below on why `RepeatStart`/`RepeatEnd` were deliberately *not* wired the same
-     way. Visual-only: no playback/MIDI-export effect, since jumping to a Segno/Coda isn't
-     performed (see the third bullet below).
-   - **Repeat bar lines (visual) — done; volta brackets still not started.** Added `BarLineType`
-     (`Single`/`Double`/`Final`/`RepeatEnd`) and `IsRepeatStart` (bool) to `JianpuMeasure`, exactly
-     the field shape called out below rather than reusing `OrnamentType.RepeatStart`/`RepeatEnd`
-     (still deliberately unwired, for the same reason: a repeat bar line is a property of the
-     measure boundary, not a note-anchored ornament). Rendering is purely additive: the two
-     existing unconditional `DrawBarLine` calls in `DrawStaffLineRange` are untouched (so default
-     Single/no-repeat scores are pixel-identical to before), and a new `DrawBarLineDecoration`
-     draws the extra ink (a second parallel line for Double, a thick line for Final, a thick line
-     + two dots for RepeatEnd/RepeatStart) after them, confined to the drawing measure's own
-     horizontal footprint so it can never visually collide with a neighboring measure's own
-     decoration at the shared boundary. Edit menu > Bar Line submenu wired via
-     `MeasureContentViewModel.SetBarLineType`/`ToggleRepeatStart`, each backed by its own
-     `INoteEditCommand` (`ModifyBarLineTypeCommand`/`ModifyRepeatStartCommand`) for undo/redo,
-     mirroring `ModifyLyricTextCommand`'s exact shape. Visual-only, like Segno/Coda: no
-     playback/MIDI-export effect (see the third bullet below).
-   - **Volta brackets (1st/2nd endings) — done, visual only.** New score-level `JianpuVolta`
+     way.
+   - **Repeat bar lines (visual) — done.** Added `BarLineType` (`Single`/`Double`/`Final`/
+     `RepeatEnd`) and `IsRepeatStart` (bool) to `JianpuMeasure`, exactly the field shape called out
+     below rather than reusing `OrnamentType.RepeatStart`/`RepeatEnd` (still deliberately unwired,
+     for the same reason: a repeat bar line is a property of the measure boundary, not a
+     note-anchored ornament). Rendering is purely additive: the two existing unconditional
+     `DrawBarLine` calls in `DrawStaffLineRange` are untouched (so default Single/no-repeat scores
+     are pixel-identical to before), and a new `DrawBarLineDecoration` draws the extra ink (a
+     second parallel line for Double, a thick line for Final, a thick line + two dots for
+     RepeatEnd/RepeatStart) after them, confined to the drawing measure's own horizontal footprint
+     so it can never visually collide with a neighboring measure's own decoration at the shared
+     boundary. Edit menu > Bar Line submenu wired via `MeasureContentViewModel.SetBarLineType`/
+     `ToggleRepeatStart`, each backed by its own `INoteEditCommand`
+     (`ModifyBarLineTypeCommand`/`ModifyRepeatStartCommand`) for undo/redo, mirroring
+     `ModifyLyricTextCommand`'s exact shape.
+   - **Volta brackets (1st/2nd endings) — done.** New score-level `JianpuVolta`
      (`StartMeasureIndex`/`EndMeasureIndex`/`Label`) list on `JianpuScore`, mirroring `JianpuTie`'s
      shape but anchored to whole measures instead of notes. Rendered in the previously-unused gap
      above each staff line (`DrawVoltaBrackets`, called alongside `DrawTiesForLineRange` from both
@@ -267,12 +268,44 @@ here and intentionally excluded.*
      "2nd Ending" / "Remove Volta Bracket") operates on the current contiguous multi-measure
      selection (falling back to just the current measure with no multi-selection), backed by
      `VoltaService`/`VoltaMaintenanceService` (the latter mirrors `TieMaintenanceService`'s
-     measure-removal index bookkeeping) and a `ScoreSnapshotEditCommand` for undo/redo. Visual-
-     only, like the other bar-line/navigation work above: no playback/MIDI-export effect.
-   - **Actually performing the repeat/jump/volta-skip during playback and MIDI export** (higher
-     risk): needs real changes to `ScoreMidiSchedule`/`ScorePlaybackService`/`MidiExportService`'s
-     scheduling, which today assumes one linear pass through the measures. Worth scoping and
-     building separately once the visual half has landed and been used for a while.
+     measure-removal index bookkeeping) and a `ScoreSnapshotEditCommand` for undo/redo.
+   - **Actually performing the repeat/jump/volta-skip during playback and MIDI export — done.**
+     `ScoreMidiSchedule`/`ScorePlaybackService`/`MidiExportService` previously assumed one linear
+     pass through `Measures`; all three now go through a shared expanded play order (measure
+     indices in actual playback order, a repeated measure's index appearing more than once) instead
+     of `0..Measures.Count-1`, computed once in `ScoreMidiSchedule.Build` and used for scheduling,
+     total-length (progress bar), and MIDI export alike, since all three already funneled through
+     `Build`/`ComputeTotalQuarterLength`.
+     - **Repeats and voltas**: new `RepeatPlaybackExpander.Expand` resolves `IsRepeatStart`/
+       `BarLineType.RepeatEnd` (a `RepeatEnd` jumps back once to the nearest preceding
+       `IsRepeatStart`, or the beginning if none is marked — the standard "repeat from the top"
+       shorthand) and `JianpuVolta` (a measure covered by a volta only plays on the pass matching
+       its label's leading digit — the only labels the UI itself ever creates are `"1."`/`"2."` —
+       and is skipped on every other pass). Each independent repeated section gets its own fresh
+       1st-ending pass; nested repeats aren't standard notation and aren't specially handled.
+       Bounded-iteration guard against a pathological/malformed structure (falls back to a
+       straight linear play rather than hanging).
+     - **Segno/Coda navigation needed a real, separate model gap filled first**: `Segno`/`Coda`
+       were pure point markers with no jump *trigger* anywhere in the model — real notation needs
+       an explicit "D.C. al Fine"/"D.S. al Coda"-style instruction, which didn't exist at all.
+       Added three new `OrnamentType` values (`DaCapo`, `DalSegno`, `Fine`), wired through the
+       exact same ribbon/Edit-menu/context-menu pattern as every other ornament (their ribbon
+       icons reuse the existing `DrawDynamicLabel` text-label helper rather than new vector
+       glyphs, same as the dynamics-level icons). New `SegnoCodaPlaybackExpander.ApplyNavigation`
+       runs after the repeat/volta expansion: once the main pass reaches the measure carrying a
+       `DaCapo`/`DalSegno` marker, it jumps back to the beginning or the `Segno` mark respectively,
+       then plays straight through *without* re-applying repeat/volta expansion a second time (the
+       common real-world simplification) until either a `Fine` marker stops the piece there, a
+       pair of `Coda` markers jumps from the first to the second (the standard "two coda symbols"
+       convention: one marks where to exit early, the other marks the coda section itself), or
+       — with neither — it just plays to the end. All navigation resolves at measure granularity,
+       matching how repeats/voltas already work; if both a stray `DaCapo` and `DalSegno` exist
+       (malformed input), whichever is actually reached later in the main pass wins.
+     - Verified end-to-end against the real built assembly via the Mono/libgdiplus harness (since
+       `dotnet test` can't execute in this sandbox): a `5`-measure D.C. al Fine score and an
+       `8`-measure D.S. al Coda score both produced the exact expected note sequence and total
+       playback length, plus a render-smoke-test confirming the three new ornament glyphs draw
+       without throwing and visibly differ from an undecorated measure.
 8. **Multi-verse lyrics.** Change `LyricText` to a verse list (verse 1 keeps today's exact
    field/behavior for backward compatibility; additional verses are new, optional). Inline lyric
    editor gains a verse stepper; renderer stacks N lyric rows instead of a fixed one — a real but
