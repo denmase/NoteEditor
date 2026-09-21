@@ -356,6 +356,41 @@ Checked its recent commits for bug fixes this fork should carry too:
   this fork's history) -- `MidiImportService.TonicNames` is dead code left over from before that,
   harmless but unused (matches a pre-existing compiler warning already present in this fork).
 
+## Beat continuation slot / held-note beaming (found against a real song, not started)
+
+Cross-checking the accidental slash convention (see phase 2 above) against a real notasi angka
+sheet ("Indonesia Pusaka", Ismail Marzuki) surfaced a genuine, separate rendering gap: a held note
+that continues into a later beat position is drawn there as its own continuation mark (printed as
+`.` in that source), occupying its own slot in the beat grid -- and that slot beams together with
+an adjacent note exactly like two real notes would (e.g. `3 . 1 5`: `3` stands alone as an
+unbeamed quarter note, then `.` and `1` share one beam as the held-through eighth position plus
+the next eighth note, then a new beam starts at `5`). A beam in this notation always ties together
+two beat-grid positions -- a continuation slot counts as one of them exactly like a real note.
+
+**This app has no equivalent of that continuation slot.** `JianpuNote.Dashes` extends a note's own
+duration by widening *that note's own cell* (rendered as small dash marks trailing its digit, see
+`DrawNoteDottedAndDashes`) -- it isn't a separate position in the beat grid that could sit next to,
+and beam with, a following note. So today there's no way to enter or render the `3 . 1 5` pattern
+above the way this reference does it: our model can only produce a wide "3" cell followed
+immediately by "1", never a beam connecting a held-position slot to the next note.
+
+Actually adding this means:
+- A new slot concept (either a new `JianpuNote`/measure-list entry type, or some other
+  representation) for "hold the previous pitch here," distinct from both a real note and a
+  `NoteType.Rest`.
+- Duration/width layout, hit-testing, and MIDI playback/export all currently derive purely from
+  the existing `MelodyNotes` list and `GetDurationUnits`; a continuation slot needs to participate
+  in all of that (occupying real width and beat-time) without being mistaken for a playable note.
+- `BeatGroupUnderlinePlanner.GroupNotesByQuarterBeat`/`CollectSpans` (see the upstream-sync section
+  above) need the continuation slot to count as a normal group member for beaming purposes.
+- Rendering: a small glyph (a dot, matching the reference, or something else) drawn in its own
+  cell rather than as a trailing mark on the previous note.
+
+This is real, contained scope, but not a small tweak to the just-fixed beam-span logic -- it's a
+new notation primitive touching the data model, layout, playback, and rendering simultaneously.
+Scoping it as its own dedicated, carefully-reviewed piece of work rather than folding it into the
+beam-fix or accidental-convention PRs.
+
 ## CLAP support (spike plan only, not started)
 
 Unlike VST2/BASSVST, there's no existing library to build on here — no NuGet package, no .NET binding anywhere, and BASS itself has no CLAP support (CLAP is a separate standard from a different origin, u-he/Bitwig rather than Steinberg/un4seen, released well after BASS). The [CLAP SDK](https://github.com/free-audio/clap) is MIT-licensed but is just a C header — hosting a CLAP plugin means writing the host implementation from scratch.
