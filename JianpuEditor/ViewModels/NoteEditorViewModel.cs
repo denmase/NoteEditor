@@ -94,7 +94,7 @@ namespace JianpuEditor.ViewModels
                         foreach (var selected in selectedNotes)
                         {
                             selected.Type = NoteType.Note;
-                            selected.Pitch = pitch;
+                            JianpuPitchCodec.SetAccidentalPitch(selected, selected.Accidental, pitch);
                         }
                     },
                     message));
@@ -102,7 +102,7 @@ namespace JianpuEditor.ViewModels
 
             var note = ClonePendingNote();
             note.Type = NoteType.Note;
-            note.Pitch = pitch;
+            JianpuPitchCodec.SetAccidentalPitch(note, note.Accidental, pitch);
             return InsertMelodyNote(note, "Inserted note " + pitch);
         }
 
@@ -139,7 +139,7 @@ namespace JianpuEditor.ViewModels
         {
             var note = CreateAppendNote(copyPreviousNoteStyle);
             note.Type = NoteType.Note;
-            note.Pitch = pitch;
+            JianpuPitchCodec.SetAccidentalPitch(note, note.Accidental, pitch);
             var message = copyPreviousNoteStyle
                 ? "Appended note " + pitch + " (copied duration/octave from previous note)"
                 : "Appended note " + pitch;
@@ -182,6 +182,43 @@ namespace JianpuEditor.ViewModels
             _pendingNote.Octave = _pendingNote.Octave == octave ? 0 : octave;
             var label = _pendingNote.Octave > 0 ? "high octave" : _pendingNote.Octave < 0 ? "low octave" : "middle octave";
             _messenger.Send(new StatusChangedMessage("Current octave: " + label));
+            return ScoreEditResult.Unchanged;
+        }
+
+        public ScoreEditResult SetAccidental(AccidentalKind accidental)
+        {
+            var selectedNotes = GetSelectedNotes();
+            if (selectedNotes.Count > 0)
+            {
+                var message = selectedNotes.Count > 1
+                    ? "Changed accidental for " + selectedNotes.Count + " selected notes"
+                    : "Changed accidental for selected note";
+                return ExecuteCommand(new ModifyMelodyNotesCommand(
+                    _document.Score,
+                    _messenger,
+                    GetSelectedNoteRefs(),
+                    () =>
+                    {
+                        foreach (var selected in selectedNotes)
+                        {
+                            if (selected.Type != NoteType.Note)
+                            {
+                                continue;
+                            }
+
+                            var degree = JianpuPitchCodec.GetDisplayDegree(selected);
+                            var newAccidental = selected.Accidental == accidental ? AccidentalKind.None : accidental;
+                            JianpuPitchCodec.SetAccidentalPitch(selected, newAccidental, degree);
+                        }
+                    },
+                    message));
+            }
+
+            _pendingNote.Accidental = _pendingNote.Accidental == accidental ? AccidentalKind.None : accidental;
+            var accidentalLabel = _pendingNote.Accidental == AccidentalKind.None
+                ? "no accidental"
+                : _pendingNote.Accidental.ToString().ToLowerInvariant();
+            _messenger.Send(new StatusChangedMessage("Current accidental: " + accidentalLabel));
             return ScoreEditResult.Unchanged;
         }
 
@@ -762,6 +799,7 @@ namespace JianpuEditor.ViewModels
             {
                 Type = _pendingNote.Type,
                 Pitch = _pendingNote.Pitch,
+                Accidental = _pendingNote.Accidental,
                 Octave = _pendingNote.Octave,
                 Underlines = _pendingNote.Underlines,
                 Dashes = _pendingNote.Dashes,
@@ -775,6 +813,7 @@ namespace JianpuEditor.ViewModels
             {
                 Type = NoteType.Note,
                 Pitch = 1,
+                Accidental = AccidentalKind.None,
                 Octave = 0,
                 Underlines = 0,
                 Dashes = 0,

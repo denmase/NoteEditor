@@ -44,5 +44,41 @@ namespace JianpuEditor.Tests.Services
             var note = new JianpuNote { Type = NoteType.Note, Pitch = 5 };
             Assert.Equal(67, JianpuPitchCodec.ToMelodyMidiNote(note, 60));
         }
+
+        [Fact]
+        public void GetAccidentalMark_NaturalSign_ReturnsNaturalGlyph()
+        {
+            var note = new JianpuNote { Type = NoteType.Note, Pitch = 4, Accidental = AccidentalKind.Natural };
+            Assert.Equal("♮", JianpuPitchCodec.GetAccidentalMark(note));
+        }
+
+        [Fact]
+        public void SetAccidentalPitch_Natural_SetsPlainIntegerDegree()
+        {
+            var note = new JianpuNote { Type = NoteType.Note, Pitch = 3.5, Accidental = AccidentalKind.Sharp };
+
+            JianpuPitchCodec.SetAccidentalPitch(note, AccidentalKind.Natural, 4);
+
+            Assert.Equal(AccidentalKind.Natural, note.Accidental);
+            Assert.Equal(4, note.Pitch);
+        }
+
+        [Fact]
+        public void SetAccidentalPitch_None_SetsPlainIntegerDegree()
+        {
+            var note = new JianpuNote { Type = NoteType.Note, Pitch = 2.5, Accidental = AccidentalKind.Flat };
+
+            JianpuPitchCodec.SetAccidentalPitch(note, AccidentalKind.None, 3);
+
+            Assert.Equal(AccidentalKind.None, note.Accidental);
+            Assert.Equal(3, note.Pitch);
+        }
+
+        [Fact]
+        public void IsValidMelodyPitch_NaturalWithIntegerPitch_IsValid()
+        {
+            var note = new JianpuNote { Type = NoteType.Note, Pitch = 5, Accidental = AccidentalKind.Natural };
+            Assert.True(JianpuPitchCodec.IsValidMelodyPitch(note));
+        }
     }
 }
