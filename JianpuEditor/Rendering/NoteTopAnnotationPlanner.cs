@@ -22,7 +22,7 @@ namespace JianpuEditor.Rendering
             var layout = new NoteTopAnnotationLayout
             {
                 HeadCenterX = headCenterX,
-                OctaveDotCenterX = headCenterX - 3f,
+                OctaveDotCenterX = headCenterX,
                 OrnamentY = NoteTopAnnotationLayout.OrnamentBandYWithoutLowerLayers,
                 FermataY = NoteTopAnnotationLayout.OrnamentBandYWithoutLowerLayers
             };
@@ -141,11 +141,11 @@ namespace JianpuEditor.Rendering
                     + NoteTopAnnotationLayout.AccidentalMarkWidth
                     + AccidentalToOctaveGap
                     + NoteTopAnnotationLayout.OctaveDotDiameter / 2f;
-                layout.OctaveDotCenterX = Math.Max(layout.HeadCenterX - 3f, minCenterX);
+                layout.OctaveDotCenterX = Math.Max(layout.HeadCenterX, minCenterX);
             }
             else
             {
-                layout.OctaveDotCenterX = layout.HeadCenterX - 3f;
+                layout.OctaveDotCenterX = layout.HeadCenterX;
             }
         }
 
