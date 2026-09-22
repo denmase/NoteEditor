@@ -1122,3 +1122,51 @@ pattern instead of just holding it. Explicitly *not* about mute/solo (muting the
   real built assembly under Mono (same harness pattern as the harmony-engine work above): all four
   styles produce the expected event shapes, and `ChordPlaybackStyle` survives a real
   `ScoreFileService.Save`/`Load` JSON round-trip.
+
+### Follow-up: the four styles above weren't "real" enough yet -- done
+
+User's reaction after trying Comping/Arpeggio/Strum: the *rhythm* was right but it still didn't
+sound like real music. Asked what specifically was still off; the answer was everything at once --
+flat/robotic dynamics, bare chord voicing, patterns that don't adapt to the song's meter, and (a
+separate axis entirely) the instrument/timbre itself. Addressed the first three in code; the
+fourth isn't a pattern-generation problem -- see the note at the end of this section.
+
+- **Dedicated bass note + voice leading.** Every chord now gets an explicit bass note one octave
+  below its lowest tone (`BassOctaveDrop`), added to whatever the style's pattern already does --
+  real backing has a distinct, louder bass, not just a cluster of upper-voice tones. The upper
+  voicing itself is now voice-led: `ApplyVoiceLeading` tests shifting each new chord by whichever
+  of {-1, 0, +1} octaves keeps its average pitch closest to the *previous* chord's, recomputed from
+  the untransposed notes each time (so it can't drift arbitrarily far over a long progression) --
+  the same "stay in a settled register, move as little as possible" instinct a real accompanist
+  has, instead of every new chord symbol resetting to the same fixed root-position octave.
+- **Humanized, non-flat dynamics.** `GetHitVelocity` replaces the old flat `ChordVelocity` constant
+  with an accent/secondary/bass/jitter model: an attack (a chord's first strike, or the start of
+  each Arpeggio up-down cycle) is louder than a re-strike within the same harmony; the bass note is
+  louder still; and a small random +/-4 jitter is applied to every hit so identical chords don't
+  sound mechanically identical. `ChordVelocity` (now unused everywhere) was removed rather than
+  left as dead public API.
+- **Meter-aware Comping.** The old Comping just re-struck the *whole* chord every beat, undifferentiated -- the single least "real" of the four patterns despite being the most commonly
+  requested one (piano/guitar comping). It's now a genuine bass/chord alternation: "boom-chick" in
+  a duple meter (bass, chord, bass, chord...) or, detected from `score.TimeSignature` via the
+  existing `TimeSignatureService`, "oom-pah-pah" in a triple meter (bass, chord, chord...) -- the
+  single most recognizable difference between a generic backing pattern and one that actually fits
+  a waltz. Arpeggio and Strum needed no pattern-shape changes for this: both already start from the
+  lowest voiced note (now the new bass note) via their existing ascending sort, so they picked up
+  the richer voicing for free.
+- **Instrument/timbre is a separate axis, not fixed here.** No amount of pattern-generation code
+  changes how the underlying GM soundfont patch itself sounds -- that's a completely different
+  lever. The existing Instruments dialog (Edit > Instruments) already lets a user pick a different
+  GM instrument for the chord channel (an idiomatic backing timbre like Acoustic Guitar (nylon) or
+  Vibraphone often reads as more "real" than generic Piano for this purpose), and the app already
+  supports a custom SoundFont (`AppTheme.CustomSoundFontPath`) or a VST2 chord plugin
+  (`AppTheme.VstChordPluginPath`, see `AppBootstrapper.CreateMidiOutput`) for anyone who wants
+  genuinely better-sampled instruments. Not something this pass touches.
+- **Verified**: `ScoreMidiScheduleTests` rewritten for the new behavior -- bass note presence,
+  register, and louder-than-the-rest velocity (proven as a guaranteed inequality given the boost
+  and jitter constants, not a flaky random assertion); voice leading keeping two chords with a
+  known-11-semitone *raw* gap (C then B, both from the same fixed root octave) under 6 semitones
+  once voice-led; Comping's exact beat-by-beat bass/chord split in both 4/4 and 3/4; Arpeggio's
+  first-step-vs-second-step accent ordering (also a guaranteed inequality: worst-case accented+bass
+  velocity still beats best-case secondary velocity). Re-ran the same real-assembly Mono harness
+  used for the previous pass, extended with all of the above plus a printed velocity sequence for
+  manual inspection -- all pass.

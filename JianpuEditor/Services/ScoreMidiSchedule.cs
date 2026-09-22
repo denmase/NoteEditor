@@ -33,7 +33,6 @@ namespace JianpuEditor.Services
         public const int ExtraVoiceChannelBase = 2;
 
         public const int MelodyVelocity = 90;
-        public const int ChordVelocity = 72;
         public const int DefaultMeasureBeats = 4;
         public const int DefaultTonicMidi = 60;
 
@@ -505,7 +504,10 @@ namespace JianpuEditor.Services
             var events = new List<ScheduledMidiNote>();
             var measures = score.Measures ?? new List<JianpuMeasure>();
             var style = score.ChordPlaybackStyle;
+            var isTripleMeter = IsTripleMeter(score.TimeSignature);
             var measureStart = 0.0;
+            List<int> previousVoicing = null;
+            var random = new Random();
 
             foreach (var measureIndex in playOrder)
             {
@@ -522,8 +524,19 @@ namespace JianpuEditor.Services
                             ? measureStart + chordSymbols[chordIndex + 1].BeatPosition
                             : measureStart + measureDuration;
                         var chordDuration = Math.Max(0.01, chordEnd - chordStart);
-                        var midiNotes = ChordParser.ToBlockChordMidiNotes(chord.Symbol);
-                        AppendChordEvents(events, style, midiNotes, chordStart, chordDuration);
+                        var rawNotes = ChordParser.ToBlockChordMidiNotes(chord.Symbol);
+                        if (rawNotes.Count == 0)
+                        {
+                            continue;
+                        }
+
+                        var voicing = ApplyVoiceLeading(rawNotes, previousVoicing);
+                        previousVoicing = voicing;
+                        var bassNote = voicing.Min() - BassOctaveDrop;
+                        var voicedNotes = new List<int> { bassNote };
+                        voicedNotes.AddRange(voicing);
+
+                        AppendChordEvents(events, style, voicedNotes, bassNote, isTripleMeter, chordStart, chordDuration, random);
                     }
                 }
 
@@ -531,6 +544,80 @@ namespace JianpuEditor.Services
             }
 
             return events;
+        }
+
+        /// <summary>How many semitones below the (voice-led) chord's lowest tone the dedicated
+        /// bass note sits -- one octave, matching <see cref="ChordParser.ToBlockChordMidiNotes"/>'s
+        /// own root-octave/bass-octave convention for an explicit slash-chord bass.</summary>
+        private const int BassOctaveDrop = 12;
+
+        /// <summary>
+        /// Shifts a chord's raw notes by whichever of {-1, 0, +1} octaves keeps this chord's
+        /// average pitch closest to the previous chord's -- real accompanists stay in a settled
+        /// register and move as little as possible between chords rather than jumping to the same
+        /// fixed octave every time a new chord symbol starts. Recomputed from the untransposed
+        /// notes each call (not the previous chord's already-shifted notes), so this can't drift
+        /// arbitrarily far from the natural register over a long progression.
+        /// </summary>
+        private static List<int> ApplyVoiceLeading(List<int> notes, List<int> previousVoicing)
+        {
+            if (previousVoicing == null || previousVoicing.Count == 0)
+            {
+                return notes;
+            }
+
+            var previousCenter = previousVoicing.Average();
+            var bestShift = 0;
+            var bestDistance = double.MaxValue;
+            for (var shift = -12; shift <= 12; shift += 12)
+            {
+                var shiftedCenter = notes.Average(n => n + shift);
+                var distance = Math.Abs(shiftedCenter - previousCenter);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    bestShift = shift;
+                }
+            }
+
+            return notes.Select(n => n + bestShift).ToList();
+        }
+
+        /// <summary>True for a meter whose measure divides into 3 main beats (3/4, and -- by this
+        /// formula -- 6/8 too, which is close enough to a waltz feel for backing purposes even
+        /// though it's really compound duple). Drives <see cref="AppendCompingEvents"/>'s choice
+        /// between a "boom-chick" (2-beat) and "oom-pah-pah" (3-beat) bass/chord alternation.</summary>
+        private static bool IsTripleMeter(string timeSignature)
+        {
+            return TimeSignatureService.TryGetQuarterBeatsPerMeasure(timeSignature, out var quarterBeats)
+                && Math.Abs(quarterBeats - 3.0) < 0.01;
+        }
+
+        /// <summary>Velocity for the initial/accented attack of a chord (or its bass note).</summary>
+        private const int ChordAccentVelocity = 82;
+
+        /// <summary>Velocity for a re-struck chord tone that isn't the attack (Comping's off-beats,
+        /// Arpeggio's non-cycle-start steps) -- softer, so the attack reads as the strong beat.</summary>
+        private const int ChordSecondaryVelocity = 62;
+
+        /// <summary>How much louder the bass note sits above whatever the upper voice's velocity
+        /// would otherwise be -- a real backing part's bass is usually the most audible element.</summary>
+        private const int BassVelocityBoost = 10;
+
+        /// <summary>Random +/- range applied to every hit so identical chords don't sound
+        /// mechanically identical -- subtle human timing/touch variation, not audible as "wrong".</summary>
+        private const int VelocityJitterRange = 4;
+
+        private static int GetHitVelocity(bool accent, bool isBassNote, Random random)
+        {
+            var velocity = accent ? ChordAccentVelocity : ChordSecondaryVelocity;
+            if (isBassNote)
+            {
+                velocity += BassVelocityBoost;
+            }
+
+            velocity += random.Next(-VelocityJitterRange, VelocityJitterRange + 1);
+            return Math.Max(1, Math.Min(127, velocity));
         }
 
         /// <summary>Dispatches one chord marker's span to the note-generation pattern matching
@@ -542,8 +629,11 @@ namespace JianpuEditor.Services
             List<ScheduledMidiNote> events,
             ChordPlaybackStyle style,
             IReadOnlyList<int> midiNotes,
+            int bassNote,
+            bool isTripleMeter,
             double chordStart,
-            double chordDuration)
+            double chordDuration,
+            Random random)
         {
             if (midiNotes == null || midiNotes.Count == 0)
             {
@@ -553,21 +643,21 @@ namespace JianpuEditor.Services
             switch (style)
             {
                 case ChordPlaybackStyle.Comping:
-                    AppendCompingEvents(events, midiNotes, chordStart, chordDuration);
+                    AppendCompingEvents(events, midiNotes, bassNote, isTripleMeter, chordStart, chordDuration, random);
                     break;
                 case ChordPlaybackStyle.Arpeggio:
-                    AppendArpeggioEvents(events, midiNotes, chordStart, chordDuration);
+                    AppendArpeggioEvents(events, midiNotes, bassNote, chordStart, chordDuration, random);
                     break;
                 case ChordPlaybackStyle.Strum:
-                    AppendStrumEvents(events, midiNotes, chordStart, chordDuration);
+                    AppendStrumEvents(events, midiNotes, bassNote, chordStart, chordDuration, random);
                     break;
                 default:
-                    AppendBlockEvents(events, midiNotes, chordStart, chordDuration);
+                    AppendBlockEvents(events, midiNotes, bassNote, chordStart, chordDuration, random);
                     break;
             }
         }
 
-        private static void AppendBlockEvents(List<ScheduledMidiNote> events, IReadOnlyList<int> midiNotes, double chordStart, double chordDuration)
+        private static void AppendBlockEvents(List<ScheduledMidiNote> events, IReadOnlyList<int> midiNotes, int bassNote, double chordStart, double chordDuration, Random random)
         {
             foreach (var midiNote in midiNotes)
             {
@@ -577,7 +667,7 @@ namespace JianpuEditor.Services
                     DurationQuarter = chordDuration,
                     MidiNote = midiNote,
                     Channel = ChordChannel,
-                    Velocity = ChordVelocity
+                    Velocity = GetHitVelocity(true, midiNote == bassNote, random)
                 });
             }
         }
@@ -587,33 +677,52 @@ namespace JianpuEditor.Services
         /// re-strike so it reads as rhythmic re-articulation rather than one long sustained note.</summary>
         private const double ChordReStrikeGateRatio = 0.85;
 
-        private static void AppendCompingEvents(List<ScheduledMidiNote> events, IReadOnlyList<int> midiNotes, double chordStart, double chordDuration)
+        /// <summary>
+        /// Alternates a dedicated bass hit with the upper chord instead of re-striking every tone
+        /// on every beat -- the "boom-chick" (2-beat: bass, chord, bass, chord...) or, in a triple
+        /// meter, "oom-pah-pah" (3-beat: bass, chord, chord...) pattern real accompanists use,
+        /// rather than a flat, undifferentiated re-strike of the whole chord every beat.
+        /// </summary>
+        private static void AppendCompingEvents(List<ScheduledMidiNote> events, IReadOnlyList<int> midiNotes, int bassNote, bool isTripleMeter, double chordStart, double chordDuration, Random random)
         {
+            var cycleLength = isTripleMeter ? 3 : 2;
             var chordEnd = chordStart + chordDuration;
             var hitStart = chordStart;
+            var beatInCycle = 0;
             while (hitStart < chordEnd - 0.001)
             {
                 var hitDuration = Math.Min(1.0, chordEnd - hitStart);
                 var gatedDuration = Math.Max(0.05, hitDuration * ChordReStrikeGateRatio);
+                var isBassBeat = beatInCycle == 0;
+
                 foreach (var midiNote in midiNotes)
                 {
+                    var isBassNote = midiNote == bassNote;
+                    if (isBassNote != isBassBeat)
+                    {
+                        // On a bass beat, only the bass note plays; on a chord beat, everything
+                        // except the bass plays -- never both together, so the alternation is audible.
+                        continue;
+                    }
+
                     events.Add(new ScheduledMidiNote
                     {
                         StartQuarter = hitStart,
                         DurationQuarter = gatedDuration,
                         MidiNote = midiNote,
                         Channel = ChordChannel,
-                        Velocity = ChordVelocity
+                        Velocity = GetHitVelocity(isBassBeat, isBassNote, random)
                     });
                 }
 
                 hitStart += 1.0;
+                beatInCycle = (beatInCycle + 1) % cycleLength;
             }
         }
 
         private const double ArpeggioStepBeats = 0.5;
 
-        private static void AppendArpeggioEvents(List<ScheduledMidiNote> events, IReadOnlyList<int> midiNotes, double chordStart, double chordDuration)
+        private static void AppendArpeggioEvents(List<ScheduledMidiNote> events, IReadOnlyList<int> midiNotes, int bassNote, double chordStart, double chordDuration, Random random)
         {
             var pattern = BuildArpeggioPattern(midiNotes);
             var chordEnd = chordStart + chordDuration;
@@ -623,13 +732,17 @@ namespace JianpuEditor.Services
             {
                 var stepDuration = Math.Min(ArpeggioStepBeats, chordEnd - stepStart);
                 var gatedDuration = Math.Max(0.05, stepDuration * ChordReStrikeGateRatio);
+                var midiNote = pattern[patternIndex % pattern.Count];
                 events.Add(new ScheduledMidiNote
                 {
                     StartQuarter = stepStart,
                     DurationQuarter = gatedDuration,
-                    MidiNote = pattern[patternIndex % pattern.Count],
+                    MidiNote = midiNote,
                     Channel = ChordChannel,
-                    Velocity = ChordVelocity
+                    // Accent each time the up-down cycle returns to its start (usually the bass),
+                    // not just the very first note of the whole chord span -- a recurring pulse
+                    // instead of one accent followed by a flat run of identical hits.
+                    Velocity = GetHitVelocity(patternIndex % pattern.Count == 0, midiNote == bassNote, random)
                 });
 
                 stepStart += ArpeggioStepBeats;
@@ -667,20 +780,21 @@ namespace JianpuEditor.Services
         /// convert it -- roughly 7-8ms per note at a typical 120bpm.</summary>
         private const double StrumStaggerBeats = 0.015;
 
-        private static void AppendStrumEvents(List<ScheduledMidiNote> events, IReadOnlyList<int> midiNotes, double chordStart, double chordDuration)
+        private static void AppendStrumEvents(List<ScheduledMidiNote> events, IReadOnlyList<int> midiNotes, int bassNote, double chordStart, double chordDuration, Random random)
         {
             var ascending = new List<int>(midiNotes);
             ascending.Sort();
             for (var i = 0; i < ascending.Count; i++)
             {
                 var offset = i * StrumStaggerBeats;
+                var midiNote = ascending[i];
                 events.Add(new ScheduledMidiNote
                 {
                     StartQuarter = chordStart + offset,
                     DurationQuarter = Math.Max(0.05, chordDuration - offset),
-                    MidiNote = ascending[i],
+                    MidiNote = midiNote,
                     Channel = ChordChannel,
-                    Velocity = ChordVelocity
+                    Velocity = GetHitVelocity(true, midiNote == bassNote, random)
                 });
             }
         }
