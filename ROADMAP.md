@@ -362,13 +362,64 @@ here and intentionally excluded.*
    field/behavior for backward compatibility; additional verses are new, optional). Inline lyric
    editor gains a verse stepper; renderer stacks N lyric rows instead of a fixed one — a real but
    contained rendering change, inert for every existing single-verse score.
-9. **SATB / multi-voice support.** By far the largest item — this is a core data-model change
-   (today's single `MelodyNotes` per measure would need to become one of N independent voices,
-   rippling through rendering, playback scheduling, MIDI import/export, undo/redo commands, and
-   the selection model). Treat this as its own separately-scoped project, not part of the same
-   wave as items 1-8, and prototype with 2 voices before committing to 4 (SATB) — 2 voices proves
-   out the whole architecture (each voice's own note list, ties, and undo integration, all
-   sharing one chord-marker row/lyric block/measure grid) at half the risk.
+9. **SATB / multi-voice support — not started; a scratchpad prototype (throwaway code, not in
+   this repo) validated the architecture directly at 4 voices first.** By far the largest item —
+   this is a core data-model change (today's single `MelodyNotes` per measure would need to
+   become one of N independent voices, rippling through rendering, playback scheduling, MIDI
+   import/export, undo/redo commands, and the selection model). Still its own separately-scoped
+   project, not part of the same wave as items 1-8.
+
+   The original plan here was "prototype with 2 voices before committing to 4 (SATB)," on the
+   assumption that 2 voices proves out the architecture at half the risk. Skipped straight to 4
+   per explicit direction, since the real risk items (independent rhythm per voice, whether
+   undo/clone/serialization need any changes, whether ties stay voice-scoped) don't actually get
+   cheaper to prove at 2 voices than at 4 — the same code paths are exercised either way.
+
+   Built a throwaway `SatbMeasure`/`SatbScore` (real `JianpuNote`/duration logic reused via a
+   direct reference to the built assembly, not a reinvented toy model) with a 2-measure chorale
+   phrase, one measure deliberately giving Bass a different rhythm (four eighth notes) than the
+   other three voices (a half note each) — the actual hard case, since real hymnal SATB
+   occasionally has a passing tone in one voice while the others hold. Findings:
+   - **Undo/redo and file save/load need zero changes.** `ScoreSnapshotEditCommand`'s undo and
+     `ScoreFileService`'s save/load both already go through `ScoreCloneService.Clone`, which is a
+     plain Newtonsoft.Json serialize/deserialize round-trip over the whole `JianpuScore` object
+     graph — not field-specific diffing. Round-tripping the prototype's 4-voice structure through
+     the exact same settings worked with no special-casing at all, the same "additive field, JSON
+     round-trips for free" property every other score-level addition this session (Ties/
+     Ornaments/Voltas/Hairpins) already relied on.
+   - **Independent per-voice rhythm schedules cleanly** using the real `JianpuRenderer.
+     GetDurationUnits`/`ScoreMidiSchedule.ToMelodyMidiNote` — Bass's 8 differently-shaped events
+     and the other three voices' 5 events each land on correct, independent timelines with no
+     shared-state bugs between voices.
+   - **A real cross-voice invariant surfaced that the real feature will need to actively check,
+     not just assume**: every voice's *total* duration within a measure must agree even when
+     slot counts differ (Bass's 4×0.5 = the others' 1×2.0 in the stress-test measure) — nothing
+     enforces this in a naive per-voice note list today, and a mismatched voice would silently
+     misalign the shared bar line. Worth a validation/warning in the real editor, not left to
+     silently corrupt playback.
+   - **Ties stay correctly voice-scoped** with a `VoicePart` discriminator added to a `JianpuTie`-
+     shaped record: an identical-looking note in a different voice at the same measure/note
+     position is untouched by another voice's tie, confirming per-voice tie lists (or one list
+     with a voice field) don't need any cross-voice bookkeeping beyond what `TieMaintenanceService`
+     already does per voice independently.
+   - **Visual stacking (4 voice rows + one shared chord/lyric row under one measure grid) reads
+     as a coherent chorale block** — see the rendered prototype image. But this also exposed the
+     one genuine rendering-architecture gap the prototype was built to find: the real
+     `JianpuRenderer`'s horizontal layout is *duration-proportional* (beat-grid positioning via
+     `ChordMarkerLayout.GetBeatAnchorX`-style cumulative-time placement, with underlines/dashes
+     affecting a note's own cell width), not slot-count-based. A naive "N slots = N equal cells"
+     layout (what the throwaway prototype renderer used, for simplicity) only happens to keep
+     voices aligned when a coincidence of cell width and note duration lines up, and would visibly
+     drift out of alignment for less tidy rhythms. **The real implementation must compute each
+     measure's width from the widest-in-*time* voice and position every voice's notes by
+     cumulative beat offset (mirroring how chord markers already position within one row today),
+     not by each voice laying out its own slots independently** — this is the one piece of real,
+     non-trivial new layout math the eventual feature needs, not something that falls out for
+     free the way undo/clone/tie-scoping did.
+
+   Not yet scoped: the actual `JianpuMeasure`/rendering/`ScoreMidiSchedule`/selection-model
+   changes to build this for real, which the findings above should directly inform once that work
+   starts.
 10. **Pickup measure — verified, documentation only, done.** Traced every path a manually-entered
     short first measure touches: editing (`MeasureNavigationViewModel.ApplyAddMeasure` appends a
     new measure unconditionally, no check that the previous one is "full"), rendering/beam

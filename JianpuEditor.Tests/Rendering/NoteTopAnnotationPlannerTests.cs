@@ -151,7 +151,7 @@ namespace JianpuEditor.Tests.Rendering
             var layout = NoteTopAnnotationPlanner.Plan(note, 100, 28, new List<JianpuOrnament>(), compactAccidentals: true);
 
             Assert.Equal(NoteTopAnnotationLayout.OctaveDotBandYWithoutAccidental, layout.OctaveDotBaseY);
-            Assert.Equal(layout.HeadCenterX - 3f, layout.OctaveDotCenterX, 1);
+            Assert.Equal(layout.HeadCenterX, layout.OctaveDotCenterX, 1);
         }
 
         [Fact]
@@ -193,7 +193,7 @@ namespace JianpuEditor.Tests.Rendering
                 // a suffix accidental sits to the right of the digit, so the octave dot doesn't need
                 // to dodge it the way a prefix accidental (Chinese style) requires.
                 Assert.Equal(NoteTopAnnotationLayout.OctaveDotBandYWithoutAccidental, layout.OctaveDotBaseY);
-                Assert.Equal(layout.HeadCenterX - 3f, layout.OctaveDotCenterX, 1);
+                Assert.Equal(layout.HeadCenterX, layout.OctaveDotCenterX, 1);
             }
         }
 
