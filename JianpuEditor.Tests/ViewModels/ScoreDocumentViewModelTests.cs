@@ -1,4 +1,5 @@
 using JianpuEditor.Core.Messaging;
+using JianpuEditor.Models;
 using JianpuEditor.Services;
 using JianpuEditor.ViewModels;
 using Xunit;
@@ -95,6 +96,35 @@ namespace JianpuEditor.Tests.ViewModels
             var viewModel = ViewModelTestHelper.CreateDocument(messenger, history);
 
             viewModel.ApplyInstrumentEdit(isChordInstrument: false, newProgram: 0);
+
+            Assert.False(history.CanUndo);
+        }
+
+        [Fact]
+        public void ApplyChordPlaybackStyleEdit_UpdatesStyleAndSupportsUndo()
+        {
+            var messenger = ViewModelTestHelper.CreateMessenger();
+            var history = ViewModelTestHelper.CreateHistory(messenger);
+            var viewModel = ViewModelTestHelper.CreateDocument(messenger, history);
+
+            viewModel.ApplyChordPlaybackStyleEdit(ChordPlaybackStyle.Arpeggio);
+
+            Assert.Equal(ChordPlaybackStyle.Arpeggio, viewModel.ChordPlaybackStyle);
+            Assert.True(history.CanUndo);
+
+            history.Undo();
+
+            Assert.Equal(ChordPlaybackStyle.Block, viewModel.ChordPlaybackStyle);
+        }
+
+        [Fact]
+        public void ApplyChordPlaybackStyleEdit_NoOpWhenValueUnchanged()
+        {
+            var messenger = ViewModelTestHelper.CreateMessenger();
+            var history = ViewModelTestHelper.CreateHistory(messenger);
+            var viewModel = ViewModelTestHelper.CreateDocument(messenger, history);
+
+            viewModel.ApplyChordPlaybackStyleEdit(ChordPlaybackStyle.Block);
 
             Assert.False(history.CanUndo);
         }

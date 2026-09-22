@@ -973,6 +973,12 @@ A few additions worth considering, not asked for explicitly but adjacent to the 
 - **Multi-part scores:** today's model is one melody + chord markers; a genuine multi-instrument/multi-staff score (e.g. piano LH/RH, or vocal + accompaniment as independently playable parts) is a bigger data-model change worth scoping separately.
 - **Auto-save & crash recovery** — periodic snapshot of the working score so a crash doesn't lose unsaved edits.
 - **Direct printing**, not just PDF export.
+- **Per-track mute/solo during playback** — melody, chords, and each extra voice (SATB/descant)
+  already play on their own MIDI channel (see `ScoreMidiSchedule`), so this is mostly UI: a
+  mute/solo toggle per track in the playback controls, wired to skip that channel's events when
+  building the playback timeline (and, separately, MIDI export). Explicitly requested by the user
+  while discussing chord-track playback below -- distinct from that request (which was about *how*
+  the chord track sounds, not about isolating/muting tracks) and not yet implemented.
 
 ## Harmony suggestion: enhanced (Markov) engine
 
@@ -1071,3 +1077,48 @@ template out to any length. Fixed the Markov engine's `ProgressionEngine` with a
 as `ExpandTemplate`, so both backends now behave predictably and completely past 4 measures.
 Covered by new `HarmonyEngineTests.ProgressionEngine_LongerThanFourMeasures_CoversEveryMeasureInsteadOfTruncating`
 and `SelectableHarmonySuggestionServiceTests.MarkovHarmonySuggestionService_SuggestForMeasureRange_WholeSong_CoversEveryMeasure`.
+
+## Chord playback style ("play the chord track like in real music") — done
+
+User's follow-up question after the harmony-engine work above: chords were already playing
+automatically alongside the melody on every Play (not muted/absent), but as one flat, fully
+sustained block chord per chord marker -- struck once, held for the whole span, no rhythm. That's
+what didn't sound "like in real music": a real backing part re-articulates the chord in some
+pattern instead of just holding it. Explicitly *not* about mute/solo (muting the melody to get a
+"minus one" backing track) -- that's a separate, not-yet-implemented request, tracked above under
+"Other suggested features".
+
+- **New `ChordPlaybackStyle` enum** (`Models/ChordPlaybackStyle.cs`): `Block` (the original,
+  default, only-ever behavior -- an existing score with nothing set plays identically to before),
+  `Comping`, `Arpeggio`, `Strum`. A new `JianpuScore.ChordPlaybackStyle` property stores the
+  choice per score/song (mirroring how `MelodyInstrument`/`ChordInstrument` already work), exposed
+  via a new "Chord style" combo box in the existing Instruments dialog and applied through a new
+  undoable `ModifyChordPlaybackStyleCommand`.
+- **`ScoreMidiSchedule.BuildChordNotes`** dispatches each chord marker's span to one of four new
+  note-generation methods based on the style, all built from the same
+  `ChordParser.ToBlockChordMidiNotes` note set the original code already used:
+  - `Comping`: re-strikes the chord on every beat within its span, each hit gated to 85% of the
+    beat so it reads as a detached rhythmic re-articulation rather than one long sustained note --
+    a simple piano/guitar backing pattern.
+  - `Arpeggio`: breaks the chord into an up-down broken-chord sequence (e.g. a triad becomes root,
+    third, fifth, third, root, ...) played one note at a time on 8th-note (0.5-beat) steps, instead
+    of struck together.
+  - `Strum`: same notes as Block, but each note's onset is staggered by a small, tempo-relative
+    fraction of a beat (low to high), mimicking a real strum across strings, with each note's
+    duration shortened to match so nothing hangs past the chord's actual span.
+  - `ChordParser.ToBlockChordMidiNotes` doesn't return notes in pitch order (a slash-chord bass
+    note is appended last and can be lower than the root), so `Arpeggio`/`Strum` sort ascending
+    first rather than assuming the raw return order is already low-to-high.
+  - Since both live playback (`ScorePlaybackService`) and MIDI export (`MidiExportService`)
+    already just iterate whatever `ScoreMidiSchedule.Build` produces, changing only the shared
+    `BuildChordNotes` method makes every style apply identically to both without touching either
+    of those files -- the same "single source of truth" pattern the extra-voice-instrument fix
+    used earlier in this session.
+- **Verified**: `ScoreMidiScheduleTests` covers each style's event count/timing/gating directly
+  (e.g. Comping produces `chordToneCount * 4` events for a 4-beat chord at 4 distinct beat starts;
+  Arpeggio produces exactly 8 single-note events, never a stacked chord, for the same span; Strum's
+  onsets strictly increase and its pitches sort ascending). `ScoreDocumentViewModelTests` covers
+  the new edit command's apply/undo/no-op-when-unchanged. Also verified end-to-end against the
+  real built assembly under Mono (same harness pattern as the harmony-engine work above): all four
+  styles produce the expected event shapes, and `ChordPlaybackStyle` survives a real
+  `ScoreFileService.Save`/`Load` JSON round-trip.

@@ -2330,7 +2330,10 @@ namespace JianpuEditor
 
         private void ShowInstrumentDialog()
         {
-            using (var dialog = new InstrumentDialog(_viewModel.Document.MelodyInstrument, _viewModel.Document.ChordInstrument))
+            using (var dialog = new InstrumentDialog(
+                _viewModel.Document.MelodyInstrument,
+                _viewModel.Document.ChordInstrument,
+                _viewModel.Document.ChordPlaybackStyle))
             {
                 if (dialog.ShowDialog(this) != DialogResult.OK)
                 {
@@ -2339,6 +2342,7 @@ namespace JianpuEditor
 
                 _viewModel.Document.ApplyInstrumentEdit(false, dialog.SelectedMelodyInstrument);
                 _viewModel.Document.ApplyInstrumentEdit(true, dialog.SelectedChordInstrument);
+                _viewModel.Document.ApplyChordPlaybackStyleEdit(dialog.SelectedChordPlaybackStyle);
             }
         }
 
