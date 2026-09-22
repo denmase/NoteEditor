@@ -10,6 +10,7 @@ namespace JianpuEditor.ViewModels
     {
         private readonly ScoreDocumentViewModel _document;
         private int _measureIndex = -1;
+        private int _voiceIndex = ScoreNoteRef.PrimaryVoiceIndex;
         private int _noteIndex = -1;
         private int _insertIndex = -1;
         private int _tieIndex = -1;
@@ -33,6 +34,16 @@ namespace JianpuEditor.ViewModels
         {
             get { return _noteIndex; }
             private set { SetProperty(ref _noteIndex, value); }
+        }
+
+        /// <summary><see cref="ScoreNoteRef.PrimaryVoiceIndex"/> for a selection on the primary
+        /// voice (<see cref="JianpuMeasure.MelodyNotes"/>), otherwise an index into <see
+        /// cref="JianpuMeasure.ExtraVoices"/>. Applies to <see cref="NoteIndex"/>/<see
+        /// cref="InsertIndex"/> -- see <see cref="Models.ScoreSelectionInfo.VoiceIndex"/>.</summary>
+        public int VoiceIndex
+        {
+            get { return _voiceIndex; }
+            private set { SetProperty(ref _voiceIndex, value); }
         }
 
         public int InsertIndex
@@ -104,6 +115,7 @@ namespace JianpuEditor.ViewModels
             }
 
             MeasureIndex = info.MeasureIndex;
+            VoiceIndex = info.VoiceIndex;
             NoteIndex = info.NoteIndex;
             InsertIndex = info.InsertIndex;
             TieIndex = info.TieIndex;

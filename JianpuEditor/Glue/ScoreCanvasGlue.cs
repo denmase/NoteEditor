@@ -3,6 +3,7 @@ using System.ComponentModel;
 using JianpuEditor.Controls;
 using JianpuEditor.Core.Messaging;
 using JianpuEditor.Core.Messaging.Messages;
+using JianpuEditor.Models;
 using JianpuEditor.ViewModels;
 
 namespace JianpuEditor.Glue
@@ -56,7 +57,10 @@ namespace JianpuEditor.Glue
             }
             else if (result.SelectNoteMeasureIndex.HasValue && result.SelectNoteIndex.HasValue)
             {
-                _canvas.SelectNote(result.SelectNoteMeasureIndex.Value, result.SelectNoteIndex.Value);
+                _canvas.SelectNote(
+                    result.SelectNoteMeasureIndex.Value,
+                    result.SelectNoteIndex.Value,
+                    result.SelectNoteVoiceIndex ?? ScoreNoteRef.PrimaryVoiceIndex);
             }
             else if (result.SelectChordMeasureIndex.HasValue && result.SelectChordMarkerIndex.HasValue)
             {

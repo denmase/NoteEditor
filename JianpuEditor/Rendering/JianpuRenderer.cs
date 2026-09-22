@@ -105,7 +105,8 @@ namespace JianpuEditor.Rendering
                     DurationBeat = duration,
                     X = measure.X,
                     Width = measure.Width,
-                    BlockTop = measure.BlockTop
+                    BlockTop = measure.BlockTop,
+                    Height = measure.GetEffectiveHeight()
                 });
                 beat += duration;
             }
@@ -118,14 +119,16 @@ namespace JianpuEditor.Rendering
             options = options ?? ScoreLayoutOptions.Default;
             var layout = BuildLayout(score, maxWidth, options);
             var marginTop = GetMarginTop(options, score);
-            var linesHeight = 0;
-            foreach (var line in layout.Lines)
+            // The last line's own (post-above-voice-headroom-shift) BlockTop already reflects every
+            // line's downward push, including its own -- see ApplyAboveVoiceHeadroom -- so its
+            // bottom edge is directly the content's overall bottom, no separate above-voice sum
+            // needed here.
+            var height = marginTop + 48;
+            if (layout.Lines.Count > 0)
             {
-                linesHeight += line.GetEffectiveHeight();
+                var lastLine = layout.Lines[layout.Lines.Count - 1];
+                height = lastLine.BlockTop + lastLine.GetEffectiveHeight() + 48;
             }
-
-            var height = marginTop + linesHeight
-                         + Math.Max(0, layout.Lines.Count - 1) * StaffBlockSpacing + 48;
             return new Size(Math.Max(maxWidth, layout.TotalWidth + MarginLeft), Math.Max(320, height));
         }
 
@@ -147,7 +150,8 @@ namespace JianpuEditor.Rendering
             int selectedChordMeasureIndex = -1,
             int selectedChordMarkerIndex = -1,
             IReadOnlyList<ScoreNoteRef> selectedNotes = null,
-            ScoreLayoutOptions layoutOptions = null)
+            ScoreLayoutOptions layoutOptions = null,
+            int selectedVoiceIndex = ScoreNoteRef.PrimaryVoiceIndex)
         {
             graphics.SmoothingMode = SmoothingMode.AntiAlias;
             graphics.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
@@ -169,7 +173,8 @@ namespace JianpuEditor.Rendering
                 selectedChordMeasureIndex,
                 selectedChordMarkerIndex,
                 selectedNotes,
-                layoutOptions);
+                layoutOptions,
+                selectedVoiceIndex);
             _activeLayoutOptions = null;
         }
 
@@ -238,20 +243,35 @@ namespace JianpuEditor.Rendering
 
             foreach (var measure in layout.Measures)
             {
-                var blockBounds = new Rectangle(measure.X, measure.BlockTop, measure.Width, measure.GetEffectiveHeight());
+                var blockBounds = new Rectangle(measure.X, measure.GetDrawTop(), measure.Width, measure.GetDrawHeight());
                 if (!blockBounds.Contains(point))
                 {
                     continue;
                 }
 
+                // Above-voice rows (descant/solo) sit above the melody row itself (point.Y <
+                // BlockTop). AboveVoices[0] is the topmost (furthest from the melody) -- see its
+                // own doc comment -- matching what DrawExtraVoiceRows draws.
+                if (point.Y < measure.BlockTop)
+                {
+                    for (var i = 0; i < measure.AboveVoices.Count; i++)
+                    {
+                        var rowTop = measure.BlockTop - (measure.AboveVoices.Count - i) * (MelodyRowHeight + RowGap);
+                        if (point.Y >= rowTop && point.Y < rowTop + MelodyRowHeight)
+                        {
+                            return HitTestVoiceRow(measure, measure.AboveVoices[i], rowTop, point);
+                        }
+                    }
+
+                    return new ScoreHitResult
+                    {
+                        HitType = ScoreHitType.Measure,
+                        MeasureIndex = measure.MeasureIndex
+                    };
+                }
+
                 var melodyBottom = measure.BlockTop + MelodyRowHeight;
-                // Below-voice rows (SATB's Alto/Tenor/Bass) sit between the melody row and
-                // Dynamics. They have no per-note editing yet (see ROADMAP.md), so a click there
-                // resolves to a generic Measure hit, same as clicking Dynamics does today -- it
-                // never falls through to HitTestMelodyRow, which would otherwise misread a below-
-                // voice click's Y against the *primary* voice's note bounds.
                 var dynamicsTop = GetDynamicsRowTop(measure);
-                var dynamicsBottom = dynamicsTop + DynamicsRowHeight;
                 var secondaryTop = GetSecondaryRowTop(measure);
                 var secondaryBottom = secondaryTop + SecondaryRowHeight;
                 var lyricTop = GetLyricRowTop(measure);
@@ -262,7 +282,28 @@ namespace JianpuEditor.Rendering
                     return HitTestMelodyRow(score, measure, point);
                 }
 
-                if (point.Y < dynamicsBottom)
+                if (point.Y < dynamicsTop)
+                {
+                    // Below-voice rows (SATB's Alto/Tenor/Bass) sit between the melody row and
+                    // Dynamics. A click on the RowGap between rows (or when there are none) falls
+                    // through to a generic Measure hit, same as clicking Dynamics does.
+                    for (var i = 0; i < measure.BelowVoices.Count; i++)
+                    {
+                        var rowTop = measure.BlockTop + (i + 1) * (MelodyRowHeight + RowGap);
+                        if (point.Y >= rowTop && point.Y < rowTop + MelodyRowHeight)
+                        {
+                            return HitTestVoiceRow(measure, measure.BelowVoices[i], rowTop, point);
+                        }
+                    }
+
+                    return new ScoreHitResult
+                    {
+                        HitType = ScoreHitType.Measure,
+                        MeasureIndex = measure.MeasureIndex
+                    };
+                }
+
+                if (point.Y < dynamicsTop + DynamicsRowHeight)
                 {
                     return new ScoreHitResult
                     {
@@ -348,6 +389,83 @@ namespace JianpuEditor.Rendering
                 HitType = ScoreHitType.Measure,
                 MeasureIndex = measure.MeasureIndex
             };
+        }
+
+        /// <summary>Same note/gap hit-testing as <see cref="HitTestMelodyRow"/>, against an extra
+        /// voice's own notes and draw bounds instead of the primary voice's -- the result carries
+        /// <paramref name="voice"/>'s <see cref="MeasureLayout.ExtraVoiceLayout.ExtraVoiceIndex"/>
+        /// so a click on Alto/Tenor/Bass (or a descant) resolves to that voice, not the primary
+        /// one.</summary>
+        private ScoreHitResult HitTestVoiceRow(MeasureLayout measure, MeasureLayout.ExtraVoiceLayout voice, int rowTop, Point point)
+        {
+            var relX = point.X - measure.X;
+            var noteCount = voice.NoteCount;
+
+            if (noteCount == 0)
+            {
+                return CreateVoiceGapHit(measure, voice, rowTop, 0);
+            }
+
+            for (var i = 0; i < noteCount; i++)
+            {
+                voice.GetNoteDrawBounds(i, measure.X, measure.Width, out var noteAbsX, out var noteWidth);
+                var cellStart = noteAbsX - measure.X;
+                var cellEnd = cellStart + noteWidth;
+                if (relX < cellStart || relX >= cellEnd)
+                {
+                    continue;
+                }
+
+                var offset = relX - cellStart;
+                var edgeWidth = GetGapEdgeWidth(noteWidth);
+                if (offset < edgeWidth)
+                {
+                    return CreateVoiceGapHit(measure, voice, rowTop, i);
+                }
+
+                if (offset > noteWidth - edgeWidth)
+                {
+                    return CreateVoiceGapHit(measure, voice, rowTop, i + 1);
+                }
+
+                return new ScoreHitResult
+                {
+                    HitType = ScoreHitType.Note,
+                    MeasureIndex = measure.MeasureIndex,
+                    VoiceIndex = voice.ExtraVoiceIndex,
+                    NoteIndex = i,
+                    Bounds = new Rectangle(noteAbsX, rowTop, noteWidth, MelodyRowHeight).ToIntRect()
+                };
+            }
+
+            if (relX >= 0 && relX < measure.Width)
+            {
+                return CreateVoiceGapHit(measure, voice, rowTop, noteCount);
+            }
+
+            return new ScoreHitResult
+            {
+                HitType = ScoreHitType.Measure,
+                MeasureIndex = measure.MeasureIndex
+            };
+        }
+
+        private static ScoreHitResult CreateVoiceGapHit(MeasureLayout measure, MeasureLayout.ExtraVoiceLayout voice, int rowTop, int insertIndex)
+        {
+            return new ScoreHitResult
+            {
+                HitType = ScoreHitType.Gap,
+                MeasureIndex = measure.MeasureIndex,
+                VoiceIndex = voice.ExtraVoiceIndex,
+                InsertIndex = insertIndex,
+                Bounds = GetVoiceGapBounds(measure, voice, rowTop, insertIndex).ToIntRect()
+            };
+        }
+
+        public static Rectangle GetVoiceGapBounds(MeasureLayout measure, MeasureLayout.ExtraVoiceLayout voice, int rowTop, int insertIndex)
+        {
+            var x = measure.X + voice.GetInsertOffset(insertIndex) - GapCaretWidth / 2;
+            return new Rectangle(x, rowTop + 6, GapCaretWidth, MelodyRowHeight - 12);
         }
 
         private ScoreHitResult HitTestBarLineGap(JianpuScore score, ScoreLayout layout, Point point)
@@ -445,6 +563,24 @@ namespace JianpuEditor.Rendering
             return BuildLayout(score, width, options).Lines.Count;
         }
 
+        /// <summary>Each staff line's real vertical footprint (<see cref="StaffLineLayout.
+        /// GetEffectiveHeight"/>), in the same order <see cref="GetStaffLineCount"/> counts them.
+        /// PDF page planning needs this instead of the fixed <see cref="StaffBlockHeight"/> so a
+        /// page containing a taller line (extra voice rows) isn't assigned more lines than it
+        /// actually has room for.</summary>
+        public IReadOnlyList<int> GetStaffLineHeights(JianpuScore score, int width, ScoreLayoutOptions options = null)
+        {
+            options = options ?? ScoreLayoutOptions.Default;
+            var layout = BuildLayout(score, width, options);
+            var heights = new List<int>(layout.Lines.Count);
+            foreach (var line in layout.Lines)
+            {
+                heights.Add(line.GetEffectiveHeight());
+            }
+
+            return heights;
+        }
+
         public Bitmap RenderPdfPageToBitmap(
             JianpuScore score,
             int width,
@@ -481,7 +617,12 @@ namespace JianpuEditor.Rendering
             var count = Math.Min(slice.LineCount, layout.Lines.Count - start);
             var firstLine = layout.Lines[start];
             var lastLine = layout.Lines[start + count - 1];
-            var contentHeight = lastLine.BlockTop + lastLine.GetEffectiveHeight() - firstLine.BlockTop;
+            // firstLine's own above-voice headroom (if any) draws above its BlockTop, so the
+            // content region starts at its real draw-top (BlockTop - above-headroom), not BlockTop
+            // itself -- otherwise a continuation page whose first line has above voices would clip
+            // them against the compact header above.
+            var contentHeight = lastLine.BlockTop + lastLine.GetEffectiveHeight()
+                - (firstLine.BlockTop - firstLine.GetAboveVoicesHeight());
             var headerHeight = slice.PageNumber == 1
                 ? GetMarginTop(options, score)
                 : PdfPagePlanner.CompactHeaderHeight;
@@ -502,7 +643,7 @@ namespace JianpuEditor.Rendering
                     DrawPdfContinuationHeader(g, score, width, slice);
                 }
 
-                g.TranslateTransform(0, headerHeight - firstLine.BlockTop);
+                g.TranslateTransform(0, headerHeight - (firstLine.BlockTop - firstLine.GetAboveVoicesHeight()));
                 DrawRowLabelsForBlock(g, firstLine.BlockTop, firstLine.GetMaxBelowVoiceRows());
                 DrawStaffLineRange(g, score, layout, start, count, options);
                 DrawTiesForLineRange(g, score, layout, start, count, -1);
@@ -829,7 +970,8 @@ namespace JianpuEditor.Rendering
             int selectedChordMeasureIndex,
             int selectedChordMarkerIndex,
             IReadOnlyList<ScoreNoteRef> selectedNotes,
-            ScoreLayoutOptions layoutOptions)
+            ScoreLayoutOptions layoutOptions,
+            int selectedVoiceIndex)
         {
             DrawStaffLineRange(
                 g,
@@ -844,7 +986,8 @@ namespace JianpuEditor.Rendering
                 selectedChordMeasureIndex,
                 selectedChordMarkerIndex,
                 selectedNotes,
-                layoutOptions);
+                layoutOptions,
+                selectedVoiceIndex);
             DrawTiesForLineRange(g, score, layout, 0, layout.Lines.Count, selectedTieIndex);
             DrawVoltaBrackets(g, score, layout, 0, layout.Lines.Count);
             DrawHairpins(g, score, layout, 0, layout.Lines.Count);
@@ -871,7 +1014,8 @@ namespace JianpuEditor.Rendering
                 -1,
                 -1,
                 null,
-                layoutOptions);
+                layoutOptions,
+                ScoreNoteRef.PrimaryVoiceIndex);
         }
 
         private void DrawStaffLineRange(
@@ -887,7 +1031,8 @@ namespace JianpuEditor.Rendering
             int selectedChordMeasureIndex,
             int selectedChordMarkerIndex,
             IReadOnlyList<ScoreNoteRef> selectedNotes,
-            ScoreLayoutOptions layoutOptions)
+            ScoreLayoutOptions layoutOptions,
+            int selectedVoiceIndex)
         {
             layoutOptions = layoutOptions ?? ScoreLayoutOptions.Default;
             var visibleMeasures = BuildVisibleMeasures(layout, firstLineIndex, lineCount);
@@ -908,20 +1053,20 @@ namespace JianpuEditor.Rendering
                     var alpha = measure.MeasureIndex == selectedMeasureIndex ? 42 : 28;
                     using (var brush = new SolidBrush(Color.FromArgb(alpha, 66, 133, 244)))
                     {
-                        g.FillRectangle(brush, measure.X, measure.BlockTop, measure.Width, measure.GetEffectiveHeight());
+                        g.FillRectangle(brush, measure.X, measure.GetDrawTop(), measure.Width, measure.GetDrawHeight());
                     }
 
                     if (measure.MeasureIndex == selectedMeasureIndex && selectedMeasureIndices != null && selectedMeasureIndices.Count > 1)
                     {
                         using (var pen = new Pen(Color.FromArgb(180, 41, 98, 255), 2f))
                         {
-                            g.DrawRectangle(pen, measure.X + 1, measure.BlockTop + 1, measure.Width - 2, measure.GetEffectiveHeight() - 2);
+                            g.DrawRectangle(pen, measure.X + 1, measure.GetDrawTop() + 1, measure.Width - 2, measure.GetDrawHeight() - 2);
                         }
                     }
                 }
 
-                DrawMelodyRow(g, measureData, measure, selectedMeasureIndex, selectedNoteIndex, selectedInsertIndex, selectedNotes);
-                DrawExtraVoiceRows(g, measureData, measure);
+                DrawMelodyRow(g, measureData, measure, selectedMeasureIndex, selectedNoteIndex, selectedInsertIndex, selectedNotes, selectedVoiceIndex);
+                DrawExtraVoiceRows(g, measureData, measure, selectedMeasureIndex, selectedNoteIndex, selectedInsertIndex, selectedNotes, selectedVoiceIndex);
                 DrawDynamicsRow(g, measureData, measure);
                 DrawChordMarkersRow(
                     g,
@@ -939,8 +1084,8 @@ namespace JianpuEditor.Rendering
                     measure,
                     isSelectedMeasure,
                     !hasStructuredLyrics && string.IsNullOrWhiteSpace(measureData.LyricText));
-                DrawBarLine(g, measure.X, measure.BlockTop, measure.GetEffectiveHeight());
-                DrawBarLine(g, measure.BarLineX, measure.BlockTop, measure.GetEffectiveHeight());
+                DrawBarLine(g, measure.X, measure.GetDrawTop(), measure.GetDrawHeight());
+                DrawBarLine(g, measure.BarLineX, measure.GetDrawTop(), measure.GetDrawHeight());
                 DrawBarLineDecoration(g, measure, measureData);
             }
         }
@@ -1398,9 +1543,10 @@ namespace JianpuEditor.Rendering
             int selectedMeasureIndex,
             int selectedNoteIndex,
             int selectedInsertIndex,
-            IReadOnlyList<ScoreNoteRef> selectedNotes)
+            IReadOnlyList<ScoreNoteRef> selectedNotes,
+            int selectedVoiceIndex)
         {
-            if (layout.MeasureIndex == selectedMeasureIndex && selectedInsertIndex >= 0)
+            if (layout.MeasureIndex == selectedMeasureIndex && selectedInsertIndex >= 0 && selectedVoiceIndex == VoiceLayoutService.PrimaryVoiceIndex)
             {
                 DrawGapCaret(g, layout, selectedInsertIndex);
             }
@@ -1410,8 +1556,8 @@ namespace JianpuEditor.Rendering
             for (var i = 0; i < noteCount; i++)
             {
                 var isSelected = selectedNotes != null && selectedNotes.Count > 0
-                    ? selectedNotes.Any(note => note.MeasureIndex == layout.MeasureIndex && note.NoteIndex == i)
-                    : layout.MeasureIndex == selectedMeasureIndex && i == selectedNoteIndex;
+                    ? selectedNotes.Any(note => note.MeasureIndex == layout.MeasureIndex && note.NoteIndex == i && note.VoiceIndex == VoiceLayoutService.PrimaryVoiceIndex)
+                    : layout.MeasureIndex == selectedMeasureIndex && i == selectedNoteIndex && selectedVoiceIndex == VoiceLayoutService.PrimaryVoiceIndex;
                 layout.GetNoteDrawBounds(i, out var noteX, out var noteWidth);
                 int nextNoteX;
                 int nextNoteWidth;
@@ -1469,32 +1615,72 @@ namespace JianpuEditor.Rendering
         /// ornaments, chords, and beat-group underlines aren't part of the <see cref="JianpuVoice"/>
         /// data model yet (see ROADMAP.md), so they're not drawn here; that keeps this additive to
         /// <see cref="DrawMelodyRow"/> rather than needing it generalized.</summary>
-        private void DrawExtraVoiceRows(Graphics g, JianpuMeasure measureData, MeasureLayout layout)
+        private void DrawExtraVoiceRows(
+            Graphics g,
+            JianpuMeasure measureData,
+            MeasureLayout layout,
+            int selectedMeasureIndex,
+            int selectedNoteIndex,
+            int selectedInsertIndex,
+            IReadOnlyList<ScoreNoteRef> selectedNotes,
+            int selectedVoiceIndex)
         {
+            var aboveVoices = layout.AboveVoices;
+            for (var voiceIndex = 0; voiceIndex < aboveVoices.Count; voiceIndex++)
+            {
+                // Index 0 is the topmost row (furthest from the melody) -- see AboveVoices' own
+                // doc comment -- so it needs the most negative offset from BlockTop.
+                var rowTop = layout.BlockTop - (aboveVoices.Count - voiceIndex) * (MelodyRowHeight + RowGap);
+                DrawVoiceRow(g, measureData, layout, aboveVoices[voiceIndex], rowTop, selectedMeasureIndex, selectedNoteIndex, selectedInsertIndex, selectedNotes, selectedVoiceIndex);
+            }
+
             var belowVoices = layout.BelowVoices;
             for (var voiceIndex = 0; voiceIndex < belowVoices.Count; voiceIndex++)
             {
-                var voice = belowVoices[voiceIndex];
                 var rowTop = layout.BlockTop + (voiceIndex + 1) * (MelodyRowHeight + RowGap);
-                var noteCount = voice.NoteCount;
-                for (var i = 0; i < noteCount; i++)
-                {
-                    voice.GetNoteDrawBounds(i, layout.X, layout.Width, out var noteX, out var noteWidth);
-                    int nextNoteX;
-                    int nextNoteWidth;
-                    if (i + 1 < noteCount)
-                    {
-                        voice.GetNoteDrawBounds(i + 1, layout.X, layout.Width, out nextNoteX, out nextNoteWidth);
-                    }
-                    else
-                    {
-                        nextNoteX = noteX + noteWidth;
-                        nextNoteWidth = noteWidth;
-                    }
+                DrawVoiceRow(g, measureData, layout, belowVoices[voiceIndex], rowTop, selectedMeasureIndex, selectedNoteIndex, selectedInsertIndex, selectedNotes, selectedVoiceIndex);
+            }
+        }
 
-                    var nextHeadCenterX = nextNoteX + Math.Min(NoteCellWidth, nextNoteWidth) / 2f;
-                    DrawExtraVoiceNote(g, measureData, voice.Notes[i], noteX, rowTop, noteWidth, nextHeadCenterX);
+        private void DrawVoiceRow(
+            Graphics g,
+            JianpuMeasure measureData,
+            MeasureLayout layout,
+            MeasureLayout.ExtraVoiceLayout voice,
+            int rowTop,
+            int selectedMeasureIndex,
+            int selectedNoteIndex,
+            int selectedInsertIndex,
+            IReadOnlyList<ScoreNoteRef> selectedNotes,
+            int selectedVoiceIndex)
+        {
+            if (layout.MeasureIndex == selectedMeasureIndex && selectedInsertIndex >= 0 && selectedVoiceIndex == voice.ExtraVoiceIndex)
+            {
+                DrawVoiceGapCaret(g, layout, voice, rowTop, selectedInsertIndex);
+            }
+
+            var noteCount = voice.NoteCount;
+            for (var i = 0; i < noteCount; i++)
+            {
+                var isSelected = selectedNotes != null && selectedNotes.Count > 0
+                    ? selectedNotes.Any(note => note.MeasureIndex == layout.MeasureIndex && note.NoteIndex == i && note.VoiceIndex == voice.ExtraVoiceIndex)
+                    : layout.MeasureIndex == selectedMeasureIndex && i == selectedNoteIndex && selectedVoiceIndex == voice.ExtraVoiceIndex;
+
+                voice.GetNoteDrawBounds(i, layout.X, layout.Width, out var noteX, out var noteWidth);
+                int nextNoteX;
+                int nextNoteWidth;
+                if (i + 1 < noteCount)
+                {
+                    voice.GetNoteDrawBounds(i + 1, layout.X, layout.Width, out nextNoteX, out nextNoteWidth);
                 }
+                else
+                {
+                    nextNoteX = noteX + noteWidth;
+                    nextNoteWidth = noteWidth;
+                }
+
+                var nextHeadCenterX = nextNoteX + Math.Min(NoteCellWidth, nextNoteWidth) / 2f;
+                DrawExtraVoiceNote(g, measureData, voice.Notes[i], noteX, rowTop, noteWidth, nextHeadCenterX, isSelected);
             }
         }
 
@@ -1505,8 +1691,22 @@ namespace JianpuEditor.Rendering
             int x,
             int y,
             int noteWidth,
-            float nextHeadCenterX)
+            float nextHeadCenterX,
+            bool isSelected)
         {
+            if (isSelected)
+            {
+                using (var brush = new SolidBrush(Color.FromArgb(90, 255, 214, 102)))
+                {
+                    g.FillRectangle(brush, x + 2, y + 2, noteWidth - 4, MelodyRowHeight - 4);
+                }
+
+                using (var pen = new Pen(Color.FromArgb(220, 180, 60), 2f))
+                {
+                    g.DrawRectangle(pen, x + 2, y + 2, noteWidth - 4, MelodyRowHeight - 4);
+                }
+            }
+
             var headWidth = Math.Min(NoteCellWidth, noteWidth);
             using (var ink = CreateInkBrush())
             using (var inkPen = CreateInkPen(2f))
@@ -1778,7 +1978,19 @@ namespace JianpuEditor.Rendering
             var x = layout.X + layout.GetInsertOffset(insertIndex);
             var top = layout.BlockTop + 8;
             var height = MelodyRowHeight - 16;
+            DrawGapCaretAt(g, x, top, height);
+        }
 
+        private void DrawVoiceGapCaret(Graphics g, MeasureLayout layout, MeasureLayout.ExtraVoiceLayout voice, int rowTop, int insertIndex)
+        {
+            var x = layout.X + voice.GetInsertOffset(insertIndex);
+            var top = rowTop + 8;
+            var height = MelodyRowHeight - 16;
+            DrawGapCaretAt(g, x, top, height);
+        }
+
+        private void DrawGapCaretAt(Graphics g, int x, int top, int height)
+        {
             using (var brush = new SolidBrush(Color.FromArgb(80, 76, 175, 80)))
             {
                 g.FillRectangle(brush, x - GapCaretWidth / 2, top, GapCaretWidth, height);
@@ -2535,8 +2747,8 @@ namespace JianpuEditor.Rendering
         /// conflict at the line shared with an adjacent measure.</summary>
         private void DrawBarLineDecoration(Graphics g, MeasureLayout measure, JianpuMeasure measureData)
         {
-            var top = measure.BlockTop;
-            var height = measure.GetEffectiveHeight();
+            var top = measure.GetDrawTop();
+            var height = measure.GetDrawHeight();
             switch (measureData.BarLineType)
             {
                 case BarLineType.Double:
@@ -2547,14 +2759,14 @@ namespace JianpuEditor.Rendering
                     break;
                 case BarLineType.RepeatEnd:
                     DrawThickBarLine(g, measure.BarLineX - 6, top, height);
-                    DrawRepeatDots(g, measure.BarLineX - 14, top);
+                    DrawRepeatDots(g, measure.BarLineX - 14, measure.BlockTop);
                     break;
             }
 
             if (measureData.IsRepeatStart)
             {
                 DrawThickBarLine(g, measure.X + 5, top, height);
-                DrawRepeatDots(g, measure.X + 13, top);
+                DrawRepeatDots(g, measure.X + 13, measure.BlockTop);
             }
         }
 
@@ -2666,10 +2878,39 @@ namespace JianpuEditor.Rendering
                 maxRight = Math.Max(maxRight, x);
             }
 
+            ApplyAboveVoiceHeadroom(layout);
+
             layout.TotalWidth = options.MeasuresPerLine > 0 && options.EqualizeMeasureWidths
                 ? MarginLeft + usableWidth + 24
                 : maxRight + 24;
             return layout;
+        }
+
+        /// <summary>Second pass: pushes every line's (and its measures') <see
+        /// cref="MeasureLayout.BlockTop"/> down to make room for above-voice rows (descant/solo),
+        /// which draw upward from BlockTop. A line's own above-voice headroom, plus every earlier
+        /// line's, accumulates into its shift -- so BlockTop keeps meaning exactly what it always
+        /// has ("the melody row's top") for every existing consumer (ties, hairpins, gap carets,
+        /// Dynamics row), while the extra space those consumers never needed to know about is
+        /// reserved above it. A score where no measure has an above voice shifts nothing (zero
+        /// regression for the ordinary and below-voice-only cases).</summary>
+        private static void ApplyAboveVoiceHeadroom(ScoreLayout layout)
+        {
+            var cumulativeShift = 0;
+            foreach (var line in layout.Lines)
+            {
+                cumulativeShift += line.GetAboveVoicesHeight();
+                if (cumulativeShift == 0)
+                {
+                    continue;
+                }
+
+                line.BlockTop += cumulativeShift;
+                foreach (var measure in line.Measures)
+                {
+                    measure.BlockTop += cumulativeShift;
+                }
+            }
         }
 
         private static bool IsMeasureSelected(int measureIndex, IReadOnlyList<int> selectedMeasureIndices, int selectedMeasureIndex)
@@ -2758,6 +2999,19 @@ namespace JianpuEditor.Rendering
 
                 return maxBelowRows;
             }
+
+            /// <summary>Extra headroom this line needs above its (shared) <see cref="BlockTop"/>
+            /// for the tallest above-voice stack among its measures.</summary>
+            public int GetAboveVoicesHeight()
+            {
+                var maxAboveRows = 0;
+                foreach (var measure in Measures)
+                {
+                    maxAboveRows = Math.Max(maxAboveRows, measure.AboveVoiceRowCount);
+                }
+
+                return maxAboveRows * (MelodyRowHeight + RowGap);
+            }
         }
 
         public sealed class MeasureLayout
@@ -2771,12 +3025,23 @@ namespace JianpuEditor.Rendering
             /// <summary>Voices rendered below the primary <see cref="JianpuMeasure.MelodyNotes"/>
             /// row (SATB's Alto/Tenor/Bass), in the order <see
             /// cref="VoiceLayoutService.GetRenderOrder"/> returns them. Empty for a measure with no
-            /// <see cref="JianpuMeasure.ExtraVoices"/> or only "above" ones -- "above" voices
-            /// (descant/solo) are part of the data model already but not yet rendered as their own
-            /// row; that's deferred (see ROADMAP.md).</summary>
+            /// <see cref="JianpuMeasure.ExtraVoices"/> or only "above" ones.</summary>
             public IReadOnlyList<ExtraVoiceLayout> BelowVoices { get; private set; } = Array.Empty<ExtraVoiceLayout>();
 
+            /// <summary>Voices rendered above the primary row (descant/solo), in <see
+            /// cref="JianpuMeasure.ExtraVoices"/> list order -- index 0 is the topmost row (furthest
+            /// from the melody), matching <see cref="VoiceLayoutService.GetRenderOrder"/>. Unlike
+            /// <see cref="BelowVoices"/>, these draw at Y &lt; <see cref="BlockTop"/>, so every
+            /// consumer that means "the whole block" (bar lines, hit-testing, selection) must use
+            /// <see cref="GetDrawTop"/>/<see cref="GetDrawHeight"/> instead of <see cref="BlockTop"/>/
+            /// <see cref="GetEffectiveHeight"/> directly -- everything keyed to the melody row itself
+            /// (ties, hairpins, gap carets, Dynamics/Secondary/Lyrics rows) stays anchored to <see
+            /// cref="BlockTop"/> exactly as before, unaffected by above voices.</summary>
+            public IReadOnlyList<ExtraVoiceLayout> AboveVoices { get; private set; } = Array.Empty<ExtraVoiceLayout>();
+
             public int BelowVoiceRowCount => BelowVoices.Count;
+
+            public int AboveVoiceRowCount => AboveVoices.Count;
 
             public int MeasureIndex { get; set; }
             public int X { get; set; }
@@ -2827,28 +3092,122 @@ namespace JianpuEditor.Rendering
             public void ComputeExtraVoiceLayouts(JianpuMeasure measure, double noteWidthScale, int displayWidth)
             {
                 var below = new List<ExtraVoiceLayout>();
+                var above = new List<ExtraVoiceLayout>();
                 var extraVoices = measure?.ExtraVoices;
                 if (extraVoices != null)
                 {
-                    foreach (var voice in extraVoices)
+                    for (var i = 0; i < extraVoices.Count; i++)
                     {
-                        if (voice == null || voice.IsAbove)
+                        var voice = extraVoices[i];
+                        if (voice == null)
                         {
                             continue;
                         }
 
-                        below.Add(new ExtraVoiceLayout(voice.Role, voice.Notes, noteWidthScale, displayWidth));
+                        var voiceLayout = new ExtraVoiceLayout(voice.Role, voice.Notes, noteWidthScale, displayWidth, i);
+                        if (voice.IsAbove)
+                        {
+                            above.Add(voiceLayout);
+                        }
+                        else
+                        {
+                            below.Add(voiceLayout);
+                        }
                     }
                 }
 
                 BelowVoices = below;
+                AboveVoices = above;
             }
 
-            /// <summary>This measure's own vertical footprint, including its below-voice rows.
-            /// Equals <see cref="JianpuRenderer.StaffBlockHeight"/> when it has none.</summary>
+            /// <summary>Finds the layout for <see cref="JianpuMeasure.ExtraVoices"/>[<paramref
+            /// name="extraVoiceIndex"/>], searching both <see cref="AboveVoices"/> and <see
+            /// cref="BelowVoices"/> since either can hold it. Null if out of range.</summary>
+            public ExtraVoiceLayout FindExtraVoiceLayout(int extraVoiceIndex)
+            {
+                foreach (var voice in AboveVoices)
+                {
+                    if (voice.ExtraVoiceIndex == extraVoiceIndex)
+                    {
+                        return voice;
+                    }
+                }
+
+                foreach (var voice in BelowVoices)
+                {
+                    if (voice.ExtraVoiceIndex == extraVoiceIndex)
+                    {
+                        return voice;
+                    }
+                }
+
+                return null;
+            }
+
+            /// <summary>The Y this voice's row draws at. <see
+            /// cref="VoiceLayoutService.PrimaryVoiceIndex"/> is <see cref="BlockTop"/> itself;
+            /// otherwise the matching row in <see cref="AboveVoices"/> or <see
+            /// cref="BelowVoices"/>, in the same position <see cref="DrawExtraVoiceRows"/> in <see
+            /// cref="JianpuRenderer"/> draws it at. Falls back to <see cref="BlockTop"/> for an
+            /// unknown voice index rather than throwing -- callers only reach this from a hit or
+            /// selection that was itself built from a real voice index.</summary>
+            public int GetVoiceRowTop(int voiceIndex)
+            {
+                if (voiceIndex == VoiceLayoutService.PrimaryVoiceIndex)
+                {
+                    return BlockTop;
+                }
+
+                for (var i = 0; i < AboveVoices.Count; i++)
+                {
+                    if (AboveVoices[i].ExtraVoiceIndex == voiceIndex)
+                    {
+                        return BlockTop - (AboveVoices.Count - i) * (MelodyRowHeight + RowGap);
+                    }
+                }
+
+                for (var i = 0; i < BelowVoices.Count; i++)
+                {
+                    if (BelowVoices[i].ExtraVoiceIndex == voiceIndex)
+                    {
+                        return BlockTop + (i + 1) * (MelodyRowHeight + RowGap);
+                    }
+                }
+
+                return BlockTop;
+            }
+
+            /// <summary>This measure's vertical footprint from <see cref="BlockTop"/> downward,
+            /// including its below-voice rows. Equals <see cref="JianpuRenderer.StaffBlockHeight"/>
+            /// when it has none. Does NOT include above-voice rows -- see <see
+            /// cref="GetDrawHeight"/> for the whole block's footprint.</summary>
             public int GetEffectiveHeight()
             {
                 return StaffBlockHeight + BelowVoiceRowCount * (MelodyRowHeight + RowGap);
+            }
+
+            /// <summary>Extra headroom this measure's above-voice rows need, reaching upward from
+            /// <see cref="BlockTop"/>. Zero when it has none.</summary>
+            public int GetAboveVoicesHeight()
+            {
+                return AboveVoiceRowCount * (MelodyRowHeight + RowGap);
+            }
+
+            /// <summary>The real topmost Y this measure draws at -- <see cref="BlockTop"/> itself
+            /// unless it has above-voice rows, which draw higher. Use this (with <see
+            /// cref="GetDrawHeight"/>) for anything meaning "the whole block" (bar lines,
+            /// hit-testing, selection highlight); use <see cref="BlockTop"/> alone for anything
+            /// meaning specifically the melody row (ties, hairpins, gap carets, Dynamics row).</summary>
+            public int GetDrawTop()
+            {
+                return BlockTop - GetAboveVoicesHeight();
+            }
+
+            /// <summary>The whole block's vertical extent, from <see cref="GetDrawTop"/> down
+            /// through every below-voice row and the Dynamics/Secondary/Lyrics rows.</summary>
+            public int GetDrawHeight()
+            {
+                return GetAboveVoicesHeight() + GetEffectiveHeight();
             }
 
             public int GetNoteWidth(int noteIndex)
@@ -2950,10 +3309,11 @@ namespace JianpuEditor.Rendering
                 private readonly int[] _noteOffsets;
                 private readonly int _contentWidth;
 
-                internal ExtraVoiceLayout(string role, IReadOnlyList<JianpuNote> notes, double noteWidthScale, int displayWidth)
+                internal ExtraVoiceLayout(string role, IReadOnlyList<JianpuNote> notes, double noteWidthScale, int displayWidth, int extraVoiceIndex)
                 {
                     Role = role ?? string.Empty;
                     Notes = notes ?? new List<JianpuNote>();
+                    ExtraVoiceIndex = extraVoiceIndex;
                     _noteWidths = new int[Notes.Count];
                     _noteOffsets = new int[Notes.Count];
                     var offset = 0;
@@ -2973,6 +3333,29 @@ namespace JianpuEditor.Rendering
                 public IReadOnlyList<JianpuNote> Notes { get; }
                 public double Scale { get; }
                 public int NoteCount => Notes.Count;
+
+                /// <summary>Index into <see cref="JianpuMeasure.ExtraVoices"/> -- matches <see
+                /// cref="ScoreNoteRef.VoiceIndex"/>/<see cref="ScoreHitResult.VoiceIndex"/> for a
+                /// hit/selection on this voice.</summary>
+                public int ExtraVoiceIndex { get; }
+
+                /// <summary>Mirrors <see cref="MeasureLayout.GetInsertOffset"/> for this voice's own
+                /// notes/scale -- the gap-caret X position for inserting at <paramref
+                /// name="insertIndex"/>.</summary>
+                public int GetInsertOffset(int insertIndex)
+                {
+                    if (insertIndex <= 0 || _noteOffsets.Length == 0)
+                    {
+                        return 0;
+                    }
+
+                    if (insertIndex >= _noteOffsets.Length)
+                    {
+                        return (int)Math.Round(_contentWidth * Scale);
+                    }
+
+                    return (int)Math.Round(_noteOffsets[insertIndex] * Scale);
+                }
 
                 public void GetNoteDrawBounds(int noteIndex, int measureX, int measureWidth, out int noteX, out int noteWidth)
                 {

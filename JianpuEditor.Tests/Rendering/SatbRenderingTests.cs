@@ -115,5 +115,97 @@ namespace JianpuEditor.Tests.Rendering
                 Assert.Equal(size.Height, bitmap.Height);
             }
         }
+
+        private static JianpuScore BuildDescantAboveSatbScore()
+        {
+            var score = new JianpuScore { Title = "Descant above SATB" };
+            var measure = ScoreTestHelper.Measure(ScoreTestHelper.Note(1), ScoreTestHelper.Note(2));
+            measure.ExtraVoices.Add(new JianpuVoice { Role = "Descant", IsAbove = true, Notes = { ScoreTestHelper.Note(5), ScoreTestHelper.Note(6) } });
+            measure.ExtraVoices.Add(new JianpuVoice { Role = "Alto", Notes = { ScoreTestHelper.Note(5), ScoreTestHelper.Note(5) } });
+            measure.ExtraVoices.Add(new JianpuVoice { Role = "Tenor", Notes = { ScoreTestHelper.Note(3), ScoreTestHelper.Note(3) } });
+            measure.ExtraVoices.Add(new JianpuVoice { Role = "Bass", Notes = { ScoreTestHelper.Note(1), ScoreTestHelper.Note(1) } });
+            score.Measures.Add(measure);
+            return score;
+        }
+
+        [Fact]
+        public void GetMeasureLayouts_DescantAboveSatb_ReportsOneAboveRow()
+        {
+            var renderer = new JianpuRenderer();
+            var layout = renderer.GetMeasureLayouts(BuildDescantAboveSatbScore(), 900)[0];
+
+            Assert.Equal(1, layout.AboveVoiceRowCount);
+            Assert.Equal(3, layout.BelowVoiceRowCount);
+            Assert.Equal(JianpuRenderer.MelodyRowHeight + JianpuRenderer.RowGap, layout.GetAboveVoicesHeight());
+        }
+
+        [Fact]
+        public void BlockTop_MeasureWithAboveVoice_ShiftsDownToMakeRoom()
+        {
+            var renderer = new JianpuRenderer();
+            var plainScore = new JianpuScore { Title = "Plain" };
+            plainScore.Measures.Add(ScoreTestHelper.Measure(ScoreTestHelper.Note(1)));
+            var plainLayout = renderer.GetMeasureLayouts(plainScore, 900)[0];
+
+            var descantLayout = renderer.GetMeasureLayouts(BuildDescantAboveSatbScore(), 900)[0];
+
+            // BlockTop (the melody row's own top) shifts down by exactly the above-voice headroom,
+            // but the real top of drawn content (GetDrawTop) stays exactly where it always started.
+            Assert.Equal(
+                plainLayout.BlockTop + JianpuRenderer.MelodyRowHeight + JianpuRenderer.RowGap,
+                descantLayout.BlockTop);
+            Assert.Equal(plainLayout.BlockTop, descantLayout.GetDrawTop());
+        }
+
+        [Fact]
+        public void GetDrawTop_NoAboveVoices_EqualsBlockTop()
+        {
+            var renderer = new JianpuRenderer();
+            var layout = renderer.GetMeasureLayouts(BuildSatbScore(), 900)[0];
+
+            Assert.Equal(0, layout.AboveVoiceRowCount);
+            Assert.Equal(layout.BlockTop, layout.GetDrawTop());
+        }
+
+        [Fact]
+        public void RenderToBitmap_DescantAboveSatb_HasInkInTheDescantRow()
+        {
+            var renderer = new JianpuRenderer();
+            var score = BuildDescantAboveSatbScore();
+            var layout = renderer.GetMeasureLayouts(score, 900)[0];
+
+            using (var bitmap = renderer.RenderToBitmap(score, 900))
+            {
+                var descantRowTop = layout.GetDrawTop();
+                var foundInk = false;
+                for (var y = descantRowTop; y < descantRowTop + JianpuRenderer.MelodyRowHeight && !foundInk; y++)
+                {
+                    for (var x = layout.X; x < layout.X + layout.Width && !foundInk; x++)
+                    {
+                        var pixel = bitmap.GetPixel(x, y);
+                        if (pixel.A > 0 && pixel.GetBrightness() < 0.5)
+                        {
+                            foundInk = true;
+                        }
+                    }
+                }
+
+                Assert.True(foundInk, "expected visible ink in the Descant row, above the melody row");
+            }
+        }
+
+        [Fact]
+        public void HitTest_ClickAboveMelodyRow_ResolvesAsGenericMeasureHit()
+        {
+            var renderer = new JianpuRenderer();
+            var score = BuildDescantAboveSatbScore();
+            var layout = renderer.GetMeasureLayouts(score, 900)[0];
+
+            var descantRowY = layout.GetDrawTop() + JianpuRenderer.MelodyRowHeight / 2;
+            var hit = renderer.HitTest(score, 900, new Point(layout.X + 10, descantRowY));
+
+            Assert.Equal(ScoreHitType.Measure, hit.HitType);
+            Assert.Equal(0, hit.MeasureIndex);
+        }
     }
 }

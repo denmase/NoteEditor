@@ -236,6 +236,10 @@ namespace JianpuEditor.ViewModels
             return false;
         }
 
+        // Ornaments are a primary-voice-only concept (not part of JianpuVoice yet -- see
+        // ROADMAP.md), so a selection on an extra voice is filtered out here rather than
+        // silently applying the ornament to whatever primary-voice note happens to share that
+        // note index.
         private List<ScoreNoteRef> GetSelectedNoteRefs()
         {
             if (!_selection.HasNoteSelected)
@@ -245,10 +249,10 @@ namespace JianpuEditor.ViewModels
 
             if (_selection.SelectedNotes != null && _selection.SelectedNotes.Count > 0)
             {
-                return _selection.SelectedNotes.ToList();
+                return _selection.SelectedNotes.Where(item => item.VoiceIndex == ScoreNoteRef.PrimaryVoiceIndex).ToList();
             }
 
-            if (_selection.NoteIndex >= 0 && _selection.MeasureIndex >= 0)
+            if (_selection.NoteIndex >= 0 && _selection.MeasureIndex >= 0 && _selection.VoiceIndex == ScoreNoteRef.PrimaryVoiceIndex)
             {
                 return new List<ScoreNoteRef>
                 {

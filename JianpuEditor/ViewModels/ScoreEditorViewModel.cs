@@ -98,26 +98,41 @@ namespace JianpuEditor.ViewModels
                 if (refs.Count > 0)
                 {
                     var removedCount = 0;
-                    foreach (var group in refs.GroupBy(item => item.MeasureIndex).OrderByDescending(item => item.Key))
+                    // Grouped by (measure, voice) -- not measure alone -- since a selection on an
+                    // extra voice must never fall into the primary-voice removal path below (ties/
+                    // hairpins/ornaments/dynamics are primary-voice concepts; an extra voice's note
+                    // is just removed from its own list, see VoiceLayoutService.RemoveNote).
+                    foreach (var group in refs.GroupBy(item => new { item.MeasureIndex, item.VoiceIndex }).OrderByDescending(item => item.Key.MeasureIndex))
                     {
-                        if (group.Key < 0 || group.Key >= _document.Score.Measures.Count)
+                        var groupMeasureIndex = group.Key.MeasureIndex;
+                        var groupVoiceIndex = group.Key.VoiceIndex;
+                        if (groupMeasureIndex < 0 || groupMeasureIndex >= _document.Score.Measures.Count)
                         {
                             continue;
                         }
 
-                        var targetMeasure = _document.Score.Measures[group.Key];
+                        var targetMeasure = _document.Score.Measures[groupMeasureIndex];
+                        var voiceNotes = VoiceLayoutService.GetNotesList(targetMeasure, groupVoiceIndex);
                         foreach (var noteIndex in group.Select(item => item.NoteIndex).Distinct().OrderByDescending(item => item))
                         {
-                            if (noteIndex < 0 || noteIndex >= targetMeasure.MelodyNotes.Count)
+                            if (noteIndex < 0 || noteIndex >= voiceNotes.Count)
                             {
                                 continue;
                             }
 
-                            MelodyChordService.RemoveSlot(targetMeasure, noteIndex);
-                            TieMaintenanceService.OnNoteRemoved(_document.Score, group.Key, noteIndex);
-                            HairpinMaintenanceService.OnNoteRemoved(_document.Score, group.Key, noteIndex);
-                            OrnamentService.OnNoteRemoved(targetMeasure, noteIndex);
-                            DynamicMarkingService.OnNoteRemoved(targetMeasure, noteIndex);
+                            if (groupVoiceIndex == VoiceLayoutService.PrimaryVoiceIndex)
+                            {
+                                MelodyChordService.RemoveSlot(targetMeasure, noteIndex);
+                                TieMaintenanceService.OnNoteRemoved(_document.Score, groupMeasureIndex, noteIndex);
+                                HairpinMaintenanceService.OnNoteRemoved(_document.Score, groupMeasureIndex, noteIndex);
+                                OrnamentService.OnNoteRemoved(targetMeasure, noteIndex);
+                                DynamicMarkingService.OnNoteRemoved(targetMeasure, noteIndex);
+                            }
+                            else
+                            {
+                                VoiceLayoutService.RemoveNote(targetMeasure, groupVoiceIndex, noteIndex);
+                            }
+
                             removedCount++;
                         }
                     }
@@ -268,7 +283,7 @@ namespace JianpuEditor.ViewModels
             {
                 return new List<ScoreNoteRef>
                 {
-                    new ScoreNoteRef(_selection.MeasureIndex, _selection.NoteIndex)
+                    new ScoreNoteRef(_selection.MeasureIndex, _selection.NoteIndex, _selection.VoiceIndex)
                 };
             }
 

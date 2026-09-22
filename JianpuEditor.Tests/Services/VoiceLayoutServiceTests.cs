@@ -75,5 +75,73 @@ namespace JianpuEditor.Tests.Services
             Assert.Equal(1, order[2].ExtraVoiceIndex); // Alto
             Assert.Equal(2, order[3].ExtraVoiceIndex); // Bass
         }
+
+        [Fact]
+        public void GetNotesList_PrimaryVoice_ReturnsMelodyNotes()
+        {
+            var measure = ScoreTestHelper.Measure(ScoreTestHelper.Note(1));
+
+            var notes = VoiceLayoutService.GetNotesList(measure, VoiceLayoutService.PrimaryVoiceIndex);
+
+            Assert.Same(measure.MelodyNotes, notes);
+        }
+
+        [Fact]
+        public void GetNotesList_ExtraVoice_ReturnsThatVoicesOwnMutableList()
+        {
+            var measure = ScoreTestHelper.Measure(ScoreTestHelper.Note(1));
+            measure.ExtraVoices.Add(new JianpuVoice { Role = "Alto", Notes = { ScoreTestHelper.Note(5) } });
+
+            var notes = VoiceLayoutService.GetNotesList(measure, 0);
+
+            Assert.Same(measure.ExtraVoices[0].Notes, notes);
+        }
+
+        [Fact]
+        public void GetNotesList_OutOfRangeVoiceIndex_ReturnsEmptyListRatherThanThrowing()
+        {
+            var measure = ScoreTestHelper.Measure(ScoreTestHelper.Note(1));
+
+            var notes = VoiceLayoutService.GetNotesList(measure, 5);
+
+            Assert.Empty(notes);
+        }
+
+        [Fact]
+        public void InsertNote_ExtraVoice_InsertsIntoThatVoicesListOnly()
+        {
+            var measure = ScoreTestHelper.Measure(ScoreTestHelper.Note(1));
+            measure.ExtraVoices.Add(new JianpuVoice { Role = "Alto", Notes = { ScoreTestHelper.Note(5), ScoreTestHelper.Note(5) } });
+
+            VoiceLayoutService.InsertNote(measure, 0, 1, ScoreTestHelper.Note(6));
+
+            Assert.Equal(3, measure.ExtraVoices[0].Notes.Count);
+            Assert.Equal(6, measure.ExtraVoices[0].Notes[1].Pitch);
+            Assert.Single(measure.MelodyNotes);
+        }
+
+        [Fact]
+        public void InsertNote_PrimaryVoice_KeepsChordSlotShadowListInSync()
+        {
+            var measure = ScoreTestHelper.Measure(ScoreTestHelper.Note(1));
+
+            VoiceLayoutService.InsertNote(measure, VoiceLayoutService.PrimaryVoiceIndex, 1, ScoreTestHelper.Note(3));
+
+            Assert.Equal(2, measure.MelodyNotes.Count);
+            Assert.Equal(2, measure.Chords.Count);
+        }
+
+        [Fact]
+        public void RemoveNote_ExtraVoice_RemovesFromThatVoicesListOnly()
+        {
+            var measure = ScoreTestHelper.Measure(ScoreTestHelper.Note(1));
+            measure.ExtraVoices.Add(new JianpuVoice { Role = "Alto", Notes = { ScoreTestHelper.Note(5), ScoreTestHelper.Note(6) } });
+
+            VoiceLayoutService.RemoveNote(measure, 0, 0);
+
+            Assert.Single(measure.ExtraVoices[0].Notes);
+            Assert.Equal(6, measure.ExtraVoices[0].Notes[0].Pitch);
+            Assert.Single(measure.MelodyNotes);
+        }
     }
 }
