@@ -28,5 +28,7 @@ namespace JianpuEditor.Models
         public List<JianpuTie> Ties { get; set; } = new List<JianpuTie>();
 
         public List<JianpuVolta> Voltas { get; set; } = new List<JianpuVolta>();
+
+        public List<JianpuHairpin> Hairpins { get; set; } = new List<JianpuHairpin>();
     }
 }

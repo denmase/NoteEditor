@@ -201,6 +201,7 @@ namespace JianpuEditor.Services
 
             notes.RemoveAt(noteIndex);
             TieMaintenanceService.OnNoteRemoved(score, measureIndex, noteIndex);
+            HairpinMaintenanceService.OnNoteRemoved(score, measureIndex, noteIndex);
             for (var i = 0; i < replacements.Count; i++)
             {
                 notes.Insert(noteIndex + i, CloneNote(replacements[i]));
@@ -209,6 +210,11 @@ namespace JianpuEditor.Services
             if (replacements.Count > 1)
             {
                 TieMaintenanceService.OnMelodyNoteCountChanged(
+                    score,
+                    measureIndex,
+                    noteIndex + 1,
+                    replacements.Count - 1);
+                HairpinMaintenanceService.OnMelodyNoteCountChanged(
                     score,
                     measureIndex,
                     noteIndex + 1,
@@ -240,6 +246,7 @@ namespace JianpuEditor.Services
 
                 notes.RemoveAt(index);
                 TieMaintenanceService.OnNoteRemoved(score, measureIndex, index);
+                HairpinMaintenanceService.OnNoteRemoved(score, measureIndex, index);
             }
         }
 

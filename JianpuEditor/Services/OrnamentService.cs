@@ -243,6 +243,8 @@ namespace JianpuEditor.Services
                     return "D.S.";
                 case OrnamentType.Fine:
                     return "Fine";
+                case OrnamentType.Glissando:
+                    return "gliss";
                 default:
                     return type.ToString();
             }

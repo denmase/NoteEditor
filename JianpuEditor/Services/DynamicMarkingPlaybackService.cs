@@ -14,6 +14,13 @@ namespace JianpuEditor.Services
         public const int ForteVelocity = 96;
         public const int FortissimoVelocity = 112;
 
+        /// <summary>How much a hairpin nudges velocity when its end note carries no explicit
+        /// discrete dynamic marking to interpolate toward -- roughly one step of the pp..ff
+        /// ladder above (adjacent levels are spaced ~16 apart), so an unmarked crescendo/
+        /// diminuendo still produces an audible, proportionate change instead of guessing wildly
+        /// or doing nothing.</summary>
+        public const int NominalHairpinVelocityDelta = 16;
+
         public static int ResolveVelocity(string text, int fallback)
         {
             switch ((text ?? string.Empty).Trim())

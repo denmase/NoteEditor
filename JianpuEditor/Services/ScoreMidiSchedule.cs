@@ -111,6 +111,7 @@ namespace JianpuEditor.Services
             var tonicMidi = ParseTonicMidi(score.KeySignature);
             var suppressed = BuildTieEndSet(score.Ties);
             var tieExtensionCache = new Dictionary<NotePosition, double>();
+            var hairpinOverrides = BuildHairpinVelocityOverrides(score);
             var events = new List<ScheduledMidiNote>();
             var quarterTime = 0.0;
             var currentVelocity = MelodyVelocity;
@@ -134,15 +135,24 @@ namespace JianpuEditor.Services
 
                 for (var noteIndex = 0; noteIndex < notes.Count; noteIndex++)
                 {
+                    var position = new NotePosition(measureIndex, noteIndex);
                     var dynamicMarking = DynamicMarkingService.GetMarkingForNote(measure, noteIndex);
                     if (dynamicMarking != null)
                     {
                         currentVelocity = DynamicMarkingPlaybackService.ResolveVelocity(dynamicMarking.Text, currentVelocity);
                     }
 
+                    // A hairpin's interpolated level wins over -- and becomes -- the step-function
+                    // level from here on, the same way an explicit discrete marking would: a
+                    // crescendo/diminuendo with nothing marked after it holds at the level it
+                    // reached rather than snapping back.
+                    if (hairpinOverrides.TryGetValue(position, out var hairpinVelocity))
+                    {
+                        currentVelocity = hairpinVelocity;
+                    }
+
                     var slotNote = notes[noteIndex];
                     var duration = JianpuRenderer.GetDurationUnits(slotNote);
-                    var position = new NotePosition(measureIndex, noteIndex);
 
                     if (suppressed.Contains(position))
                     {
@@ -180,6 +190,11 @@ namespace JianpuEditor.Services
                     soundingEventIndices = new List<int>();
                     if (playableNotes.Count == 1)
                     {
+                        // Only a same-measure lookahead: real notation draws a glissando between
+                        // two adjacent written notes, so a glissando on the last note of a measure
+                        // (nothing left to slide toward within this slot's own context) simply has
+                        // no playback effect rather than reaching into the next measure/repeat.
+                        var nextNote = noteIndex + 1 < notes.Count ? notes[noteIndex + 1] : null;
                         var scheduled = OrnamentPlaybackService.ScheduleMelodyNote(
                             measure,
                             playableNotes[0],
@@ -188,7 +203,8 @@ namespace JianpuEditor.Services
                             totalDuration,
                             tonicMidi,
                             MelodyChannel,
-                            currentVelocity);
+                            currentVelocity,
+                            nextNote);
                         events.AddRange(scheduled);
                         // A plain note schedules one event; an ornamented one (grace note, trill,
                         // turn, mordent...) can expand into several laid out in time order, so the
@@ -220,6 +236,114 @@ namespace JianpuEditor.Services
             }
 
             return events;
+        }
+
+        /// <summary>Resolves every <see cref="JianpuHairpin"/> into a per-note velocity override,
+        /// keyed by score position (measure+note index) rather than elapsed playback time -- like
+        /// <see cref="DynamicMarkingService"/>'s step-function markings, a hairpin's effect is a
+        /// property of *where* a note sits in the score, so it reapplies identically on every pass
+        /// through a repeated section instead of only affecting whichever pass happens to reach it
+        /// first. Interpolation is by note ordinal within the span rather than by elapsed quarter-
+        /// time, which keeps this a simple structural (not playback-order-dependent) pre-pass: the
+        /// same span always contains the same notes regardless of how repeats later re-visit it.
+        /// The start level is whatever the discrete step-function would already be at that position;
+        /// the end level is an explicit marking at the end note if one exists, otherwise a nominal
+        /// <see cref="DynamicMarkingPlaybackService.NominalHairpinVelocityDelta"/> nudge in the
+        /// hairpin's direction.</summary>
+        private static Dictionary<NotePosition, int> BuildHairpinVelocityOverrides(JianpuScore score)
+        {
+            var overrides = new Dictionary<NotePosition, int>();
+            var hairpins = score?.Hairpins;
+            var measures = score?.Measures;
+            if (hairpins == null || hairpins.Count == 0 || measures == null)
+            {
+                return overrides;
+            }
+
+            var velocityAtPosition = new Dictionary<NotePosition, int>();
+            var runningVelocity = MelodyVelocity;
+            for (var measureIndex = 0; measureIndex < measures.Count; measureIndex++)
+            {
+                var measure = measures[measureIndex];
+                DynamicMarkingService.NormalizeMeasure(measure);
+                var notes = measure.MelodyNotes;
+                if (notes == null)
+                {
+                    continue;
+                }
+
+                for (var noteIndex = 0; noteIndex < notes.Count; noteIndex++)
+                {
+                    var marking = DynamicMarkingService.GetMarkingForNote(measure, noteIndex);
+                    if (marking != null)
+                    {
+                        runningVelocity = DynamicMarkingPlaybackService.ResolveVelocity(marking.Text, runningVelocity);
+                    }
+
+                    velocityAtPosition[new NotePosition(measureIndex, noteIndex)] = runningVelocity;
+                }
+            }
+
+            foreach (var hairpin in hairpins)
+            {
+                var startPosition = new NotePosition(hairpin.StartMeasureIndex, hairpin.StartNoteIndex);
+                if (!velocityAtPosition.TryGetValue(startPosition, out var startVelocity))
+                {
+                    continue;
+                }
+
+                var endVelocity = ResolveHairpinEndVelocity(score, hairpin, startVelocity);
+                var span = GetPositionsBetween(measures, startPosition, new NotePosition(hairpin.EndMeasureIndex, hairpin.EndNoteIndex));
+                for (var i = 0; i < span.Count; i++)
+                {
+                    var t = span.Count <= 1 ? 1.0 : (double)i / (span.Count - 1);
+                    var velocity = (int)Math.Round(startVelocity + (endVelocity - startVelocity) * t);
+                    overrides[span[i]] = Math.Max(1, Math.Min(127, velocity));
+                }
+            }
+
+            return overrides;
+        }
+
+        private static int ResolveHairpinEndVelocity(JianpuScore score, JianpuHairpin hairpin, int startVelocity)
+        {
+            if (hairpin.EndMeasureIndex >= 0 && hairpin.EndMeasureIndex < score.Measures.Count)
+            {
+                var endMeasure = score.Measures[hairpin.EndMeasureIndex];
+                DynamicMarkingService.NormalizeMeasure(endMeasure);
+                var endMarking = DynamicMarkingService.GetMarkingForNote(endMeasure, hairpin.EndNoteIndex);
+                if (endMarking != null)
+                {
+                    return DynamicMarkingPlaybackService.ResolveVelocity(endMarking.Text, startVelocity);
+                }
+            }
+
+            var nominalDelta = hairpin.IsCrescendo
+                ? DynamicMarkingPlaybackService.NominalHairpinVelocityDelta
+                : -DynamicMarkingPlaybackService.NominalHairpinVelocityDelta;
+            return Math.Max(1, Math.Min(127, startVelocity + nominalDelta));
+        }
+
+        private static List<NotePosition> GetPositionsBetween(IList<JianpuMeasure> measures, NotePosition start, NotePosition end)
+        {
+            var positions = new List<NotePosition>();
+            for (var measureIndex = start.MeasureIndex; measureIndex <= end.MeasureIndex && measureIndex < measures.Count; measureIndex++)
+            {
+                var notes = measures[measureIndex].MelodyNotes;
+                if (notes == null)
+                {
+                    continue;
+                }
+
+                var fromNote = measureIndex == start.MeasureIndex ? start.NoteIndex : 0;
+                var toNote = measureIndex == end.MeasureIndex ? end.NoteIndex : notes.Count - 1;
+                for (var noteIndex = fromNote; noteIndex <= toNote && noteIndex < notes.Count; noteIndex++)
+                {
+                    positions.Add(new NotePosition(measureIndex, noteIndex));
+                }
+            }
+
+            return positions;
         }
 
         private static List<ScheduledMidiNote> BuildChordNotes(JianpuScore score, IReadOnlyList<int> playOrder)

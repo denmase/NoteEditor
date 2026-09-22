@@ -202,6 +202,17 @@ namespace JianpuEditor.Controls
                 case RibbonIcon.DynamicFortissimo:
                     DrawDynamicLabel(g, brush, "ff");
                     return;
+                case RibbonIcon.Crescendo:
+                    g.DrawLine(pen, 3f, 10f, 17f, 5f);
+                    g.DrawLine(pen, 3f, 10f, 17f, 15f);
+                    return;
+                case RibbonIcon.Diminuendo:
+                    g.DrawLine(pen, 3f, 5f, 17f, 10f);
+                    g.DrawLine(pen, 3f, 15f, 17f, 10f);
+                    return;
+                case RibbonIcon.Glissando:
+                    DrawDynamicLabel(g, brush, "gl.");
+                    return;
                 case RibbonIcon.Duplicate:
                     g.DrawRectangle(pen, 3f, 6f, 10f, 10f);
                     g.DrawLine(pen, 7f, 6f, 7f, 4f);

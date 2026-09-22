@@ -183,6 +183,77 @@ namespace JianpuEditor.Tests.Services
         }
 
         [Fact]
+        public void ScheduleMelodyNote_Glissando_RunsChromaticallyTowardNextNoteWithoutReachingIt()
+        {
+            var measure = ScoreTestHelper.Measure(ScoreTestHelper.Note(1), ScoreTestHelper.Note(5));
+            OrnamentService.TryAddOrnament(measure, 0, OrnamentType.Glissando);
+
+            var events = OrnamentPlaybackService.ScheduleMelodyNote(
+                measure,
+                measure.MelodyNotes[0],
+                0,
+                0,
+                1,
+                ScoreMidiSchedule.DefaultTonicMidi,
+                ScoreMidiSchedule.MelodyChannel,
+                ScoreMidiSchedule.MelodyVelocity,
+                measure.MelodyNotes[1]);
+
+            var startMidi = ScoreMidiSchedule.ToMelodyMidiNote(ScoreTestHelper.Note(1), ScoreMidiSchedule.DefaultTonicMidi);
+            var targetMidi = ScoreMidiSchedule.ToMelodyMidiNote(ScoreTestHelper.Note(5), ScoreMidiSchedule.DefaultTonicMidi);
+
+            Assert.True(events.Count > 1);
+            Assert.Equal(startMidi, events[0].MidiNote);
+            Assert.All(events, evt => Assert.NotEqual(targetMidi, evt.MidiNote));
+            Assert.Equal(0, events[0].StartQuarter, 3);
+            Assert.Equal(1, events.Sum(evt => evt.DurationQuarter), 3);
+        }
+
+        [Fact]
+        public void ScheduleMelodyNote_GlissandoWithNoNextNote_PlaysPlainNote()
+        {
+            var measure = ScoreTestHelper.Measure(ScoreTestHelper.Note(1));
+            OrnamentService.TryAddOrnament(measure, 0, OrnamentType.Glissando);
+
+            var events = OrnamentPlaybackService.ScheduleMelodyNote(
+                measure,
+                measure.MelodyNotes[0],
+                0,
+                0,
+                1,
+                ScoreMidiSchedule.DefaultTonicMidi,
+                ScoreMidiSchedule.MelodyChannel,
+                ScoreMidiSchedule.MelodyVelocity,
+                nextNote: null);
+
+            Assert.Single(events);
+            Assert.Equal(
+                ScoreMidiSchedule.ToMelodyMidiNote(ScoreTestHelper.Note(1), ScoreMidiSchedule.DefaultTonicMidi),
+                events[0].MidiNote);
+        }
+
+        [Fact]
+        public void ScheduleMelodyNote_GlissandoToAdjacentSemitone_DegeneratesToPlainNote()
+        {
+            var measure = ScoreTestHelper.Measure(ScoreTestHelper.Note(3, octave: 0), ScoreTestHelper.Note(4, octave: 0));
+            OrnamentService.TryAddOrnament(measure, 0, OrnamentType.Glissando);
+
+            var events = OrnamentPlaybackService.ScheduleMelodyNote(
+                measure,
+                measure.MelodyNotes[0],
+                0,
+                0,
+                1,
+                ScoreMidiSchedule.DefaultTonicMidi,
+                ScoreMidiSchedule.MelodyChannel,
+                ScoreMidiSchedule.MelodyVelocity,
+                measure.MelodyNotes[1]);
+
+            Assert.Single(events);
+            Assert.Equal(1, events[0].DurationQuarter, 3);
+        }
+
+        [Fact]
         public void Build_IncludesOrnamentExpandedMelodyNotes()
         {
             var score = ScoreTestHelper.CreateScore(ScoreTestHelper.Measure(ScoreTestHelper.Note(3)));

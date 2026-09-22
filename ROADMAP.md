@@ -31,12 +31,13 @@ Until now, playback always used whatever General MIDI patch 0 (Acoustic Grand Pi
 
 **Status: phases 1 and 2 (`NotationStyle` foundation and the accidental slash convention -- the
 one genuinely regional-style-gated item in this whole list) are done, along with phase 3's bug-fix
-half, phase 4 (all of it except Glissando), the discrete-levels half of phase 5 (dynamics), phase
-6 (breath marks), and phase 7 (Segno/Coda, repeat bar lines, volta brackets, and D.C./D.S./Fine/
-Coda navigation -- both the visual halves of all three original items and the playback/MIDI-export
-scheduling that was originally left as a follow-up). Bar line types
-(Single/Double/Final/RepeatEnd/RepeatStart) and volta brackets were bundled into phase 7 as
-originally scoped there. Phase 10 (pickup measure verification) is also done. Everything else
+half, phase 4 (all of it, including Glissando now), phase 5 in full (both the discrete levels and
+the crescendo/diminuendo hairpins), phase 6 (breath marks), and phase 7 (Segno/Coda, repeat bar
+lines, volta brackets, and D.C./D.S./Fine/Coda navigation -- both the visual halves of all three
+original items and the playback/MIDI-export scheduling that was originally left as a follow-up).
+Bar line types (Single/Double/Final/RepeatEnd/RepeatStart) and volta brackets were bundled into
+phase 7 as originally scoped there. Phase 10 (pickup measure verification, and the MIDI-import
+pickup-preservation gap it surfaced) is also done. Everything else
 below is still not started.** Phase 10 also surfaced a separate,
 real gap in MIDI import (pickup measures aren't preserved) -- see the note under phase
 10. A pre-existing ornament/octave-dot rendering collision (unrelated to any single phase, found
@@ -167,8 +168,8 @@ here and intentionally excluded.*
    flow) — the tie tool can no longer silently drop a note's pitch during playback. Covered by two
    new regression tests. Real slur support (a `JianpuSlur` list shaped like `JianpuTie`, no pitch
    constraint, rendering-only) is still future work.
-4. **Wire up the dead `OrnamentType` articulation values — Mordent, Staccato, Accent, and Tenuto
-   done; Glissando not started.** Added the missing Mordent button (ribbon + Edit menu + context
+4. **Wire up the dead `OrnamentType` articulation values — Mordent, Staccato, Accent, Tenuto, and
+   now Glissando too — all done.** Added the missing Mordent button (ribbon + Edit menu + context
    menu, plus a new `RibbonIcon.Mordent` glyph) — its backend (glyph layout, playback expansion)
    already existed from earlier work, so this was pure UI wiring. Staccato/Accent/Tenuto needed
    the full pattern: a ribbon button + Edit-menu item + context-menu item each (matching the now
@@ -185,8 +186,26 @@ here and intentionally excluded.*
    new anchor-position math, and the three playback effects are applied as one uniform post-process
    over whatever events the note already expanded into (a plain note, or every segment of a
    trill/turn/mordent/grace note) instead of a new branch in the ornament-expansion if/else-if
-   chain -- so none of this carries the layout-band risk flagged elsewhere in this phase. Glissando
-   (pitch-bend between notes) is the one genuinely harder case -- left for its own separate step.
+   chain -- so none of this carries the layout-band risk flagged elsewhere in this phase.
+   **Glissando — done.** Wired the same "full pattern" (ribbon + Edit menu + context menu, plus a
+   `gliss` placeholder glyph via `OrnamentService.GetPlaceholderGlyph`, registered into
+   `NoteTopAnnotationPlanner`'s `HasCenterOrnament` stacking switch exactly like Staccato/Accent/
+   Tenuto) needed no new rendering infrastructure at all, since `JianpuRenderer`'s ornament-band
+   drawing already calls `GetPlaceholderGlyph` generically for any `OrnamentType`. The interesting
+   part was playback: a real MIDI pitch-bend message would need new event-type plumbing the
+   scheduler doesn't have anywhere else, so instead `OrnamentPlaybackService` treats it the same
+   way Trill/Turn/Mordent already treat their pitch decorations -- as a rapid run of ordinary
+   note-on events -- rather than adding a first pitch-bend code path. `BuildGlissando` steps
+   chromatically, one semitone per segment, from the note's own MIDI pitch toward (but
+   deliberately never reaching) the *next* melody slot's pitch, filling the note's whole duration;
+   the actual next note's own separately-scheduled event supplies the true arrival, so the run
+   never double-triggers that pitch. Scoped to same-measure adjacent notes only (matching how a
+   glissando is drawn in real notation, between two adjacent written notes) -- a Glissando on the
+   last note of a measure, or with no explicit next note to slide toward, simply has no playback
+   effect, degrading gracefully to a plain note rather than reaching across a measure/repeat
+   boundary. `ScheduleMelodyNote` gained an optional `nextNote` parameter (defaults to `null`, so
+   every existing call site is unaffected) that only `ScoreMidiSchedule.BuildMelodyNotes`'s single-
+   note branch populates, via a one-slot lookahead in the already-iterated `notes` list.
 5. **Dynamics markings — the six discrete levels (pp/p/mp/mf/f/ff) are done; hairpins
    (cresc./dim.) are not.** New `DynamicMarking` model (`Text` + `NoteIndex`/`BeatPosition`,
    mirroring `JianpuOrnament`'s note-index resolution, but with "at most one marking per note"
@@ -216,10 +235,43 @@ here and intentionally excluded.*
    onward until the next marking or the end of the score. A score with no dynamic markings
    schedules byte-identical output to before this existed. Applies to the melody part only, not
    chord markers, in this version.
-   **Hairpins (cresc./dim., a gradual ramp between two points) are a separate, harder follow-up**:
-   they need continuous interpolation between two markers rather than this phase's step-function
-   level changes, plus a rendering shape (an actual `<`/`>` wedge, not text) — scoping that as its
-   own piece of work rather than folding it in here.
+   **Hairpins (cresc./dim.) — done.** New score-level `JianpuHairpin`
+   (`StartMeasureIndex`/`StartNoteIndex`/`EndMeasureIndex`/`EndNoteIndex`/`IsCrescendo`), mirroring
+   `JianpuTie`'s shape rather than `DynamicMarking`'s single-point one, since a hairpin commonly
+   spans across measure boundaries the way a discrete level marking never needs to.
+   `HairpinService` (`TryAddHairpin`/`TryRemoveHairpinCovering`) and `HairpinMaintenanceService`
+   (`OnNoteRemoved`/`OnMeasureRemoved`/`OnMelodyNoteCountChanged`) mirror `VoltaService`/
+   `TieMaintenanceService` exactly, wired into the same note/measure-removal call sites
+   `TieMaintenanceService` already sits at in `NoteSplitMergeService` and `ScoreEditorViewModel`.
+   **UI** reuses the existing multi-note selection (`ScoreSelectionViewModel.SelectedNotes`)
+   instead of a new two-click "pick start, then pick end" mode: `DynamicsEditorViewModel.
+   AddHairpin(bool isCrescendo)` spans from the earliest to the latest selected note (mirroring how
+   `ScoreEditorViewModel.AddVolta` already uses the current selection's range rather than its own
+   separate picking mode), with `RemoveHairpin()` removing whichever hairpin covers the currently
+   selected note. Wired through the same three places every other dynamics/ornament control uses
+   (ribbon, Edit menu, context menu), plus two new `RibbonIcon.Crescendo`/`Diminuendo` vector wedge
+   glyphs (simple enough to draw directly, unlike the D.C./D.S./Fine text-label icons).
+   **Rendering** draws the wedge directly in the existing `DynamicsRowHeight` band discrete
+   `DynamicMarking` text already uses (`JianpuRenderer.DrawHairpins`/`TryGetHairpinGeometry`,
+   called from both the screen and PDF paths alongside `DrawVoltaBrackets`) -- a hairpin is
+   fundamentally a dynamics-row shape, not an ornament-band one. Note-position-to-X lookup mirrors
+   `TryGetTieGeometry` exactly; like `DrawVoltaBrackets`, a hairpin whose start/end land on
+   different staff lines is skipped rather than drawn broken across two systems.
+   **Playback** needed real continuous interpolation, not just another step-function level:
+   `ScoreMidiSchedule.BuildHairpinVelocityOverrides` resolves every hairpin, up front, into a per-
+   note velocity override keyed by score *position* (measure+note index) rather than elapsed
+   playback time -- like `DynamicMarking`, a hairpin's effect is a property of where a note sits in
+   the score, so it reapplies identically on every pass through a repeated section instead of only
+   affecting whichever pass reaches it first. Interpolation is by note ordinal within the span
+   (not by elapsed quarter-time), which keeps the pre-pass purely structural: the same span always
+   contains the same notes regardless of how repeats later revisit it. The start level is whatever
+   the discrete step-function would already be at that position; the end level is an explicit
+   `DynamicMarking` at the end note if one exists, otherwise a nominal ~16-velocity nudge
+   (`DynamicMarkingPlaybackService.NominalHairpinVelocityDelta`, matching the spacing between
+   adjacent pp..ff levels) in the hairpin's direction. A hairpin's resolved level persists past its
+   own end the same way an explicit marking would (a crescendo with nothing marked after it holds
+   at the level it reached rather than snapping back). A score with no hairpins schedules byte-
+   identical velocity output to before this existed.
 6. **Breath marks — done.** Added `OrnamentType.BreathMark`, folded into the existing per-note
    ornament list/UI pattern (ribbon + Edit menu + context menu, same as Mordent). Unlike every
    other ornament here, it's anchored just *after* the note's right edge instead of centered above
@@ -328,16 +380,33 @@ here and intentionally excluded.*
     proving the second measure starts right after the short one instead of being padded out.
     No code change needed for the editor itself.
 
-    **Found a real, separate gap while verifying this: MIDI import does not preserve a pickup
-    measure.** `MidiImportService` feeds its raw note stream through
+    **Found a real, separate gap while verifying this: MIDI import did not preserve a pickup
+    measure — now fixed.** `MidiImportService` feeds its raw note stream through
     `MeasureNormalizationService.NormalizeMeasures`, which flattens every note across the *entire*
     imported file into one continuous stream and rechunks it into fixed `DefaultMeasureBeats`-size
-    measures from scratch — so a real anacrusis in the source MIDI file gets silently absorbed
-    into the reflow instead of preserved as a short first measure. Fixing this needs a way to
-    detect an intended pickup from the MIDI file itself (e.g. a shorter first bar implied by the
-    time-signature meta-event's position, which isn't reliably distinguishable from "the recording
-    just started off-beat") — real design work, scoped separately rather than folded into this
-    already-done verification.
+    measures from scratch — so a real anacrusis in the source MIDI file got silently absorbed
+    into the reflow instead of preserved as a short first measure.
+
+    The real difficulty this "real design work" note originally flagged: raw note *timing* alone
+    can't tell "this file has a pickup measure" apart from "the piece just doesn't fill its last
+    measure" — a first attempt at this fix guessed a pickup from the leftover remainder of
+    total-length-mod-measure-length, and that guess turned out to misfire on exactly that ordinary
+    case (caught by a regression test modeled on the existing `Import_NormalizesMeasuresToFourBeats`
+    test, which has a 7-beat piece — 4 + 3 — that the remainder guess reinterpreted as "a 3-beat
+    pickup plus a 4-beat measure"). The fix instead trusts only an explicit, standard MIDI signal:
+    real notation software (Finale, Sibelius, MuseScore, Logic...) that exports a piece with a
+    pickup measure uses a narrower time-signature meta-event covering just the first measure,
+    immediately followed by the piece's real time signature from measure 2 onward — a mechanism
+    `MidiImportService` was already parsing every instance of (`TimeSignatureChanges`) but only
+    ever reading the first entry from. `MidiImportService.DetectPickupBeats` checks for exactly
+    that two-event pattern (first at tick 0, second beginning precisely where the implied short
+    first measure ends) and reports no pickup for anything else, including a file with no time-
+    signature changes at all or changes anywhere else in the piece. `MeasureNormalizationService.
+    NormalizeMeasures` gained an optional `firstMeasureBeats` parameter that caps only the still-
+    unflushed first rebuilt measure's capacity — every measure after it, and every other existing
+    caller that doesn't pass it, is completely unaffected. Verified via a raw-MIDI-bytes test
+    building the explicit two-time-signature-event pattern, plus the regression test above pinning
+    down that an ordinary short *final* measure is never reinterpreted as a pickup.
 
 ### A real visual-verification capability, discovered mid-session (updates the caveats above)
 

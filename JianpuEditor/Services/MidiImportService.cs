@@ -100,8 +100,9 @@ namespace JianpuEditor.Services
                 : "4/4";
             var tonicMidi = DetectTonicMidi(notes);
             var keySignature = KeySignatureService.FormatKeySignature(tonicMidi % 12);
+            var pickupBeats = DetectPickupBeats(track, file.TicksPerQuarter, ScoreMidiSchedule.DefaultMeasureBeats);
             var measures = BuildMeasures(notes, tonicMidi, ScoreMidiSchedule.DefaultMeasureBeats);
-            measures = MeasureNormalizationService.NormalizeMeasures(measures, ScoreMidiSchedule.DefaultMeasureBeats);
+            measures = MeasureNormalizationService.NormalizeMeasures(measures, ScoreMidiSchedule.DefaultMeasureBeats, pickupBeats);
 
             var hasPlayableNote = measures.Any(measure =>
                 measure.MelodyNotes != null && measure.MelodyNotes.Any(note => note.Type != NoteType.Rest));
@@ -122,6 +123,59 @@ namespace JianpuEditor.Services
                 Measures = measures,
                 Ties = new List<JianpuTie>()
             };
+        }
+
+        /// <summary>
+        /// Detects whether the source file explicitly encodes a pickup/anacrusis measure (a
+        /// deliberately short first measure) rather than guessing from note timing alone. Raw
+        /// note onsets can't reliably tell "this file has a pickup measure" apart from "the piece
+        /// just doesn't fill its last measure" -- an earlier version of this method tried a
+        /// leftover-remainder guess and it misfired on exactly that ordinary case (confirmed by a
+        /// regression test), silently truncating a ordinary short *final* measure's rest padding
+        /// into a fabricated pickup at the front instead. Real notation software (Finale,
+        /// Sibelius, MuseScore, Logic...) that exports a piece with a pickup measure uses a
+        /// standard, unambiguous MIDI mechanism instead: a narrower time-signature meta-event
+        /// covering just the first measure, immediately followed by the piece's real time
+        /// signature from measure 2 onward. Only that explicit two-meta-event pattern is trusted
+        /// here -- anything else (including a file with no time-signature changes at all, or
+        /// changes elsewhere in the piece) reports no pickup, leaving today's plain fixed-grid
+        /// behavior unchanged.
+        /// </summary>
+        private static double? DetectPickupBeats(ParsedTrack track, int ticksPerQuarter, int measureBeats)
+        {
+            if (track?.TimeSignatureChanges == null || track.TimeSignatureChanges.Count < 2 || ticksPerQuarter <= 0)
+            {
+                return null;
+            }
+
+            var first = track.TimeSignatureChanges[0];
+            var second = track.TimeSignatureChanges[1];
+            if (first.Ticks != 0 || second.Ticks <= 0)
+            {
+                return null;
+            }
+
+            var firstMeasureQuarterLength = first.Numerator * (4.0 / first.Denominator);
+            var secondMeasureQuarterLength = second.Numerator * (4.0 / second.Denominator);
+            if (firstMeasureQuarterLength <= DurationEpsilon || firstMeasureQuarterLength >= secondMeasureQuarterLength)
+            {
+                return null;
+            }
+
+            if (firstMeasureQuarterLength >= measureBeats - DurationEpsilon)
+            {
+                return null;
+            }
+
+            // The second time signature must take effect exactly where the short first measure
+            // ends -- otherwise it's an ordinary mid-piece meter change, not a pickup.
+            var secondTimeSigQuarterPosition = second.Ticks / (double)ticksPerQuarter;
+            if (Math.Abs(secondTimeSigQuarterPosition - firstMeasureQuarterLength) > DurationEpsilon)
+            {
+                return null;
+            }
+
+            return firstMeasureQuarterLength;
         }
 
         private static readonly string[] MelodyNameHints = { "melody", "vocal", "lead", "voice", "solo", "tune" };
