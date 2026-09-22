@@ -49,25 +49,80 @@ namespace JianpuEditor.Tests.Services
         }
 
         [Fact]
-        public void Build_ChordPlaybackStyleBlock_OneSustainedHitPerChordTone()
+        public void Build_ChordNotes_AddsADedicatedBassNoteOneOctaveBelowTheChord()
         {
             var score = ScoreTestHelper.CreateScore(
                 ScoreTestHelper.MeasureWithChords(
                     new[] { "C" },
                     new[] { 0d },
                     ScoreTestHelper.Note(1), ScoreTestHelper.Note(2), ScoreTestHelper.Note(3), ScoreTestHelper.Note(4)));
-            var chordToneCount = ChordParser.ToBlockChordMidiNotes("C").Count;
+            var rawNotes = ChordParser.ToBlockChordMidiNotes("C");
 
             var schedule = ScoreMidiSchedule.Build(score);
             var chordEvents = schedule.Notes.Where(n => n.Channel == ScoreMidiSchedule.ChordChannel).ToList();
 
-            Assert.Equal(chordToneCount, chordEvents.Count);
-            Assert.All(chordEvents, e => Assert.Equal(0.0, e.StartQuarter, 3));
-            Assert.All(chordEvents, e => Assert.Equal(4.0, e.DurationQuarter, 3));
+            // The raw triad plus one dedicated bass note.
+            Assert.Equal(rawNotes.Count + 1, chordEvents.Count);
+            var lowest = chordEvents.Min(e => e.MidiNote);
+            Assert.Equal(rawNotes.Min() - 12, lowest);
+            // The bass note is louder than the rest -- it's meant to be the most audible element.
+            // Guaranteed regardless of humanization jitter: the boost (10) exceeds twice the
+            // jitter range (2*4=8), so the bass's worst case still beats the others' best case.
+            var bassEvent = chordEvents.Single(e => e.MidiNote == lowest);
+            Assert.True(bassEvent.Velocity > chordEvents.Where(e => e.MidiNote != lowest).Max(e => e.Velocity));
         }
 
         [Fact]
-        public void Build_ChordPlaybackStyleComping_ReStrikesOnEveryBeat()
+        public void Build_ConsecutiveChords_VoiceLeadingKeepsTheSecondChordCloseToTheFirst()
+        {
+            // Every chord's *raw* root-position voicing comes from the same fixed octave
+            // (ChordParser.ToBlockChordMidiNotes' rootOctave default), so C's raw center sits at
+            // roughly MIDI 60+3.7 and B's at roughly MIDI 71+3.7 -- an 11-semitone jump, audibly
+            // a register change, if nothing corrected it. A real accompanist wouldn't jump nearly
+            // an octave just because the chord symbol changed from C to B; voice leading should
+            // pull B down an octave to sit close to where C left off instead.
+            var score = ScoreTestHelper.CreateScore(
+                ScoreTestHelper.MeasureWithChords(
+                    new[] { "C", "B" },
+                    new[] { 0d, 2d },
+                    ScoreTestHelper.Note(1), ScoreTestHelper.Note(2), ScoreTestHelper.Note(3), ScoreTestHelper.Note(4)));
+
+            var schedule = ScoreMidiSchedule.Build(score);
+            var chordEvents = schedule.Notes
+                .Where(n => n.Channel == ScoreMidiSchedule.ChordChannel)
+                .OrderBy(n => n.StartQuarter)
+                .ToList();
+
+            var firstChordCenter = chordEvents.Where(e => e.StartQuarter < 2.0).Average(e => e.MidiNote);
+            var secondChordCenter = chordEvents.Where(e => e.StartQuarter >= 2.0).Average(e => e.MidiNote);
+
+            // The raw (un-voice-led) gap here is 11 semitones; voice leading should bring it well
+            // under half that by shifting B down an octave to land close to C instead.
+            Assert.True(System.Math.Abs(secondChordCenter - firstChordCenter) < 6);
+        }
+
+        [Fact]
+        public void Build_ChordPlaybackStyleBlock_OneSustainedHitPerTone_AccentedWithJitter()
+        {
+            var score = ScoreTestHelper.CreateScore(
+                ScoreTestHelper.MeasureWithChords(
+                    new[] { "C" },
+                    new[] { 0d },
+                    ScoreTestHelper.Note(1), ScoreTestHelper.Note(2), ScoreTestHelper.Note(3), ScoreTestHelper.Note(4)));
+            var rawNotes = ChordParser.ToBlockChordMidiNotes("C");
+
+            var schedule = ScoreMidiSchedule.Build(score);
+            var chordEvents = schedule.Notes.Where(n => n.Channel == ScoreMidiSchedule.ChordChannel).ToList();
+
+            Assert.Equal(rawNotes.Count + 1, chordEvents.Count);
+            Assert.All(chordEvents, e => Assert.Equal(0.0, e.StartQuarter, 3));
+            Assert.All(chordEvents, e => Assert.Equal(4.0, e.DurationQuarter, 3));
+            // Every note is a full (accented) attack -- Block never has a "secondary" re-strike.
+            Assert.All(chordEvents, e => Assert.InRange(e.Velocity, 1, 127));
+        }
+
+        [Fact]
+        public void Build_ChordPlaybackStyleComping_4_4_AlternatesBassAndChordEveryBeat()
         {
             var score = ScoreTestHelper.CreateScore(
                 ScoreTestHelper.MeasureWithChords(
@@ -75,17 +130,59 @@ namespace JianpuEditor.Tests.Services
                     new[] { 0d },
                     ScoreTestHelper.Note(1), ScoreTestHelper.Note(2), ScoreTestHelper.Note(3), ScoreTestHelper.Note(4)));
             score.ChordPlaybackStyle = ChordPlaybackStyle.Comping;
-            var chordToneCount = ChordParser.ToBlockChordMidiNotes("C").Count;
+            score.TimeSignature = "4/4";
+            var rawNotes = ChordParser.ToBlockChordMidiNotes("C");
+            var bassPitch = rawNotes.Min() - 12;
 
             var schedule = ScoreMidiSchedule.Build(score);
             var chordEvents = schedule.Notes.Where(n => n.Channel == ScoreMidiSchedule.ChordChannel).ToList();
 
-            // A 4-beat chord re-struck every beat produces 4 re-strikes, each with every chord tone.
-            Assert.Equal(chordToneCount * 4, chordEvents.Count);
-            var starts = chordEvents.Select(e => e.StartQuarter).Distinct().OrderBy(s => s).ToList();
-            Assert.Equal(new[] { 0.0, 1.0, 2.0, 3.0 }, starts);
+            // Beats 0 and 2: bass alone. Beats 1 and 3: the chord tones, bass excluded.
+            var beat0 = chordEvents.Where(e => System.Math.Abs(e.StartQuarter - 0.0) < 0.001).ToList();
+            var beat1 = chordEvents.Where(e => System.Math.Abs(e.StartQuarter - 1.0) < 0.001).ToList();
+            var beat2 = chordEvents.Where(e => System.Math.Abs(e.StartQuarter - 2.0) < 0.001).ToList();
+            var beat3 = chordEvents.Where(e => System.Math.Abs(e.StartQuarter - 3.0) < 0.001).ToList();
+
+            Assert.Single(beat0);
+            Assert.Equal(bassPitch, beat0[0].MidiNote);
+            Assert.Equal(rawNotes.Count, beat1.Count);
+            Assert.DoesNotContain(beat1, e => e.MidiNote == bassPitch);
+            Assert.Single(beat2);
+            Assert.Equal(bassPitch, beat2[0].MidiNote);
+            Assert.Equal(rawNotes.Count, beat3.Count);
+
             // Detached (gated), not sustained for the full beat -- otherwise it would just be Block.
             Assert.All(chordEvents, e => Assert.True(e.DurationQuarter < 1.0));
+        }
+
+        [Fact]
+        public void Build_ChordPlaybackStyleComping_3_4_UsesOomPahPahNotBoomChick()
+        {
+            var score = ScoreTestHelper.CreateScore(
+                ScoreTestHelper.MeasureWithChords(
+                    new[] { "C" },
+                    new[] { 0d },
+                    ScoreTestHelper.Note(1), ScoreTestHelper.Note(2), ScoreTestHelper.Note(3)));
+            score.ChordPlaybackStyle = ChordPlaybackStyle.Comping;
+            score.TimeSignature = "3/4";
+            var rawNotes = ChordParser.ToBlockChordMidiNotes("C");
+            var bassPitch = rawNotes.Min() - 12;
+
+            var schedule = ScoreMidiSchedule.Build(score);
+            var chordEvents = schedule.Notes.Where(n => n.Channel == ScoreMidiSchedule.ChordChannel).ToList();
+
+            var beat0 = chordEvents.Where(e => System.Math.Abs(e.StartQuarter - 0.0) < 0.001).ToList();
+            var beat1 = chordEvents.Where(e => System.Math.Abs(e.StartQuarter - 1.0) < 0.001).ToList();
+            var beat2 = chordEvents.Where(e => System.Math.Abs(e.StartQuarter - 2.0) < 0.001).ToList();
+
+            // "Oom" (bass alone) then "pah-pah" (chord, chord) -- only one bass hit per 3-beat
+            // cycle, not one every other beat the way 4/4's boom-chick would.
+            Assert.Single(beat0);
+            Assert.Equal(bassPitch, beat0[0].MidiNote);
+            Assert.Equal(rawNotes.Count, beat1.Count);
+            Assert.DoesNotContain(beat1, e => e.MidiNote == bassPitch);
+            Assert.Equal(rawNotes.Count, beat2.Count);
+            Assert.DoesNotContain(beat2, e => e.MidiNote == bassPitch);
         }
 
         [Fact]
@@ -113,6 +210,29 @@ namespace JianpuEditor.Tests.Services
         }
 
         [Fact]
+        public void Build_ChordPlaybackStyleArpeggio_AccentsTheStartOfEachUpDownCycle()
+        {
+            var score = ScoreTestHelper.CreateScore(
+                ScoreTestHelper.MeasureWithChords(
+                    new[] { "C" },
+                    new[] { 0d },
+                    ScoreTestHelper.Note(1), ScoreTestHelper.Note(2), ScoreTestHelper.Note(3), ScoreTestHelper.Note(4)));
+            score.ChordPlaybackStyle = ChordPlaybackStyle.Arpeggio;
+
+            var schedule = ScoreMidiSchedule.Build(score);
+            var chordEvents = schedule.Notes
+                .Where(n => n.Channel == ScoreMidiSchedule.ChordChannel)
+                .OrderBy(n => n.StartQuarter)
+                .ToList();
+
+            // Step 0 starts a new up-down cycle (and lands on the bass note) so it's accented;
+            // step 1 is a secondary re-strike. Guaranteed regardless of jitter: accent velocity
+            // (82) plus the bass boost (10), even at worst-case jitter (-4), still beats secondary
+            // velocity (62) at its best-case jitter (+4): 88 > 66.
+            Assert.True(chordEvents[0].Velocity > chordEvents[1].Velocity);
+        }
+
+        [Fact]
         public void Build_ChordPlaybackStyleStrum_StaggersEachTonesOnset()
         {
             var score = ScoreTestHelper.CreateScore(
@@ -121,7 +241,7 @@ namespace JianpuEditor.Tests.Services
                     new[] { 0d },
                     ScoreTestHelper.Note(1), ScoreTestHelper.Note(2), ScoreTestHelper.Note(3), ScoreTestHelper.Note(4)));
             score.ChordPlaybackStyle = ChordPlaybackStyle.Strum;
-            var chordToneCount = ChordParser.ToBlockChordMidiNotes("C").Count;
+            var rawNotes = ChordParser.ToBlockChordMidiNotes("C");
 
             var schedule = ScoreMidiSchedule.Build(score);
             var chordEvents = schedule.Notes
@@ -129,15 +249,14 @@ namespace JianpuEditor.Tests.Services
                 .OrderBy(n => n.StartQuarter)
                 .ToList();
 
-            Assert.Equal(chordToneCount, chordEvents.Count);
+            Assert.Equal(rawNotes.Count + 1, chordEvents.Count);
             // Every tone's onset is later than the previous one -- a real (if tiny) stagger.
             for (var i = 1; i < chordEvents.Count; i++)
             {
                 Assert.True(chordEvents[i].StartQuarter > chordEvents[i - 1].StartQuarter);
             }
 
-            // Pitches ascend low to high (typical downstrum), even though ToBlockChordMidiNotes
-            // doesn't return them in pitch order for a slash chord.
+            // Pitches ascend low to high (typical downstrum), starting with the new bass note.
             for (var i = 1; i < chordEvents.Count; i++)
             {
                 Assert.True(chordEvents[i].MidiNote >= chordEvents[i - 1].MidiNote);
