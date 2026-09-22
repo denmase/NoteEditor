@@ -106,7 +106,8 @@ namespace JianpuEditor.Rendering
                     X = measure.X,
                     Width = measure.Width,
                     BlockTop = measure.BlockTop,
-                    Height = measure.GetEffectiveHeight()
+                    Height = measure.GetEffectiveHeight(),
+                    Measure = measure
                 });
                 beat += duration;
             }
@@ -160,7 +161,7 @@ namespace JianpuEditor.Rendering
             graphics.Clear(AppTheme.GetScoreBackground(layoutOptions.RespectAppTheme));
             var layout = BuildLayout(score, width, layoutOptions);
             DrawHeader(graphics, score, width, layoutOptions);
-            DrawRowLabels(graphics, layout);
+            DrawRowLabels(graphics, score, layout);
             DrawStaff(
                 graphics,
                 score,
@@ -644,7 +645,7 @@ namespace JianpuEditor.Rendering
                 }
 
                 g.TranslateTransform(0, headerHeight - (firstLine.BlockTop - firstLine.GetAboveVoicesHeight()));
-                DrawRowLabelsForBlock(g, firstLine.BlockTop, firstLine.GetMaxBelowVoiceRows());
+                DrawRowLabelsForBlock(g, score, firstLine);
                 DrawStaffLineRange(g, score, layout, start, count, options);
                 DrawTiesForLineRange(g, score, layout, start, count, -1);
                 DrawVoltaBrackets(g, score, layout, start, count);
@@ -737,13 +738,58 @@ namespace JianpuEditor.Rendering
             }
         }
 
-        private void DrawRowLabelsForBlock(Graphics g, int blockTop, int belowVoiceRows = 0)
+        private void DrawRowLabelsForBlock(Graphics g, JianpuScore score, StaffLineLayout line)
         {
+            var blockTop = line.BlockTop;
+            var belowVoiceRows = line.GetMaxBelowVoiceRows();
             var dynamicsOffset = (1 + belowVoiceRows) * (MelodyRowHeight + RowGap);
-            DrawRowLabel(g, "Melody", blockTop + 28);
+            var primaryLabel = string.IsNullOrEmpty(score?.PrimaryVoiceLabel) ? "Melody" : score.PrimaryVoiceLabel;
+            DrawRowLabel(g, primaryLabel, blockTop + 28);
             DrawRowLabel(g, "Dynamics", blockTop + dynamicsOffset + 6);
             DrawRowLabel(g, "Secondary", blockTop + dynamicsOffset + DynamicsRowHeight + RowGap + 10);
             DrawRowLabel(g, "Lyrics", blockTop + dynamicsOffset + DynamicsRowHeight + RowGap + SecondaryRowHeight + RowGap + 8);
+            DrawVoiceRowLabels(g, line);
+        }
+
+        /// <summary>Labels each extra-voice row (SATB's Alto/Tenor/Bass, a descant, ...) with its
+        /// own <see cref="JianpuVoice.Role"/>, the same way the fixed "Melody"/"Dynamics" rows are
+        /// labeled -- previously an extra voice's row had no label at all, leaving it visually
+        /// indistinguishable from an empty gap once a user scrolled past the always-labeled first
+        /// line. Sourced from the first measure on the line that actually has a voice at each row
+        /// position (voices are a per-measure list, but every measure on a real SATB score shares
+        /// the same roles in practice); a line with no extra voices draws nothing, unchanged from
+        /// before.</summary>
+        private void DrawVoiceRowLabels(Graphics g, StaffLineLayout line)
+        {
+            var aboveCount = line.GetMaxAboveVoiceRows();
+            for (var rowIndex = 0; rowIndex < aboveCount; rowIndex++)
+            {
+                var role = FindVoiceRoleAtRow(line, rowIndex, above: true);
+                var rowTop = line.BlockTop - (aboveCount - rowIndex) * (MelodyRowHeight + RowGap);
+                DrawRowLabel(g, role, rowTop + 28);
+            }
+
+            var belowCount = line.GetMaxBelowVoiceRows();
+            for (var rowIndex = 0; rowIndex < belowCount; rowIndex++)
+            {
+                var role = FindVoiceRoleAtRow(line, rowIndex, above: false);
+                var rowTop = line.BlockTop + (rowIndex + 1) * (MelodyRowHeight + RowGap);
+                DrawRowLabel(g, role, rowTop + 28);
+            }
+        }
+
+        private static string FindVoiceRoleAtRow(StaffLineLayout line, int rowIndex, bool above)
+        {
+            foreach (var measure in line.Measures)
+            {
+                var voices = above ? measure.AboveVoices : measure.BelowVoices;
+                if (rowIndex < voices.Count && !string.IsNullOrEmpty(voices[rowIndex].Role))
+                {
+                    return voices[rowIndex].Role;
+                }
+            }
+
+            return string.Empty;
         }
 
         private void DrawHeader(Graphics g, JianpuScore score, int width, ScoreLayoutOptions options)
@@ -936,21 +982,14 @@ namespace JianpuEditor.Rendering
             }
         }
 
-        private void DrawRowLabels(Graphics g, ScoreLayout layout)
+        private void DrawRowLabels(Graphics g, JianpuScore score, ScoreLayout layout)
         {
             if (layout.Lines.Count == 0)
             {
                 return;
             }
 
-            var firstLine = layout.Lines[0];
-            var blockTop = firstLine.BlockTop;
-            var belowVoiceRows = firstLine.GetMaxBelowVoiceRows();
-            var dynamicsOffset = (1 + belowVoiceRows) * (MelodyRowHeight + RowGap);
-            DrawRowLabel(g, "Melody", blockTop + 28);
-            DrawRowLabel(g, "Dynamics", blockTop + dynamicsOffset + 6);
-            DrawRowLabel(g, "Secondary", blockTop + dynamicsOffset + DynamicsRowHeight + RowGap + 10);
-            DrawRowLabel(g, "Lyrics", blockTop + dynamicsOffset + DynamicsRowHeight + RowGap + SecondaryRowHeight + RowGap + 8);
+            DrawRowLabelsForBlock(g, score, layout.Lines[0]);
         }
 
         private void DrawRowLabel(Graphics g, string text, float y)
@@ -2836,11 +2875,21 @@ namespace JianpuEditor.Rendering
             layout.Lines.Add(line);
             var maxRight = x;
 
+            int[] naturalWidths = null;
+            Dictionary<long, int> beatGroupWidths = null;
+            if (slotWidth <= 0)
+            {
+                ComputeBeatGroupWidths(score, options.NoteWidthScale, out naturalWidths, out beatGroupWidths);
+            }
+
             for (var index = 0; index < score.Measures.Count; index++)
             {
+                var naturalWidth = slotWidth > 0
+                    ? 0
+                    : naturalWidths[index];
                 var measureWidth = slotWidth > 0
                     ? slotWidth
-                    : CalculateMeasureWidth(score.Measures[index], options.NoteWidthScale);
+                    : beatGroupWidths[BeatGroupKey(ScoreMidiSchedule.GetMeasureDurationUnits(score.Measures[index]))];
 
                 var needNewLine = false;
                 if (options.MeasuresPerLine > 0)
@@ -2869,7 +2918,9 @@ namespace JianpuEditor.Rendering
                     BarLineX = x + measureWidth
                 };
                 measureLayout.ComputeNoteLayout(score.Measures[index], options.NoteWidthScale);
-                measureLayout.ApplyMelodyScale(measureWidth, VoiceLayoutService.HasMultipleVoices(score.Measures[index]));
+                var stretchToFill = VoiceLayoutService.HasMultipleVoices(score.Measures[index])
+                    || (slotWidth <= 0 && measureWidth > naturalWidth);
+                measureLayout.ApplyMelodyScale(measureWidth, stretchToFill);
                 measureLayout.ComputeExtraVoiceLayouts(score.Measures[index], options.NoteWidthScale, measureWidth);
                 layout.Measures.Add(measureLayout);
                 line.Measures.Add(measureLayout);
@@ -2929,6 +2980,52 @@ namespace JianpuEditor.Rendering
             }
 
             return measureIndex == selectedMeasureIndex;
+        }
+
+        /// <summary>Two measures with the same total beat length (<see cref="ScoreMidiSchedule.
+        /// GetMeasureDurationUnits"/>) can naturally compute different widths from <see
+        /// cref="CalculateMeasureWidth"/> alone, purely because of how finely their notes happen to
+        /// be subdivided -- many short notes hit <see cref="MinNoteWidth"/>'s per-note floor more
+        /// often than a few long ones covering the same total duration, inflating that measure's
+        /// width beyond a plain beats-times-scale figure (the exact cross-voice version of this,
+        /// within one measure, is <see cref="CalculateMeasureWidth"/>'s own doc comment; this is the
+        /// same effect across different measures). Grouping every measure in the score by its beat
+        /// length and taking the widest natural requirement in each group -- then having every
+        /// narrower member of that group stretch up to it via <see cref="MeasureLayout.
+        /// ApplyMelodyScale"/>'s <c>stretchToFill</c> -- makes equal-duration measures always render
+        /// at the same width, anywhere in the score, not just within the one line that happens to
+        /// contain the densest example. A measure that's the sole member of its group (nothing else
+        /// in the score shares its beat length) is completely unaffected: its group width is just
+        /// its own natural width, so <c>ApplyMelodyScale</c> computes a no-op 1.0 scale exactly as
+        /// it always did.</summary>
+        private void ComputeBeatGroupWidths(
+            JianpuScore score,
+            double noteWidthScale,
+            out int[] naturalWidths,
+            out Dictionary<long, int> beatGroupWidths)
+        {
+            naturalWidths = new int[score.Measures.Count];
+            beatGroupWidths = new Dictionary<long, int>();
+            for (var index = 0; index < score.Measures.Count; index++)
+            {
+                var measure = score.Measures[index];
+                var naturalWidth = CalculateMeasureWidth(measure, noteWidthScale);
+                naturalWidths[index] = naturalWidth;
+
+                var key = BeatGroupKey(ScoreMidiSchedule.GetMeasureDurationUnits(measure));
+                if (!beatGroupWidths.TryGetValue(key, out var existing) || naturalWidth > existing)
+                {
+                    beatGroupWidths[key] = naturalWidth;
+                }
+            }
+        }
+
+        /// <summary>Buckets a beat length to a stable integer key for grouping, tolerant of ordinary
+        /// floating-point noise (three decimal places is far finer than any real duration value
+        /// <see cref="GetDurationUnits"/> can produce).</summary>
+        private static long BeatGroupKey(double beats)
+        {
+            return (long)Math.Round(beats * 1000.0);
         }
 
         private int CalculateMeasureWidth(JianpuMeasure measure, double noteWidthScale = 1.0)
@@ -3004,13 +3101,18 @@ namespace JianpuEditor.Rendering
             /// for the tallest above-voice stack among its measures.</summary>
             public int GetAboveVoicesHeight()
             {
+                return GetMaxAboveVoiceRows() * (MelodyRowHeight + RowGap);
+            }
+
+            public int GetMaxAboveVoiceRows()
+            {
                 var maxAboveRows = 0;
                 foreach (var measure in Measures)
                 {
                     maxAboveRows = Math.Max(maxAboveRows, measure.AboveVoiceRowCount);
                 }
 
-                return maxAboveRows * (MelodyRowHeight + RowGap);
+                return maxAboveRows;
             }
         }
 
@@ -3018,9 +3120,15 @@ namespace JianpuEditor.Rendering
         {
             private int[] _noteWidths = Array.Empty<int>();
             private int[] _noteOffsets = Array.Empty<int>();
+            private double[] _noteBeatOffsets = Array.Empty<double>();
             private int _melodyContentWidth;
 
             public double MelodyScale { get; private set; } = 1.0;
+
+            /// <summary>Total duration (in beat units, see <see cref="JianpuRenderer.
+            /// GetDurationUnits"/>) of the primary voice's notes in this measure -- the domain
+            /// <see cref="BeatToX"/>/<see cref="XToBeat"/> operate over.</summary>
+            public double TotalBeats { get; private set; }
 
             /// <summary>Voices rendered below the primary <see cref="JianpuMeasure.MelodyNotes"/>
             /// row (SATB's Alto/Tenor/Bass), in the order <see
@@ -3054,16 +3162,79 @@ namespace JianpuEditor.Rendering
                 var notes = measure.MelodyNotes ?? new List<JianpuNote>();
                 _noteWidths = new int[notes.Count];
                 _noteOffsets = new int[notes.Count];
+                _noteBeatOffsets = new double[notes.Count];
                 var offset = 0;
+                var beatOffset = 0.0;
                 for (var i = 0; i < notes.Count; i++)
                 {
                     _noteOffsets[i] = offset;
+                    _noteBeatOffsets[i] = beatOffset;
                     _noteWidths[i] = JianpuRenderer.GetNoteWidth(notes[i], noteWidthScale);
                     offset += _noteWidths[i];
+                    beatOffset += JianpuRenderer.GetDurationUnits(notes[i]);
                 }
 
                 _melodyContentWidth = offset;
+                TotalBeats = beatOffset;
                 MelodyScale = 1.0;
+            }
+
+            /// <summary>Maps a beat offset within this measure (0 = the downbeat) to the absolute X
+            /// coordinate where the renderer actually draws that instant, by locating which note's
+            /// span contains it and interpolating within that note's own <see
+            /// cref="GetNoteDrawBounds"/> pixel span -- the same source of truth drawing and
+            /// hit-testing use, so this tracks the real glyph position even when <see
+            /// cref="MelodyScale"/> or a beat-consistency stretch (see <see
+            /// cref="JianpuRenderer.BuildLayout"/>) has resized this measure's notes.</summary>
+            public int BeatToX(double beatOffset)
+            {
+                if (_noteWidths.Length == 0)
+                {
+                    return X;
+                }
+
+                beatOffset = Math.Max(0, Math.Min(TotalBeats, beatOffset));
+                for (var i = 0; i < _noteBeatOffsets.Length; i++)
+                {
+                    var noteStartBeat = _noteBeatOffsets[i];
+                    var noteEndBeat = i + 1 < _noteBeatOffsets.Length ? _noteBeatOffsets[i + 1] : TotalBeats;
+                    if (beatOffset <= noteEndBeat + 1e-9 || i == _noteBeatOffsets.Length - 1)
+                    {
+                        GetNoteDrawBounds(i, out var noteX, out var noteWidth);
+                        var noteDurationBeats = noteEndBeat - noteStartBeat;
+                        var fraction = noteDurationBeats > 1e-9 ? (beatOffset - noteStartBeat) / noteDurationBeats : 0;
+                        fraction = Math.Max(0, Math.Min(1, fraction));
+                        return noteX + (int)Math.Round(noteWidth * fraction);
+                    }
+                }
+
+                return X + Width;
+            }
+
+            /// <summary>The inverse of <see cref="BeatToX"/>: maps an absolute X coordinate to the
+            /// beat offset within this measure whose real glyph position is closest to it.</summary>
+            public double XToBeat(int x)
+            {
+                if (_noteWidths.Length == 0)
+                {
+                    return 0;
+                }
+
+                for (var i = 0; i < _noteWidths.Length; i++)
+                {
+                    GetNoteDrawBounds(i, out var noteX, out var noteWidth);
+                    var noteEndX = noteX + noteWidth;
+                    if (x <= noteEndX || i == _noteWidths.Length - 1)
+                    {
+                        var fraction = noteWidth > 0 ? (double)(x - noteX) / noteWidth : 0;
+                        fraction = Math.Max(0, Math.Min(1, fraction));
+                        var noteStartBeat = _noteBeatOffsets[i];
+                        var noteEndBeat = i + 1 < _noteBeatOffsets.Length ? _noteBeatOffsets[i + 1] : TotalBeats;
+                        return noteStartBeat + (noteEndBeat - noteStartBeat) * fraction;
+                    }
+                }
+
+                return TotalBeats;
             }
 
             /// <param name="stretchToFill">When true, also scales up (not just down) so the

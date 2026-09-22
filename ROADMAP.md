@@ -615,6 +615,64 @@ here and intentionally excluded.*
        byte-for-byte, confirming the highlighted region changes only where expected and stays
        pixel-identical everywhere else — more reliable under `libgdiplus` than an absolute-color
        heuristic, which produced false positives from font-antialiasing).
+
+   **Third pass — found by actually testing a real Windows build of the above, not by code review:
+   beat-to-pixel width consistency, a real `beatToX`, missing voice-row labels, and the primary
+   voice's own label — done.** The user built and ran the app (screenshots of "Canon" and "Ode to
+   Joy" in SATB mode) and reported two concrete things looking wrong that code review alone hadn't
+   caught: bar widths not looking content-consistent across a line, and no row labels at all next to
+   the Alto/Tenor/Bass rows. Both turned out real:
+   - **Beat-to-pixel width consistency.** Two measures with the *same total beat length* could
+     previously render at different widths purely from how finely their notes happened to be
+     subdivided: `GetNoteWidth`'s per-note floor (`MinNoteWidth` = 28px) binds more often for many
+     short notes than for a few long ones covering the same duration (16 sixteenth-notes floors to
+     16×28=448px; the same 4 beats as one whole note is a clean 384px) — the exact cross-voice bug
+     from the first pass above (`CalculateMeasureWidth`'s own doc comment), just across *different
+     measures* instead of different voices in one measure, and never addressed for that direction.
+     Fixed the same way: `JianpuRenderer.BuildLayout` now runs a pre-pass (`ComputeBeatGroupWidths`)
+     grouping every measure in the score by its total beat length (`ScoreMidiSchedule.
+     GetMeasureDurationUnits`) and taking the widest natural requirement in each group; every
+     narrower member of that group stretches up to it via the existing `ApplyMelodyScale`
+     `stretchToFill` mechanism (now also triggered when a measure's assigned width exceeds its own
+     natural width, not just when it has multiple voices). A measure that's the sole member of its
+     beat-length group is completely unaffected — its group width is just its own natural width, so
+     `ApplyMelodyScale` computes a no-op 1.0 scale exactly as before, confirmed with a dedicated test
+     and by re-running every prior regression check (SHA-diffing a real rendered score with no
+     duration-sharing measures) with byte-identical results. Only the `PdfExport` equal-width-per-line
+     grid path (`MeasuresPerLine`) is untouched, since it already forces a stronger equalization
+     unrelated to beat length.
+   - **A real `beatToX`/`XToBeat`.** `MeasureLayout.BeatToX(beatOffset)`/`XToBeat(x)` map a beat
+     position within a measure to (and from) the exact X coordinate the renderer actually draws
+     there, reusing the same `GetNoteDrawBounds` source of truth as drawing and hit-testing —
+     correctly non-linear whenever a note's width was floored or stretched, unlike the playback
+     marker/seek's previous assumption that beats are spaced evenly across a measure's pixel width
+     (mathematically equivalent for a measure with no floor/stretch distortion, visibly wrong for one
+     that has it). `PlaybackMeasureSegment` now carries its source `MeasureLayout`, and `PlaybackLayout.
+     GetMarkerPosition`/`MapXToBeat` use `BeatToX`/`XToBeat` when it's available, falling back to the
+     old even-spacing approximation only for a segment nothing built this way (e.g. a hand-constructed
+     test fixture). Verified with a round-trip test (`XToBeat(BeatToX(b)) == b` across a measure) and a
+     direct comparison against `GetNoteDrawBounds` at a note boundary in a mixed long/short-note
+     measure.
+   - **Extra voice rows had no label at all.** `JianpuVoice.Role` was stored and used for the SATB
+     preset's internal bookkeeping but never actually drawn anywhere — an Alto/Tenor/Bass/descant row
+     was visually indistinguishable from an empty gap once scrolled past the always-labeled first
+     line's melody row. Fixed with `DrawVoiceRowLabels`, mirroring the existing fixed "Melody"/
+     "Dynamics"/"Secondary"/"Lyrics" row-label pattern: each above/below voice row is labeled with the
+     first measure-on-that-line's own `Role` at that row position. Verified visually (a rendered PNG
+     showing "Melody"/"Alto"/"Tenor"/"Bass" cleanly stacked) and with a permanent ink-presence
+     regression test.
+   - **The primary voice's own row was always labeled "Melody", even in SATB mode.** Raised by the
+     user directly: a real SATB score should read "Soprano/Alto/Tenor/Bass", not "Melody/Alto/Tenor/
+     Bass", and a descant above SATB needs its own label independent of whichever name the primary
+     row uses. Added `JianpuScore.PrimaryVoiceLabel` (null/empty falls back to "Melody"): `VoiceModeService.
+     ApplySatb` sets it to "Soprano" *only* when it's still at the default (never clobbers a name
+     picked by hand, mirroring how `ApplySatb` already never clobbers hand-entered `ExtraVoices`
+     content), and `ApplySingle` unconditionally resets it back to null, since "Soprano" only makes
+     sense alongside Alto/Tenor/Bass. `JsonConvert`-based clone/save/load picks up the new field for
+     free (no manual (de)serialization code to update). Verified end to end: applying SATB sets the
+     label, re-applying it after a hand-picked rename doesn't clobber that rename, switching back to
+     Single Voice resets it, and a descant-above-SATB score renders "Descant / Soprano / Alto / Tenor
+     / Bass" top-to-bottom exactly as expected.
 10. **Pickup measure — verified, documentation only, done.** Traced every path a manually-entered
     short first measure touches: editing (`MeasureNavigationViewModel.ApplyAddMeasure` appends a
     new measure unconditionally, no check that the previous one is "full"), rendering/beam

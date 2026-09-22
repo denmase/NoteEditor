@@ -76,7 +76,7 @@ namespace JianpuEditor.Tests.Rendering
         }
 
         [Fact]
-        public void HitTest_ClickOnBelowVoiceRow_ResolvesAsGenericMeasureHit()
+        public void HitTest_ClickOnBelowVoiceRow_ResolvesToThatVoicesOwnNote()
         {
             var renderer = new JianpuRenderer();
             var score = BuildSatbScore();
@@ -84,6 +84,24 @@ namespace JianpuEditor.Tests.Rendering
 
             var altoRowY = layout.BlockTop + (JianpuRenderer.MelodyRowHeight + JianpuRenderer.RowGap) + JianpuRenderer.MelodyRowHeight / 2;
             var hit = renderer.HitTest(score, 900, new Point(layout.X + 10, altoRowY));
+
+            Assert.Equal(ScoreHitType.Note, hit.HitType);
+            Assert.Equal(0, hit.MeasureIndex);
+            Assert.Equal(0, hit.NoteIndex);
+            Assert.Equal(0, hit.VoiceIndex);
+        }
+
+        [Fact]
+        public void HitTest_ClickOnRowGapBetweenVoiceRows_ResolvesAsGenericMeasureHit()
+        {
+            var renderer = new JianpuRenderer();
+            var score = BuildSatbScore();
+            var layout = renderer.GetMeasureLayouts(score, 900)[0];
+
+            // Between the Alto row and the Tenor row -- inside RowGap, not on either row's own
+            // MelodyRowHeight span -- still falls through to a generic Measure hit.
+            var gapY = layout.BlockTop + 2 * (JianpuRenderer.MelodyRowHeight + JianpuRenderer.RowGap) - JianpuRenderer.RowGap / 2;
+            var hit = renderer.HitTest(score, 900, new Point(layout.X + 10, gapY));
 
             Assert.Equal(ScoreHitType.Measure, hit.HitType);
             Assert.Equal(0, hit.MeasureIndex);
@@ -206,6 +224,47 @@ namespace JianpuEditor.Tests.Rendering
 
             Assert.Equal(ScoreHitType.Measure, hit.HitType);
             Assert.Equal(0, hit.MeasureIndex);
+        }
+
+        [Fact]
+        public void RenderToBitmap_SatbScore_LabelsEachExtraVoiceRowWithItsOwnRole()
+        {
+            var renderer = new JianpuRenderer();
+            var score = BuildSatbScore();
+
+            using (var satbBitmap = renderer.RenderToBitmap(score, 900, ScoreLayoutOptions.Editor))
+            {
+                var plainScore = new JianpuScore { Title = "Plain" };
+                plainScore.Measures.Add(ScoreTestHelper.Measure(ScoreTestHelper.Note(1)));
+                using (var plainBitmap = renderer.RenderToBitmap(plainScore, 900, ScoreLayoutOptions.Editor))
+                {
+                    var satbInk = CountLabelColumnInk(satbBitmap);
+                    var plainInk = CountLabelColumnInk(plainBitmap);
+
+                    // The SATB score's label column has the same fixed "Melody"/"Dynamics"/
+                    // "Secondary"/"Lyrics" labels as the plain score, plus three new ones ("Alto"/
+                    // "Tenor"/"Bass") -- previously the extra voice rows had no label at all.
+                    Assert.True(satbInk > plainInk, $"expected more label ink with 3 extra voice rows labeled, got satb={satbInk} plain={plainInk}");
+                }
+            }
+        }
+
+        private static int CountLabelColumnInk(Bitmap bitmap)
+        {
+            var count = 0;
+            for (var y = 0; y < bitmap.Height; y++)
+            {
+                for (var x = 4; x < 70 && x < bitmap.Width; x++)
+                {
+                    var pixel = bitmap.GetPixel(x, y);
+                    if (pixel.R < 200 || pixel.G < 200 || pixel.B < 200)
+                    {
+                        count++;
+                    }
+                }
+            }
+
+            return count;
         }
     }
 }
