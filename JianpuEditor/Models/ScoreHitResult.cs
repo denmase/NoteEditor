@@ -22,6 +22,13 @@ namespace JianpuEditor.Models
 
         public int MeasureIndex { get; set; } = -1;
 
+        /// <summary><see cref="ScoreNoteRef.PrimaryVoiceIndex"/> for <see
+        /// cref="Models.JianpuMeasure.MelodyNotes"/> (the default -- every existing hit result that
+        /// never set this keeps meaning the primary voice), otherwise an index into <see
+        /// cref="Models.JianpuMeasure.ExtraVoices"/>. Set on <see cref="ScoreHitType.Note"/> and
+        /// <see cref="ScoreHitType.Gap"/> hits.</summary>
+        public int VoiceIndex { get; set; } = ScoreNoteRef.PrimaryVoiceIndex;
+
         public int NoteIndex { get; set; } = -1;
 
         /// <summary>Insertion index in MelodyNotes when HitType is Gap.</summary>

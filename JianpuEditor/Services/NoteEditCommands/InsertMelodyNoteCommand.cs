@@ -11,6 +11,7 @@ namespace JianpuEditor.Services.NoteEditCommands
         private readonly JianpuScore _score;
         private readonly IAppMessenger _messenger;
         private readonly int _measureIndex;
+        private readonly int _voiceIndex;
         private readonly int _insertIndex;
         private readonly JianpuNote _note;
         private readonly string _message;
@@ -20,6 +21,7 @@ namespace JianpuEditor.Services.NoteEditCommands
             JianpuScore score,
             IAppMessenger messenger,
             int measureIndex,
+            int voiceIndex,
             int insertIndex,
             JianpuNote note,
             string message,
@@ -53,6 +55,7 @@ namespace JianpuEditor.Services.NoteEditCommands
             _score = score;
             _messenger = messenger;
             _measureIndex = measureIndex;
+            _voiceIndex = voiceIndex;
             _insertIndex = insertIndex;
             _note = NoteEditState.CloneNote(note);
             _message = message;
@@ -67,7 +70,7 @@ namespace JianpuEditor.Services.NoteEditCommands
         public void Execute()
         {
             var measure = _score.Measures[_measureIndex];
-            MelodyChordService.InsertSlot(measure, _insertIndex, NoteEditState.CloneNote(_note));
+            VoiceLayoutService.InsertNote(measure, _voiceIndex, _insertIndex, NoteEditState.CloneNote(_note));
             _resetPendingModifiers();
             PublishEdit(_message);
         }
@@ -75,7 +78,7 @@ namespace JianpuEditor.Services.NoteEditCommands
         public void Undo()
         {
             var measure = _score.Measures[_measureIndex];
-            MelodyChordService.RemoveSlot(measure, _insertIndex);
+            VoiceLayoutService.RemoveNote(measure, _voiceIndex, _insertIndex);
             PublishEdit("Undone: " + Description);
         }
 
@@ -87,6 +90,7 @@ namespace JianpuEditor.Services.NoteEditCommands
                 Changed = true,
                 Message = message,
                 SelectNoteMeasureIndex = _measureIndex,
+                SelectNoteVoiceIndex = _voiceIndex,
                 SelectNoteIndex = _insertIndex
             };
         }

@@ -160,14 +160,18 @@ namespace JianpuEditor.ViewModels
             return ScoreEditResult.WithMessage(message);
         }
 
+        // Dynamics markings are a primary-voice-only concept (not part of JianpuVoice yet -- see
+        // ROADMAP.md), so a selection on an extra voice is filtered out here rather than
+        // silently applying the marking to whatever primary-voice note happens to share that
+        // note index.
         private List<ScoreNoteRef> GetSelectedNoteRefs()
         {
             List<ScoreNoteRef> refs;
             if (_selection.SelectedNotes != null && _selection.SelectedNotes.Count > 0)
             {
-                refs = _selection.SelectedNotes.ToList();
+                refs = _selection.SelectedNotes.Where(item => item.VoiceIndex == ScoreNoteRef.PrimaryVoiceIndex).ToList();
             }
-            else if (_selection.NoteIndex >= 0 && _selection.MeasureIndex >= 0)
+            else if (_selection.NoteIndex >= 0 && _selection.MeasureIndex >= 0 && _selection.VoiceIndex == ScoreNoteRef.PrimaryVoiceIndex)
             {
                 refs = new List<ScoreNoteRef> { new ScoreNoteRef(_selection.MeasureIndex, _selection.NoteIndex) };
             }

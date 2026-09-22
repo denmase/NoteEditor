@@ -77,5 +77,37 @@ namespace JianpuEditor.Tests.Services
 
             Assert.False(changed);
         }
+
+        [Fact]
+        public void ApplySatb_SetsPrimaryVoiceLabelToSoprano()
+        {
+            var score = ScoreTestHelper.CreateScore(ScoreTestHelper.Measure(ScoreTestHelper.Note(1)));
+
+            VoiceModeService.ApplySatb(score);
+
+            Assert.Equal("Soprano", score.PrimaryVoiceLabel);
+        }
+
+        [Fact]
+        public void ApplySatb_ExistingCustomLabel_IsNotClobbered()
+        {
+            var score = ScoreTestHelper.CreateScore(ScoreTestHelper.Measure(ScoreTestHelper.Note(1)));
+            score.PrimaryVoiceLabel = "Lead";
+
+            VoiceModeService.ApplySatb(score);
+
+            Assert.Equal("Lead", score.PrimaryVoiceLabel);
+        }
+
+        [Fact]
+        public void ApplySingle_ResetsPrimaryVoiceLabelToNull()
+        {
+            var score = ScoreTestHelper.CreateScore(ScoreTestHelper.Measure(ScoreTestHelper.Note(1)));
+            VoiceModeService.ApplySatb(score);
+
+            VoiceModeService.ApplySingle(score);
+
+            Assert.Null(score.PrimaryVoiceLabel);
+        }
     }
 }

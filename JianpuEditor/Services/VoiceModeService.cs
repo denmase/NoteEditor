@@ -26,6 +26,14 @@ namespace JianpuEditor.Services
                 return false;
             }
 
+            // Only when still at the default -- never overwrites a label the user picked by hand,
+            // matching how the loop below never clobbers a measure's already-populated ExtraVoices.
+            if (string.IsNullOrEmpty(score.PrimaryVoiceLabel))
+            {
+                score.PrimaryVoiceLabel = "Soprano";
+                changed = true;
+            }
+
             foreach (var measure in measures)
             {
                 if (measure.ExtraVoices == null)
@@ -63,6 +71,15 @@ namespace JianpuEditor.Services
             if (measures == null)
             {
                 return false;
+            }
+
+            // "Soprano" (or any other custom label) only makes sense alongside Alto/Tenor/Bass;
+            // unconditionally resets back to the "Melody" default, mirroring how every measure's
+            // ExtraVoices are unconditionally cleared below regardless of how they got there.
+            if (!string.IsNullOrEmpty(score.PrimaryVoiceLabel))
+            {
+                score.PrimaryVoiceLabel = null;
+                changed = true;
             }
 
             foreach (var measure in measures)

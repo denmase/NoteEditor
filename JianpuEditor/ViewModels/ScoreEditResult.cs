@@ -20,6 +20,11 @@ namespace JianpuEditor.ViewModels
 
         public int? SelectNoteMeasureIndex { get; set; }
 
+        /// <summary>Defaults to null, which every existing consumer treats as <see
+        /// cref="Models.ScoreNoteRef.PrimaryVoiceIndex"/> -- only set when the note being selected
+        /// (e.g. one just inserted) is on an extra voice.</summary>
+        public int? SelectNoteVoiceIndex { get; set; }
+
         public int? SelectNoteIndex { get; set; }
 
         public IReadOnlyList<int> SetSelectedMeasureIndices { get; set; }

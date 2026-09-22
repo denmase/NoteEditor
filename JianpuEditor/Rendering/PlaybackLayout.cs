@@ -16,6 +16,23 @@ namespace JianpuEditor.Rendering
         public int Width { get; set; }
 
         public int BlockTop { get; set; }
+
+        /// <summary>This segment's own staff line's real vertical footprint (<see
+        /// cref="JianpuRenderer.MeasureLayout.GetEffectiveHeight"/>) -- taller than <see
+        /// cref="JianpuRenderer.StaffBlockHeight"/> on a line with extra voice rows (SATB etc.), so
+        /// the playback marker/drag-hit-testing below use this instead of the fixed constant.</summary>
+        public int Height { get; set; }
+
+        /// <summary>The measure this segment was built from, giving <see cref="GetMarkerPosition"/>/
+        /// <see cref="MapXToBeat"/> access to its real <see
+        /// cref="JianpuRenderer.MeasureLayout.BeatToX"/>/<see
+        /// cref="JianpuRenderer.MeasureLayout.XToBeat"/> instead of assuming beats are spaced evenly
+        /// across the measure's pixel width -- which isn't true whenever a note's width was floored
+        /// up to <see cref="JianpuRenderer.MinNoteWidth"/> or stretched by a beat-consistency scale
+        /// (see <see cref="JianpuRenderer.BuildLayout"/>). Null only for a segment nothing built this
+        /// way (e.g. a hand-constructed test fixture), in which case both fall back to the previous
+        /// even-spacing approximation.</summary>
+        public JianpuRenderer.MeasureLayout Measure { get; set; }
     }
 
     public sealed class PlaybackMarkerPosition
@@ -56,13 +73,21 @@ namespace JianpuEditor.Rendering
                     continue;
                 }
 
-                var fraction = segment.DurationBeat <= 0
-                    ? 0
-                    : (beat - segment.StartBeat) / segment.DurationBeat;
-                fraction = Math.Max(0, Math.Min(1, fraction));
-                marker.X = segment.X + (int)Math.Round(segment.Width * fraction);
+                if (segment.Measure != null)
+                {
+                    marker.X = segment.Measure.BeatToX(beat - segment.StartBeat);
+                }
+                else
+                {
+                    var fraction = segment.DurationBeat <= 0
+                        ? 0
+                        : (beat - segment.StartBeat) / segment.DurationBeat;
+                    fraction = Math.Max(0, Math.Min(1, fraction));
+                    marker.X = segment.X + (int)Math.Round(segment.Width * fraction);
+                }
+
                 marker.Top = segment.BlockTop;
-                marker.Bottom = segment.BlockTop + JianpuRenderer.StaffBlockHeight;
+                marker.Bottom = segment.BlockTop + segment.Height;
                 marker.IsVisible = true;
                 return marker;
             }
@@ -70,7 +95,7 @@ namespace JianpuEditor.Rendering
             var last = segments[segments.Count - 1];
             marker.X = last.X + last.Width;
             marker.Top = last.BlockTop;
-            marker.Bottom = last.BlockTop + JianpuRenderer.StaffBlockHeight;
+            marker.Bottom = last.BlockTop + last.Height;
             marker.IsVisible = true;
             return marker;
         }
@@ -112,6 +137,11 @@ namespace JianpuEditor.Rendering
                     continue;
                 }
 
+                if (segment.Measure != null)
+                {
+                    return segment.StartBeat + segment.Measure.XToBeat(x);
+                }
+
                 var fraction = segment.Width <= 0 ? 0 : (double)(x - segment.X) / segment.Width;
                 return segment.StartBeat + segment.DurationBeat * Math.Max(0, Math.Min(1, fraction));
             }
@@ -130,14 +160,14 @@ namespace JianpuEditor.Rendering
             var bestDistance = int.MaxValue;
             foreach (var segment in segments)
             {
-                if (y >= segment.BlockTop && y <= segment.BlockTop + JianpuRenderer.StaffBlockHeight)
+                if (y >= segment.BlockTop && y <= segment.BlockTop + segment.Height)
                 {
                     return segment.BlockTop;
                 }
 
                 var distance = y < segment.BlockTop
                     ? segment.BlockTop - y
-                    : y - (segment.BlockTop + JianpuRenderer.StaffBlockHeight);
+                    : y - (segment.BlockTop + segment.Height);
                 if (distance < bestDistance)
                 {
                     bestDistance = distance;

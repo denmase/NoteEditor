@@ -33,8 +33,13 @@ namespace JianpuEditor.Tests.Controls
 
             var expectedBeat = lateMeasure.StartBeat + lateMeasure.DurationBeat / 2;
             Assert.True(seekedBeat.HasValue);
-            Assert.Equal(expectedBeat, seekedBeat!.Value, 2);
-            Assert.Equal(expectedBeat, canvas.PlaybackPositionQuarter, 2);
+            // 1 decimal place, not 2: MapXToBeat now resolves against each note's own real
+            // (integer-pixel-rounded) drawn position via MeasureLayout.XToBeat instead of assuming
+            // beats are spaced perfectly evenly across the measure's width, so a geometric
+            // pixel-middle click lands a hair off the arithmetic beat-middle -- by design, since it's
+            // now tracking where the glyphs actually are.
+            Assert.Equal(expectedBeat, seekedBeat!.Value, 1);
+            Assert.Equal(expectedBeat, canvas.PlaybackPositionQuarter, 1);
             Assert.True(canvas.PlaybackPositionQuarter > 1.0);
         }
 

@@ -74,7 +74,7 @@ namespace JianpuEditor.Services.NoteEditCommands
                     continue;
                 }
 
-                var notes = _score.Measures[backup.MeasureIndex].MelodyNotes;
+                var notes = VoiceLayoutService.GetNotesList(_score.Measures[backup.MeasureIndex], backup.VoiceIndex);
                 if (backup.NoteIndex < 0 || backup.NoteIndex >= notes.Count)
                 {
                     continue;
@@ -123,6 +123,7 @@ namespace JianpuEditor.Services.NoteEditCommands
                 RequiresScoreRefresh = _resultTemplate.RequiresScoreRefresh,
                 SelectMeasureIndex = _resultTemplate.SelectMeasureIndex,
                 SelectNoteMeasureIndex = _resultTemplate.SelectNoteMeasureIndex,
+                SelectNoteVoiceIndex = _resultTemplate.SelectNoteVoiceIndex,
                 SelectNoteIndex = _resultTemplate.SelectNoteIndex,
                 SetSelectedMeasureIndices = _resultTemplate.SetSelectedMeasureIndices,
                 SetPrimaryMeasureIndex = _resultTemplate.SetPrimaryMeasureIndex,
@@ -151,7 +152,7 @@ namespace JianpuEditor.Services.NoteEditCommands
                     continue;
                 }
 
-                var notes = score.Measures[noteRef.MeasureIndex].MelodyNotes;
+                var notes = VoiceLayoutService.GetNotesList(score.Measures[noteRef.MeasureIndex], noteRef.VoiceIndex);
                 if (noteRef.NoteIndex < 0 || noteRef.NoteIndex >= notes.Count)
                 {
                     continue;
@@ -159,6 +160,7 @@ namespace JianpuEditor.Services.NoteEditCommands
 
                 backups.Add(new NoteBackup(
                     noteRef.MeasureIndex,
+                    noteRef.VoiceIndex,
                     noteRef.NoteIndex,
                     NoteEditState.CloneNote(notes[noteRef.NoteIndex])));
             }
@@ -168,14 +170,17 @@ namespace JianpuEditor.Services.NoteEditCommands
 
         private readonly struct NoteBackup
         {
-            public NoteBackup(int measureIndex, int noteIndex, JianpuNote note)
+            public NoteBackup(int measureIndex, int voiceIndex, int noteIndex, JianpuNote note)
             {
                 MeasureIndex = measureIndex;
+                VoiceIndex = voiceIndex;
                 NoteIndex = noteIndex;
                 Note = note;
             }
 
             public int MeasureIndex { get; }
+
+            public int VoiceIndex { get; }
 
             public int NoteIndex { get; }
 

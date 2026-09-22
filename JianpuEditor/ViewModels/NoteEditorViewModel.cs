@@ -316,7 +316,7 @@ namespace JianpuEditor.ViewModels
 
         public ScoreEditResult SplitSelectedNotes()
         {
-            var refs = GetSelectedNoteRefs();
+            var refs = GetPrimaryVoiceOnlySelectedNoteRefs();
             if (refs.Count == 0)
             {
                 _messenger.Send(new StatusChangedMessage("Select a note to split first"));
@@ -338,7 +338,7 @@ namespace JianpuEditor.ViewModels
 
         public ScoreEditResult MergeSelectedNotes()
         {
-            var refs = GetSelectedNoteRefs();
+            var refs = GetPrimaryVoiceOnlySelectedNoteRefs();
             if (refs.Count < 2)
             {
                 _messenger.Send(new StatusChangedMessage("Select at least two notes to merge"));
@@ -384,13 +384,13 @@ namespace JianpuEditor.ViewModels
                     continue;
                 }
 
-                var measureNotes = _document.Score.Measures[noteRef.MeasureIndex].MelodyNotes;
-                if (noteRef.NoteIndex < 0 || noteRef.NoteIndex >= measureNotes.Count)
+                var voiceNotes = VoiceLayoutService.GetNotesList(_document.Score.Measures[noteRef.MeasureIndex], noteRef.VoiceIndex);
+                if (noteRef.NoteIndex < 0 || noteRef.NoteIndex >= voiceNotes.Count)
                 {
                     continue;
                 }
 
-                notes.Add(measureNotes[noteRef.NoteIndex]);
+                notes.Add(voiceNotes[noteRef.NoteIndex]);
             }
 
             if (notes.Count == 0)
@@ -509,6 +509,7 @@ namespace JianpuEditor.ViewModels
             _document.EnsureMeasures();
             var measureIndex = Math.Max(0, _selection.MeasureIndex);
             var measure = _document.Score.Measures[measureIndex];
+            var voiceIndex = _selection.VoiceIndex;
             int insertIndex;
 
             if (_selection.HasGapSelected)
@@ -517,10 +518,10 @@ namespace JianpuEditor.ViewModels
             }
             else
             {
-                insertIndex = measure.MelodyNotes.Count;
+                insertIndex = VoiceLayoutService.GetNotesList(measure, voiceIndex).Count;
             }
 
-            return InsertMelodyNoteAt(measureIndex, insertIndex, note, message);
+            return InsertMelodyNoteAt(measureIndex, voiceIndex, insertIndex, note, message);
         }
 
         private ScoreEditResult InsertMelodyNoteAt(int measureIndex, JianpuNote note, string message)
@@ -528,15 +529,16 @@ namespace JianpuEditor.ViewModels
             _document.EnsureMeasures();
             measureIndex = Math.Max(0, Math.Min(measureIndex, _document.Score.Measures.Count - 1));
             var insertIndex = _document.Score.Measures[measureIndex].MelodyNotes.Count;
-            return InsertMelodyNoteAt(measureIndex, insertIndex, note, message);
+            return InsertMelodyNoteAt(measureIndex, ScoreNoteRef.PrimaryVoiceIndex, insertIndex, note, message);
         }
 
-        private ScoreEditResult InsertMelodyNoteAt(int measureIndex, int insertIndex, JianpuNote note, string message)
+        private ScoreEditResult InsertMelodyNoteAt(int measureIndex, int voiceIndex, int insertIndex, JianpuNote note, string message)
         {
             return ExecuteCommand(new InsertMelodyNoteCommand(
                 _document.Score,
                 _messenger,
                 measureIndex,
+                voiceIndex,
                 insertIndex,
                 note,
                 message,
@@ -752,16 +754,19 @@ namespace JianpuEditor.ViewModels
 
         /// <summary>Pastes into the selected gap, right after the last selected note (in
         /// ascending measure/note order), or at the end of the current measure if nothing more
-        /// specific is selected -- mirrors <see cref="InsertMelodyNote"/>'s own fallback.</summary>
+        /// specific is selected -- mirrors <see cref="InsertMelodyNote"/>'s own fallback. Paste
+        /// always targets the primary voice (see <see cref="ApplyPasteNotes"/>), so a gap/note
+        /// selected on an extra voice is ignored here rather than misapplying that voice's index
+        /// against the primary voice's own notes.</summary>
         private (int measureIndex, int insertIndex) ResolvePasteInsertPoint()
         {
-            if (_selection.HasGapSelected)
+            if (_selection.HasGapSelected && _selection.VoiceIndex == ScoreNoteRef.PrimaryVoiceIndex)
             {
                 var gapMeasureIndex = Math.Max(0, _selection.MeasureIndex);
                 return (gapMeasureIndex, _selection.InsertIndex);
             }
 
-            var refs = GetOrderedSelectedNoteRefs();
+            var refs = GetPrimaryVoiceOnlySelectedNoteRefs();
             if (refs.Count > 0)
             {
                 var last = refs[refs.Count - 1];
@@ -776,6 +781,18 @@ namespace JianpuEditor.ViewModels
         {
             var refs = GetSelectedNoteRefs();
             refs.Sort((a, b) => ScoreNoteRef.Compare(a, b));
+            return refs;
+        }
+
+        /// <summary>Split/Merge/Paste stay primary-voice-only for now (see ROADMAP.md) -- they
+        /// restructure a note *list*, with side effects (ties, beat-position chord sync) that only
+        /// make sense for the primary voice today. Filtering here, rather than trusting the
+        /// selection to already be primary-only, is what stops a single selected note on an extra
+        /// voice from being misread as a same-index primary-voice note.</summary>
+        private List<ScoreNoteRef> GetPrimaryVoiceOnlySelectedNoteRefs()
+        {
+            var refs = GetOrderedSelectedNoteRefs();
+            refs.RemoveAll(item => item.VoiceIndex != ScoreNoteRef.PrimaryVoiceIndex);
             return refs;
         }
 
@@ -795,7 +812,7 @@ namespace JianpuEditor.ViewModels
 
             if (_selection.NoteIndex >= 0 && _selection.MeasureIndex >= 0)
             {
-                result.Add(new ScoreNoteRef(_selection.MeasureIndex, _selection.NoteIndex));
+                result.Add(new ScoreNoteRef(_selection.MeasureIndex, _selection.NoteIndex, _selection.VoiceIndex));
             }
 
             return result;
@@ -819,7 +836,7 @@ namespace JianpuEditor.ViewModels
                         continue;
                     }
 
-                    var notes = _document.Score.Measures[selected.MeasureIndex].MelodyNotes;
+                    var notes = VoiceLayoutService.GetNotesList(_document.Score.Measures[selected.MeasureIndex], selected.VoiceIndex);
                     if (selected.NoteIndex < 0 || selected.NoteIndex >= notes.Count)
                     {
                         continue;
@@ -837,13 +854,13 @@ namespace JianpuEditor.ViewModels
                 return result;
             }
 
-            var melodyNotes = _document.Score.Measures[measureIndex].MelodyNotes;
-            if (_selection.NoteIndex < 0 || _selection.NoteIndex >= melodyNotes.Count)
+            var voiceNotes = VoiceLayoutService.GetNotesList(_document.Score.Measures[measureIndex], _selection.VoiceIndex);
+            if (_selection.NoteIndex < 0 || _selection.NoteIndex >= voiceNotes.Count)
             {
                 return result;
             }
 
-            result.Add(melodyNotes[_selection.NoteIndex]);
+            result.Add(voiceNotes[_selection.NoteIndex]);
             return result;
         }
 

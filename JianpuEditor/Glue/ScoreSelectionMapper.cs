@@ -15,6 +15,7 @@ namespace JianpuEditor.Glue
             return new ScoreSelectionInfo
             {
                 MeasureIndex = args.MeasureIndex,
+                VoiceIndex = args.VoiceIndex,
                 NoteIndex = args.NoteIndex,
                 InsertIndex = args.InsertIndex,
                 TieIndex = args.TieIndex,

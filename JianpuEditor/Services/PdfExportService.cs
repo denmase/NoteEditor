@@ -27,10 +27,10 @@ namespace JianpuEditor.Services
             using (var renderer = new JianpuRenderer())
             using (var document = new PdfDocument())
             {
-                var totalLines = renderer.GetStaffLineCount(score, renderWidth, options);
+                var lineHeights = renderer.GetStaffLineHeights(score, renderWidth, options);
                 var pageHeightPixels = PdfPagePlanner.GetPageHeightPixels(renderWidth);
                 var firstPageHeaderHeight = GetFirstPageHeaderHeight(options);
-                var slices = PdfPagePlanner.PlanPages(totalLines, firstPageHeaderHeight, pageHeightPixels);
+                var slices = PdfPagePlanner.PlanPages(lineHeights, firstPageHeaderHeight, pageHeightPixels);
                 if (slices.Count == 0)
                 {
                     slices.Add(new PdfPageSlice

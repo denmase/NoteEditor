@@ -498,13 +498,13 @@ here and intentionally excluded.*
      GetEffectiveHeight()`, growing by `MelodyRowHeight + RowGap` per below-voice row; Dynamics/
      Secondary/Lyrics rows, hit-testing zones, row labels, bar-line height, and selection highlight
      all shift down through the same two helpers, so they never drifted out of sync with what's
-     actually drawn. A click on a below-voice row resolves as a generic Measure hit (no per-note
-     editing there yet — see below) rather than being misread against the primary voice's note
-     bounds. Verified via `RenderToBitmap` (ink actually present on each extra row, at the right Y)
-     and `HitTest` (below-voice clicks vs. melody clicks resolve correctly) — not just the layout
-     math. **"Above" voices (descant/solo) are in the data model and render-order rule, but not
-     drawn as their own row yet** — deferred alongside per-note editing below, since both need the
-     same kind of generalization work.
+     actually drawn. A click on a below-voice row resolves as a generic Measure hit in this initial
+     pass (per-note editing there landed in the follow-up pass below) rather than being misread
+     against the primary voice's note bounds. Verified via `RenderToBitmap` (ink actually present on
+     each extra row, at the right Y) and `HitTest` (below-voice clicks vs. melody clicks resolve
+     correctly) — not just the layout math. "Above" voices (descant/solo) were in the data model and
+     render-order rule from this pass, but didn't render as their own row yet — see the follow-up
+     pass below.
    - **Per-voice MIDI/playback scheduling.** `ScoreMidiSchedule.BuildExtraVoiceNotes` schedules
      every `ExtraVoices` slot (both "below" and "above" — audio doesn't depend on the row being
      drawn) on its own channel (`ExtraVoiceChannelBase` = 2, one channel per slot), deliberately
@@ -527,24 +527,152 @@ here and intentionally excluded.*
      Dynamics all appear together, then switch back to Single Voice and confirm the score collapses
      back to exactly its original single-voice layout.
 
-   **Known gaps, not yet addressed by this pass** (real, not hypothetical — each is a fixed
-   constant that assumes uniform per-line height, same root cause, different call site):
-   - `PdfPagePlanner.GetLinesHeight` estimates how many lines fit on a PDF page using the fixed
-     `StaffBlockHeight` alone, so a page containing an SATB line may be planned as if it were
-     shorter than it actually renders (the render itself, via `RenderPdfPageToBitmap`, does use
-     the real per-line effective height and sizes its own bitmap correctly — it's specifically the
-     *page-count estimate* that's still uniform-height).
-   - `PlaybackLayout`'s vertical playback marker and Y-based drag-to-seek row-matching both still
-     use the fixed `StaffBlockHeight` for a line's vertical extent, so on a line with extra voice
-     rows the marker doesn't extend through them and a seek-drag into that space snaps to the
-     nearest available row instead of that exact one.
+   **Known gaps from this pass, all closed by the follow-up pass below** (real, not hypothetical —
+   each was a fixed constant that assumed uniform per-line height, same root cause, different call
+   site): `PdfPagePlanner.GetLinesHeight` estimated how many lines fit on a PDF page using the fixed
+   `StaffBlockHeight` alone, so a page containing an SATB line could be planned as if it were
+   shorter than it actually rendered; `PlaybackLayout`'s vertical playback marker and Y-based
+   drag-to-seek row-matching both used the fixed `StaffBlockHeight` for a line's vertical extent, so
+   on a line with extra voice rows the marker didn't extend through them and a seek-drag into that
+   space snapped to the nearest available row instead of that exact one.
 
-   **Deliberately deferred to a follow-up** (unchanged from the original assessment): per-note
-   editing/selection of the extra voices (`ScoreNoteRef` needs a voice index, rippling through
-   `ScoreCanvas` hit-testing and `NoteEditorViewModel`) — identified in the prototype as the single
-   largest remaining chunk, and not something that could be validated by rendering/playback alone
-   the way everything above was. "Above" voice (descant) rendering as its own row is the other
-   piece that needs this same generalization and is deferred alongside it.
+   **Follow-up pass — non-uniform line heights, "above" voice rendering, voice-aware hit-testing,
+   and full-parity note editing for extra voices — done.** Closes every gap flagged above plus the
+   two items the original assessment deliberately deferred (per-note editing/selection of extra
+   voices, and "above"-voice rendering as its own row).
+   - **Non-uniform line heights (PDF pagination + playback marker/seek).** New
+     `JianpuRenderer.GetStaffLineHeights` returns each line's real `GetEffectiveHeight()`, threaded
+     into a new `PdfPagePlanner.PlanPages(IReadOnlyList<int> lineHeights, ...)` overload (the old
+     `PlanPages(int totalLines, ...)` is kept, now just delegating to the new one with a uniform-
+     height array, so every existing caller is unaffected). `PlaybackMeasureSegment` gained a real
+     `Height` property (from `MeasureLayout.GetEffectiveHeight()`), and `PlaybackLayout.
+     GetMarkerPosition`/`FindNearestRowBlockTop` use it instead of the fixed `StaffBlockHeight`
+     constant, so the marker and drag-to-seek now reach correctly through every SATB row. Verified
+     with a full page-count regression test (a taller SATB line never lets more content get packed
+     onto a page than actually fits) and new `PlaybackLayoutTests` covering marker/seek through an
+     extra-voice row.
+   - **"Above" voices render as their own row.** Two-pass layout: the existing per-measure placement
+     loop leaves `MeasureLayout.BlockTop` meaning exactly what every pre-existing consumer already
+     assumes (the melody row's own top — ties, hairpins, gap carets, Dynamics/Secondary/Lyrics
+     anchors all still read it unchanged), then a new second pass (`ApplyAboveVoiceHeadroom`) shifts
+     each line's `BlockTop` down by the cumulative height every earlier line's own above-voice rows
+     need, reserving headroom without disturbing any of those existing consumers. New `GetDrawTop()`/
+     `GetDrawHeight()` accessors mean "the whole visual block, above-voice rows included" and are
+     used only where that's genuinely what's needed: bar lines, hit-testing bounds, and the selection
+     highlight rectangle. Verified by rendering a descant-above-SATB score to a bitmap and confirming
+     ink actually lands in the reserved row, plus a hit-test regression confirming a click above the
+     melody row still resolves as a generic Measure hit when there's no above-voice content there.
+   - **Voice-aware hit-testing.** `ScoreNoteRef` (now a struct) and `ScoreHitResult` both carry a
+     `VoiceIndex` (`ScoreNoteRef.PrimaryVoiceIndex = -1` for the melody, otherwise an index into
+     `JianpuMeasure.ExtraVoices`). `JianpuRenderer.HitTest` resolves a click in any above- or
+     below-voice row (note, gap, or dash) against that specific voice's own note list and draw
+     bounds via new `HitTestVoiceRow`/`CreateVoiceGapHit`, rather than only ever resolving against
+     the primary voice. Verified with dedicated hit-testing tests for a descant, an alto, and a bass
+     row, plus a full plain-score (no extra voices) regression sweep confirming every existing
+     hit-testing path is byte-for-byte unaffected.
+   - **Full-parity note editing for extra voices.** The single largest piece: insert, delete,
+     pitch/degree change, duration (dashes/dots/underlines), rests, accidentals, and octave-shift now
+     work identically whether the current selection is on the primary voice or any extra voice —
+     confirmed by the user as the intended scope for this pass ("full parity with primary voice
+     editing"), explicitly *excluding* Split/Merge/Copy-Paste-as-a-structural-op-into-any-voice,
+     multi-note drag-range-select across voices, and keyboard Tab/arrow navigation across voices,
+     which all stay primary-voice-only (with active guards — see below — rather than being left as
+     an unverified assumption). Ties/ornaments/chords/dynamics remain entirely out of scope, since
+     none of those are part of the `JianpuVoice` data model yet.
+     - New `VoiceLayoutService.GetNotesList(measure, voiceIndex)`/`InsertNote`/`RemoveNote` are the
+       single resolution point every editing call site now goes through instead of ever hardcoding
+       `.MelodyNotes` — `InsertNote`/`RemoveNote` delegate to `MelodyChordService.InsertSlot`/
+       `RemoveSlot` for the primary voice (keeping the chord-slot shadow list in sync, unchanged
+       behavior), and do a plain list insert/remove for an extra voice (which has no chord/tie/
+       ornament/dynamics support to keep in sync).
+     - Because `JianpuNote` is a mutable reference type, most in-place edits (octave, accidental,
+       dotted, duration step, transpose) became voice-aware for free once note *selection*
+       resolution was fixed to go through `VoiceLayoutService.GetNotesList` — only the
+       list-structure-changing operations (insert, delete) needed explicit voice-index threading
+       through `ModifyMelodyNotesCommand`/`InsertMelodyNoteCommand`, `NoteEditorViewModel`,
+       `ScoreEditorViewModel`, and `ScoreCanvas`'s selection/hit-click handling.
+     - Selection rendering (the yellow highlight box/gap caret) is voice-aware too: `JianpuRenderer.
+       Draw`/`DrawExtraVoiceRows`/`DrawVoiceRow` take the selected voice index and only highlight the
+       note/gap in that specific voice's row, never the primary voice's note at the same index.
+     - **Found and fixed a real, pre-existing architectural landmine while wiring this up**: three
+       separate `ViewModel` classes (`ScoreEditorViewModel`, `OrnamentEditorViewModel`,
+       `DynamicsEditorViewModel`) each had their *own*, independent `GetSelectedNoteRefs()` — not
+       shared with `NoteEditorViewModel`'s — that constructed a `ScoreNoteRef` without any voice
+       index, silently defaulting to the primary voice. `ScoreEditorViewModel`'s was made properly
+       voice-aware (and its `Delete` regrouped by `(MeasureIndex, VoiceIndex)` instead of
+       `MeasureIndex` alone, so an extra-voice deletion can never fall into the primary-voice-only
+       tie/hairpin/ornament/dynamics maintenance path). `OrnamentEditorViewModel`'s and
+       `DynamicsEditorViewModel`'s were fixed the other way — since ornaments/dynamics aren't part of
+       `JianpuVoice`, a selection on an extra voice is now explicitly filtered out there, so it's
+       safely ignored instead of silently mutating whatever primary-voice note happens to share that
+       note index. This was only caught by testing the actual `ViewModel` call chain end-to-end
+       (delete an extra-voice note, confirm only that voice lost a note) rather than only the
+       lower-level services in isolation.
+     - Verified with a comprehensive end-to-end pass (insert/delete/octave/undo on an Alto voice, all
+       confirmed to leave the primary voice untouched; a Split attempted on an Alto selection
+       confirmed to no-op rather than corrupt either voice) plus a rigorous bitmap-diff test for the
+       selection-highlight rendering (render with/without a selection, diff specific pixel regions
+       byte-for-byte, confirming the highlighted region changes only where expected and stays
+       pixel-identical everywhere else — more reliable under `libgdiplus` than an absolute-color
+       heuristic, which produced false positives from font-antialiasing).
+
+   **Third pass — found by actually testing a real Windows build of the above, not by code review:
+   beat-to-pixel width consistency, a real `beatToX`, missing voice-row labels, and the primary
+   voice's own label — done.** The user built and ran the app (screenshots of "Canon" and "Ode to
+   Joy" in SATB mode) and reported two concrete things looking wrong that code review alone hadn't
+   caught: bar widths not looking content-consistent across a line, and no row labels at all next to
+   the Alto/Tenor/Bass rows. Both turned out real:
+   - **Beat-to-pixel width consistency.** Two measures with the *same total beat length* could
+     previously render at different widths purely from how finely their notes happened to be
+     subdivided: `GetNoteWidth`'s per-note floor (`MinNoteWidth` = 28px) binds more often for many
+     short notes than for a few long ones covering the same duration (16 sixteenth-notes floors to
+     16×28=448px; the same 4 beats as one whole note is a clean 384px) — the exact cross-voice bug
+     from the first pass above (`CalculateMeasureWidth`'s own doc comment), just across *different
+     measures* instead of different voices in one measure, and never addressed for that direction.
+     Fixed the same way: `JianpuRenderer.BuildLayout` now runs a pre-pass (`ComputeBeatGroupWidths`)
+     grouping every measure in the score by its total beat length (`ScoreMidiSchedule.
+     GetMeasureDurationUnits`) and taking the widest natural requirement in each group; every
+     narrower member of that group stretches up to it via the existing `ApplyMelodyScale`
+     `stretchToFill` mechanism (now also triggered when a measure's assigned width exceeds its own
+     natural width, not just when it has multiple voices). A measure that's the sole member of its
+     beat-length group is completely unaffected — its group width is just its own natural width, so
+     `ApplyMelodyScale` computes a no-op 1.0 scale exactly as before, confirmed with a dedicated test
+     and by re-running every prior regression check (SHA-diffing a real rendered score with no
+     duration-sharing measures) with byte-identical results. Only the `PdfExport` equal-width-per-line
+     grid path (`MeasuresPerLine`) is untouched, since it already forces a stronger equalization
+     unrelated to beat length.
+   - **A real `beatToX`/`XToBeat`.** `MeasureLayout.BeatToX(beatOffset)`/`XToBeat(x)` map a beat
+     position within a measure to (and from) the exact X coordinate the renderer actually draws
+     there, reusing the same `GetNoteDrawBounds` source of truth as drawing and hit-testing —
+     correctly non-linear whenever a note's width was floored or stretched, unlike the playback
+     marker/seek's previous assumption that beats are spaced evenly across a measure's pixel width
+     (mathematically equivalent for a measure with no floor/stretch distortion, visibly wrong for one
+     that has it). `PlaybackMeasureSegment` now carries its source `MeasureLayout`, and `PlaybackLayout.
+     GetMarkerPosition`/`MapXToBeat` use `BeatToX`/`XToBeat` when it's available, falling back to the
+     old even-spacing approximation only for a segment nothing built this way (e.g. a hand-constructed
+     test fixture). Verified with a round-trip test (`XToBeat(BeatToX(b)) == b` across a measure) and a
+     direct comparison against `GetNoteDrawBounds` at a note boundary in a mixed long/short-note
+     measure.
+   - **Extra voice rows had no label at all.** `JianpuVoice.Role` was stored and used for the SATB
+     preset's internal bookkeeping but never actually drawn anywhere — an Alto/Tenor/Bass/descant row
+     was visually indistinguishable from an empty gap once scrolled past the always-labeled first
+     line's melody row. Fixed with `DrawVoiceRowLabels`, mirroring the existing fixed "Melody"/
+     "Dynamics"/"Secondary"/"Lyrics" row-label pattern: each above/below voice row is labeled with the
+     first measure-on-that-line's own `Role` at that row position. Verified visually (a rendered PNG
+     showing "Melody"/"Alto"/"Tenor"/"Bass" cleanly stacked) and with a permanent ink-presence
+     regression test.
+   - **The primary voice's own row was always labeled "Melody", even in SATB mode.** Raised by the
+     user directly: a real SATB score should read "Soprano/Alto/Tenor/Bass", not "Melody/Alto/Tenor/
+     Bass", and a descant above SATB needs its own label independent of whichever name the primary
+     row uses. Added `JianpuScore.PrimaryVoiceLabel` (null/empty falls back to "Melody"): `VoiceModeService.
+     ApplySatb` sets it to "Soprano" *only* when it's still at the default (never clobbers a name
+     picked by hand, mirroring how `ApplySatb` already never clobbers hand-entered `ExtraVoices`
+     content), and `ApplySingle` unconditionally resets it back to null, since "Soprano" only makes
+     sense alongside Alto/Tenor/Bass. `JsonConvert`-based clone/save/load picks up the new field for
+     free (no manual (de)serialization code to update). Verified end to end: applying SATB sets the
+     label, re-applying it after a hand-picked rename doesn't clobber that rename, switching back to
+     Single Voice resets it, and a descant-above-SATB score renders "Descant / Soprano / Alto / Tenor
+     / Bass" top-to-bottom exactly as expected.
 10. **Pickup measure — verified, documentation only, done.** Traced every path a manually-entered
     short first measure touches: editing (`MeasureNavigationViewModel.ApplyAddMeasure` appends a
     new measure unconditionally, no check that the previous one is "full"), rendering/beam
