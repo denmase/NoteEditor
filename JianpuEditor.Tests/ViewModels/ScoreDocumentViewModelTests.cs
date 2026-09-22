@@ -39,7 +39,7 @@ namespace JianpuEditor.Tests.ViewModels
 
             Assert.Equal("Ode to Joy", viewModel.Title);
             Assert.False(viewModel.IsDirty);
-            Assert.Equal(5, viewModel.Score.Measures.Count);
+            Assert.Equal(8, viewModel.Score.Measures.Count);
         }
 
         [Fact]

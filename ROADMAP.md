@@ -673,6 +673,38 @@ here and intentionally excluded.*
      label, re-applying it after a hand-picked rename doesn't clobber that rename, switching back to
      Single Voice resets it, and a descant-above-SATB score renders "Descant / Soprano / Alto / Tenor
      / Bass" top-to-bottom exactly as expected.
+
+   **Fourth pass — a manual forced line break, and real-content SATB/descant sample files — done.**
+   Prompted by the user actually opening the shipped `sample/Ode to Joy.jianpu` and asking how to
+   force a line break, since they'd assumed `sample/Canon in D.jianpu` had one.
+   - **`JianpuMeasure.ForcesLineBreak`.** There was no way to break a line anywhere other than
+     where automatic width-based wrapping (`JianpuRenderer.BuildLayout`'s `needNewLine`) would put
+     it — Canon in D's own line breaks are exactly that same automatic mechanism, not an explicit
+     indicator. Added the field, a `ModifyLineBreakCommand` (undoable, mirrors the existing
+     `ModifyRepeatStartCommand` exactly), `MeasureContentViewModel.ToggleLineBreak()`, and an Edit
+     > Bar Line > "Toggle Line Break After This Measure" menu item. `BuildLayout` checks the
+     *previous* measure's flag on every iteration (above and beyond its two existing wrap
+     conditions) and forces a wrap, unless already at the start of a fresh line. Verified a forced
+     break wraps right after the flagged measure without ever producing a trailing empty line when
+     it's set on the score's last measure.
+   - **`sample/Ode to Joy.jianpu` was real Beethoven, but with genuinely wrong rhythm data** — measures
+     didn't actually total 4 beats each despite the declared 4/4 (2, 5, and 1.25 beats respectively
+     for three of the five measures), which is what was really behind the uneven bar widths the user
+     first noticed (not a rendering bug — measures with truly different durations correctly render at
+     different widths; see the beat-width-consistency fix above). Rather than patch the rhythm bug in
+     place, replaced it entirely with a proper 8-measure, four-part (SATB) hymn arrangement of the
+     real tune and Henry van Dyke's real 1907 public-domain English text ("Joyful, Joyful, We Adore
+     Thee"), harmonized in root-position block chords against the piece's own chord symbols (verified
+     every voice totals exactly 4 beats in every measure). `DemoScoreFactory.CreateOdeToJoy` (the
+     in-memory "Load Demo Score" path, separate from the sample file) was updated to match exactly,
+     so both paths show the same, correct piece.
+   - **New `sample/Amazing Grace (Descant).jianpu`** — a from-scratch second sample demonstrating a
+     genuine 5-voice score (Descant above SATB), the real "New Britain" tune and John Newton's real
+     1779 public-domain text, in its actual 3/4 meter, with the tune's famous low-register dip
+     (`Octave: -1`) at "I once was lost... but now am found" and the descant's high register
+     (`Octave: 1`) throughout, resolving to a high tonic on the final "I see." Verified every voice
+     totals exactly 3 beats in every measure and the render shows all five labeled rows in the
+     correct order (Descant / Soprano / Alto / Tenor / Bass).
 10. **Pickup measure — verified, documentation only, done.** Traced every path a manually-entered
     short first measure touches: editing (`MeasureNavigationViewModel.ApplyAddMeasure` appends a
     new measure unconditionally, no check that the previous one is "full"), rendering/beam
