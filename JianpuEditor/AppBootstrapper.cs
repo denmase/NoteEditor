@@ -54,7 +54,7 @@ namespace JianpuEditor
             services.AddSingleton<IAudioImportService, AudioImportService>();
             services.AddSingleton<ISampleLibraryService, SampleLibraryServiceAdapter>();
             services.AddSingleton<IChordTransposeService, ChordTransposeServiceAdapter>();
-            services.AddSingleton<IHarmonySuggestionService, HarmonySuggestionServiceAdapter>();
+            services.AddSingleton<IHarmonySuggestionService>(_ => CreateHarmonySuggestionService());
             services.AddSingleton<SampleLibraryViewModel>();
             services.AddSingleton<ILayoutService, WinFormsLayoutService>();
             services.AddSingleton<IPlaybackCoordinator, PlaybackCoordinator>();
@@ -111,6 +111,48 @@ namespace JianpuEditor
                     AppLog.Exception("Failed to initialize bundled SoundFont synthesizer, falling back to system MIDI device", fallbackEx);
                     return new WindowsMidiSynthesizer();
                 }
+            }
+        }
+
+        private static IHarmonySuggestionService CreateHarmonySuggestionService()
+        {
+            var legacy = new HarmonySuggestionServiceAdapter();
+            var markov = new MarkovHarmonySuggestionService(LoadOrTrainMarkovModel());
+            return new SelectableHarmonySuggestionService(legacy, markov);
+        }
+
+        // Trains the Markov chord-transition model from its plain-text corpus (see
+        // Data/chord_corpus.txt) once and caches the result next to it, mirroring how
+        // AppTheme/SampleLibraryService resolve resources relative to AppDomain.CurrentDomain.BaseDirectory.
+        // Re-trains whenever the corpus is newer than the cached model (e.g. after an app update
+        // ships an edited corpus). Any failure here just means the "Markov" engine falls back to
+        // rule-based + voice-leading scoring only (MarkovChordModel is optional everywhere it's used).
+        private static MarkovChordModel LoadOrTrainMarkovModel()
+        {
+            try
+            {
+                var dataDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data");
+                var corpusPath = Path.Combine(dataDirectory, "chord_corpus.txt");
+                var modelPath = Path.Combine(dataDirectory, "markov_chord_model.txt");
+
+                if (!File.Exists(corpusPath))
+                {
+                    return null;
+                }
+
+                if (File.Exists(modelPath) && File.GetLastWriteTimeUtc(modelPath) >= File.GetLastWriteTimeUtc(corpusPath))
+                {
+                    return MarkovChordModel.Load(modelPath);
+                }
+
+                var model = ChordTransitionTrainer.TrainFromFile(corpusPath);
+                model.Save(modelPath);
+                return model;
+            }
+            catch (Exception ex)
+            {
+                AppLog.Exception("Failed to load/train the Markov chord model, enhanced suggestions will use rule-based scoring only", ex);
+                return null;
             }
         }
     }
