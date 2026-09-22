@@ -115,5 +115,22 @@ namespace JianpuEditor.Tests.Services
             Assert.NotEmpty(result);
             Assert.All(result, r => Assert.Equal(2, r.Steps.Count));
         }
+
+        [Fact]
+        public void MarkovHarmonySuggestionService_SuggestForMeasureRange_WholeSong_CoversEveryMeasure()
+        {
+            var service = new MarkovHarmonySuggestionService();
+            var measures = new List<JianpuMeasure>();
+            for (var i = 0; i < 10; i++)
+            {
+                measures.Add(ScoreTestHelper.Measure(ScoreTestHelper.Note(1), ScoreTestHelper.Note(2), ScoreTestHelper.Note(3), ScoreTestHelper.Note(4)));
+            }
+
+            var result = service.SuggestForMeasureRange(measures, "1=C");
+
+            Assert.NotEmpty(result);
+            Assert.All(result, r => Assert.Equal(10, r.Steps.Count));
+            Assert.All(result, r => Assert.Equal(9, r.Steps[r.Steps.Count - 1].MeasureOffset));
+        }
     }
 }

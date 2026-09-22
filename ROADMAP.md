@@ -1058,3 +1058,16 @@ knowledge base and algorithm shape but reworked to fit this codebase rather than
   retraining. All new/changed files also passed `dotnet build` (zero errors) and
   `dotnet format --verify-no-changes` (after the usual CRLF round-trip this sandbox needs -- see
   the SATB passes above for why).
+
+**Follow-up fix, found while answering "can chords be suggested for a whole song?" -- done.**
+`ProgressionEngine.SuggestProgression`'s template library only goes up to 4 measures; for a longer
+range (the common case for "whole song") it fell back to `Templates[4].Select(t => t.Take(count))`
+-- `Take` on a 4-element array with `count > 4` just returns all 4 elements unchanged, so the
+"Enhanced (Markov)" engine silently suggested chords for only the first 4 measures of any longer
+selection and left the rest blank on Apply, with no error. The original Legacy engine
+(`HarmonyProgressionService.ExpandTemplate`) never had this problem -- it already pads a base
+template out to any length. Fixed the Markov engine's `ProgressionEngine` with a new
+`ExtendTemplate` that does the same "alternating IV/V filler, forced V-I cadence at the end" pad
+as `ExpandTemplate`, so both backends now behave predictably and completely past 4 measures.
+Covered by new `HarmonyEngineTests.ProgressionEngine_LongerThanFourMeasures_CoversEveryMeasureInsteadOfTruncating`
+and `SelectableHarmonySuggestionServiceTests.MarkovHarmonySuggestionService_SuggestForMeasureRange_WholeSong_CoversEveryMeasure`.

@@ -68,6 +68,42 @@ namespace JianpuEditor.Services
             return new RomanNumeral { Degree = degree, Quality = quality };
         }
 
+        /// <summary>
+        /// Extends a base template to cover a longer range (e.g. a whole song, well beyond the
+        /// 4-measure templates above) by padding it with an alternating IV/V filler and forcing a
+        /// closing V-I cadence -- the same "repeat and cadence" shape
+        /// <see cref="HarmonyProgressionService"/>'s own ExpandTemplate already uses for the
+        /// Legacy engine at this length, so both backends behave predictably past 4 measures. A
+        /// no-op (aside from truncating) when the template is already long enough.
+        /// </summary>
+        private static RomanNumeral[] ExtendTemplate(RomanNumeral[] template, int targetLength)
+        {
+            if (template.Length >= targetLength)
+            {
+                return template.Take(targetLength).ToArray();
+            }
+
+            var extended = new List<RomanNumeral>(template);
+            while (extended.Count < targetLength)
+            {
+                if (extended.Count == targetLength - 1)
+                {
+                    extended.Add(RN(1));
+                }
+                else if (extended.Count == targetLength - 2)
+                {
+                    extended.Add(RN(5));
+                    extended.Add(RN(1));
+                }
+                else
+                {
+                    extended.Add(extended.Count % 2 == 0 ? RN(4) : RN(5));
+                }
+            }
+
+            return extended.ToArray();
+        }
+
         /// <summary>Result wrapper carrying both the candidate progression and its score.</summary>
         public sealed class RankedProgression
         {
@@ -98,7 +134,7 @@ namespace JianpuEditor.Services
                     return new List<RankedProgression>();
                 }
 
-                templates = Templates[best].Select(t => t.Take(count).ToArray()).ToList();
+                templates = Templates[best].Select(t => ExtendTemplate(t, count)).ToList();
             }
 
             var profiles = measuresPerBar.Select(MeasureProfile.FromNotes).ToList();
