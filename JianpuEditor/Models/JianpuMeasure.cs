@@ -8,6 +8,11 @@ namespace JianpuEditor.Models
 
         public List<JianpuNote> MelodyNotes { get; set; } = new List<JianpuNote>();
 
+        /// <summary>Independent voices beyond <see cref="MelodyNotes"/> -- SATB's Alto/Tenor/
+        /// Bass, and/or a descant/solo line. Empty by default, so an existing score with no
+        /// extra voices renders/plays exactly as it did before this field existed.</summary>
+        public List<JianpuVoice> ExtraVoices { get; set; } = new List<JianpuVoice>();
+
         public List<JianpuChord> Chords { get; set; } = new List<JianpuChord>();
 
         public List<ChordMarker> ChordMarkers { get; set; } = new List<ChordMarker>();

@@ -23,6 +23,15 @@ namespace JianpuEditor.Services
     {
         public const int MelodyChannel = 0;
         public const int ChordChannel = 1;
+
+        /// <summary>First MIDI channel used for a measure's <see cref="JianpuMeasure.ExtraVoices"/>
+        /// (SATB's Alto/Tenor/Bass, and/or an "above" descant/solo) -- one channel per list slot,
+        /// channel 2 for slot 0, channel 3 for slot 1, and so on, matching every measure's list
+        /// order regardless of <see cref="JianpuVoice.IsAbove"/>. Every extra voice is scheduled
+        /// for playback even though only "below" voices are drawn on screen so far (see
+        /// ROADMAP.md) -- audio doesn't depend on that row existing visually.</summary>
+        public const int ExtraVoiceChannelBase = 2;
+
         public const int MelodyVelocity = 90;
         public const int ChordVelocity = 72;
         public const int DefaultMeasureBeats = 4;
@@ -47,9 +56,11 @@ namespace JianpuEditor.Services
                 RepeatPlaybackExpander.Expand(score.Measures, score.Voltas));
             var melody = BuildMelodyNotes(score, playOrder);
             var chords = BuildChordNotes(score, playOrder);
-            var notes = new List<ScheduledMidiNote>(melody.Count + chords.Count);
+            var extraVoices = BuildExtraVoiceNotes(score, playOrder);
+            var notes = new List<ScheduledMidiNote>(melody.Count + chords.Count + extraVoices.Count);
             notes.AddRange(melody);
             notes.AddRange(chords);
+            notes.AddRange(extraVoices);
             schedule.Notes = notes;
             schedule.TotalQuarterLength = ComputeTotalQuarterLength(score, playOrder);
             return schedule;
@@ -233,6 +244,121 @@ namespace JianpuEditor.Services
 
                     quarterTime += duration;
                 }
+            }
+
+            return events;
+        }
+
+        /// <summary>Schedules every <see cref="JianpuMeasure.ExtraVoices"/> slot across the score,
+        /// one MIDI channel per slot (see <see cref="ExtraVoiceChannelBase"/>). Deliberately much
+        /// simpler than <see cref="BuildMelodyNotes"/>: an extra voice has no ties, ornaments,
+        /// dynamics, or chord-at-slot data of its own yet (see ROADMAP.md), so this only handles
+        /// plain notes, rests, and continuation dots.</summary>
+        private static List<ScheduledMidiNote> BuildExtraVoiceNotes(JianpuScore score, IReadOnlyList<int> playOrder)
+        {
+            var events = new List<ScheduledMidiNote>();
+            var measures = score.Measures ?? new List<JianpuMeasure>();
+            var maxExtraVoices = 0;
+            foreach (var measureIndex in playOrder)
+            {
+                var count = measures[measureIndex]?.ExtraVoices?.Count ?? 0;
+                maxExtraVoices = Math.Max(maxExtraVoices, count);
+            }
+
+            var tonicMidi = ParseTonicMidi(score.KeySignature);
+            for (var voiceIndex = 0; voiceIndex < maxExtraVoices; voiceIndex++)
+            {
+                events.AddRange(BuildSingleExtraVoiceNotes(measures, playOrder, voiceIndex, tonicMidi));
+            }
+
+            return events;
+        }
+
+        private static List<ScheduledMidiNote> BuildSingleExtraVoiceNotes(
+            IList<JianpuMeasure> measures,
+            IReadOnlyList<int> playOrder,
+            int voiceIndex,
+            int tonicMidi)
+        {
+            var events = new List<ScheduledMidiNote>();
+            var channel = ExtraVoiceChannelBase + voiceIndex;
+            var measureStart = 0.0;
+            var soundingEventIndices = new List<int>();
+
+            foreach (var measureIndex in playOrder)
+            {
+                var measure = measures[measureIndex];
+                var measureDuration = GetMeasureDurationUnits(measure);
+                var voice = measure?.ExtraVoices != null && voiceIndex < measure.ExtraVoices.Count
+                    ? measure.ExtraVoices[voiceIndex]
+                    : null;
+                var notes = voice?.Notes;
+
+                if (notes == null || notes.Count == 0)
+                {
+                    soundingEventIndices.Clear();
+                    // The shared per-measure clock still advances even though this voice has no
+                    // content here (e.g. its own JianpuVoice wasn't populated for this measure),
+                    // so later measures don't drift out of sync with the rest of the score.
+                    measureStart += measureDuration;
+                    continue;
+                }
+
+                var voiceDuration = 0.0;
+                foreach (var note in notes)
+                {
+                    voiceDuration += JianpuRenderer.GetDurationUnits(note);
+                }
+
+                if (Math.Abs(voiceDuration - measureDuration) > 0.001)
+                {
+                    // A mismatch never corrupts playback for other voices or later measures --
+                    // this voice's own notes just get scheduled back-to-back starting at
+                    // measureStart, and the *next* measure resyncs to the shared clock below
+                    // regardless of how this one added up. Still worth surfacing: it usually means
+                    // this voice was entered with the wrong beat count for the measure.
+                    AppLog.Info(
+                        $"SATB voice {voiceIndex} in measure {measureIndex} totals {voiceDuration} beat(s), "
+                        + $"but the measure is {measureDuration} beat(s) long.");
+                }
+
+                var quarterTime = measureStart;
+                foreach (var note in notes)
+                {
+                    var duration = JianpuRenderer.GetDurationUnits(note);
+
+                    if (note.Type == NoteType.Rest && note.IsContinuation)
+                    {
+                        foreach (var eventIndex in soundingEventIndices)
+                        {
+                            events[eventIndex].DurationQuarter += duration;
+                        }
+
+                        quarterTime += duration;
+                        continue;
+                    }
+
+                    if (note.Type != NoteType.Note || !JianpuPitchCodec.IsValidMelodyPitch(note))
+                    {
+                        soundingEventIndices.Clear();
+                        quarterTime += duration;
+                        continue;
+                    }
+
+                    events.Add(new ScheduledMidiNote
+                    {
+                        StartQuarter = quarterTime,
+                        DurationQuarter = duration,
+                        MidiNote = ToMelodyMidiNote(note, tonicMidi),
+                        Channel = channel,
+                        Velocity = MelodyVelocity
+                    });
+                    soundingEventIndices = new List<int> { events.Count - 1 };
+
+                    quarterTime += duration;
+                }
+
+                measureStart += measureDuration;
             }
 
             return events;

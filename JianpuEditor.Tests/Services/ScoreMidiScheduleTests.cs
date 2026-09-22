@@ -374,5 +374,68 @@ namespace JianpuEditor.Tests.Services
             Assert.Equal(new[] { tonicMidi, tonicMidi + 2, tonicMidi, tonicMidi + 4 }, pitches);
             Assert.Equal(new[] { 0d, 1d, 2d, 3d }, melodyNotes.Select(note => note.StartQuarter).ToArray());
         }
+
+        [Fact]
+        public void Build_NoExtraVoices_SchedulesEveryNoteOnTheMelodyChannel()
+        {
+            var score = ScoreTestHelper.CreateScore(
+                ScoreTestHelper.Measure(
+                    ScoreTestHelper.Note(1),
+                    ScoreTestHelper.Note(2),
+                    ScoreTestHelper.Note(3),
+                    ScoreTestHelper.Note(4)));
+
+            var schedule = ScoreMidiSchedule.Build(score);
+
+            Assert.Equal(4, schedule.Notes.Count);
+            Assert.All(schedule.Notes, note => Assert.Equal(ScoreMidiSchedule.MelodyChannel, note.Channel));
+        }
+
+        [Fact]
+        public void Build_SatbMeasure_SchedulesEachExtraVoiceOnItsOwnChannelStartingTogether()
+        {
+            var measure = ScoreTestHelper.Measure(
+                ScoreTestHelper.Note(1), ScoreTestHelper.Note(2), ScoreTestHelper.Note(3), ScoreTestHelper.Note(4));
+            measure.ExtraVoices.Add(new JianpuVoice
+            {
+                Role = "Alto",
+                Notes = { ScoreTestHelper.Note(5), ScoreTestHelper.Note(5), ScoreTestHelper.Note(5), ScoreTestHelper.Note(5) }
+            });
+            measure.ExtraVoices.Add(new JianpuVoice
+            {
+                Role = "Tenor",
+                Notes = { ScoreTestHelper.Note(3), ScoreTestHelper.Note(3), ScoreTestHelper.Note(3), ScoreTestHelper.Note(3) }
+            });
+            var score = ScoreTestHelper.CreateScore(measure);
+
+            var schedule = ScoreMidiSchedule.Build(score);
+            var alto = schedule.Notes.Where(note => note.Channel == ScoreMidiSchedule.ExtraVoiceChannelBase + 0).OrderBy(n => n.StartQuarter).ToList();
+            var tenor = schedule.Notes.Where(note => note.Channel == ScoreMidiSchedule.ExtraVoiceChannelBase + 1).OrderBy(n => n.StartQuarter).ToList();
+
+            Assert.Equal(4, alto.Count);
+            Assert.Equal(4, tenor.Count);
+            Assert.Equal(0d, alto[0].StartQuarter);
+            Assert.Equal(1d, alto[1].StartQuarter);
+            Assert.Equal(0d, tenor[0].StartQuarter);
+        }
+
+        [Fact]
+        public void Build_ExtraVoiceMissingFromALaterMeasure_ResyncsInsteadOfDrifting()
+        {
+            var m0 = ScoreTestHelper.Measure(ScoreTestHelper.Note(1), ScoreTestHelper.Note(2));
+            m0.ExtraVoices.Add(new JianpuVoice { Role = "Alto", Notes = { ScoreTestHelper.Note(5), ScoreTestHelper.Note(5) } });
+            var m1 = ScoreTestHelper.Measure(ScoreTestHelper.Note(3), ScoreTestHelper.Note(4)); // no Alto content here
+            var m2 = ScoreTestHelper.Measure(ScoreTestHelper.Note(5), ScoreTestHelper.Note(6));
+            m2.ExtraVoices.Add(new JianpuVoice { Role = "Alto", Notes = { ScoreTestHelper.Note(1), ScoreTestHelper.Note(1) } });
+            var score = ScoreTestHelper.CreateScore(m0, m1, m2);
+
+            var schedule = ScoreMidiSchedule.Build(score);
+            var alto = schedule.Notes
+                .Where(note => note.Channel == ScoreMidiSchedule.ExtraVoiceChannelBase + 0)
+                .OrderBy(note => note.StartQuarter)
+                .ToList();
+
+            Assert.Equal(new[] { 0d, 1d, 4d, 5d }, alto.Select(note => note.StartQuarter).ToArray());
+        }
     }
 }
