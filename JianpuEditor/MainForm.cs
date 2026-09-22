@@ -2171,7 +2171,14 @@ namespace JianpuEditor
                 measureIndex + 1,
                 beatPosition,
                 _viewModel.Document.KeySignature,
-                suggestions))
+                suggestions,
+                _viewModel.ChordEditor.SupportsHarmonyEngineSelection,
+                _viewModel.ChordEditor.HarmonyEngineKind,
+                kind =>
+                {
+                    _viewModel.ChordEditor.HarmonyEngineKind = kind;
+                    return _viewModel.ChordEditor.GetHarmonySuggestions(measureIndex, beatPosition);
+                }))
             {
                 if (dialog.ShowDialog(this) != DialogResult.OK || dialog.SelectedSuggestion == null)
                 {
@@ -2198,7 +2205,14 @@ namespace JianpuEditor
                 fromIndex + 1,
                 toIndex + 1,
                 _viewModel.Document.KeySignature,
-                suggestions))
+                suggestions,
+                _viewModel.ChordEditor.SupportsHarmonyEngineSelection,
+                _viewModel.ChordEditor.HarmonyEngineKind,
+                kind =>
+                {
+                    _viewModel.ChordEditor.HarmonyEngineKind = kind;
+                    return _viewModel.ChordEditor.GetHarmonyProgressionSuggestions(fromIndex, toIndex);
+                }))
             {
                 if (dialog.ShowDialog(this) != DialogResult.OK || dialog.SelectedSuggestion == null)
                 {

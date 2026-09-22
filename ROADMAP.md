@@ -973,3 +973,88 @@ A few additions worth considering, not asked for explicitly but adjacent to the 
 - **Multi-part scores:** today's model is one melody + chord markers; a genuine multi-instrument/multi-staff score (e.g. piano LH/RH, or vocal + accompaniment as independently playable parts) is a bigger data-model change worth scoping separately.
 - **Auto-save & crash recovery** — periodic snapshot of the working score so a crash doesn't lose unsaved edits.
 - **Direct printing**, not just PDF export.
+
+## Harmony suggestion: enhanced (Markov) engine
+
+A second, opt-in chord-suggestion backend alongside the original rule-based `HarmonySuggestionService`
+("Legacy"). Adapted from a design another agent proposed (written for a WPF app with no DI
+container; this app is WinForms + `Microsoft.Extensions.DependencyInjection`), reusing its
+knowledge base and algorithm shape but reworked to fit this codebase rather than ported verbatim
+-- see the specifics below.
+
+- **`HarmonyEngine`/`ProgressionEngine`** (new, internal): combine melody-fit weighting
+  (downbeat/final-note/longer-note bias), voice-leading scoring between chords, a cadence bonus,
+  and an optional Markov chord-transition model, replacing the original suggester's flat "first
+  1-3 diatonic matches" lookup. `MarkovHarmonySuggestionService` adapts the result back into the
+  same `HarmonySuggestion`/`HarmonyProgressionSuggestion` DTOs the UI already renders (both
+  sealed with no numeric `Score` field, so the score is folded into `Reason`).
+- **`MarkovChordModel`**: order-1/order-2 Markov model over chord-transition strings, trained once
+  at startup from `Data/chord_corpus.txt` (a hand-written corpus of real progressions) and cached
+  to `Data/markov_chord_model.txt` next to it (retrained automatically if the corpus is ever
+  edited and is newer than the cache). Training/loading failure just means the Markov engine falls
+  back to melody-fit + voice-leading scoring only -- the model is optional everywhere it's used.
+- **`SelectableHarmonySuggestionService`**: the DI-registered `IHarmonySuggestionService`
+  singleton, wrapping both backends and delegating to whichever `ActiveKind` is selected
+  (**defaults to Legacy**, so existing behaviour is provably unchanged until a user opts in --
+  verified with a runtime test comparing its default output byte-for-byte against calling the old
+  `HarmonySuggestionServiceAdapter` directly). A new capability interface,
+  `IHarmonySuggestionEngineOptions`, exposes the switch; `ChordEditorViewModel` casts to it
+  (`SupportsHarmonyEngineSelection`/`HarmonyEngineKind`) rather than taking a new constructor
+  dependency, so it degrades to "no picker" gracefully for any test or future caller that injects
+  a plain single-backend service. Both `HarmonySuggestionDialog` and
+  `HarmonyProgressionSuggestionDialog` grew an "Engine:" combo box (only shown when the injected
+  service supports it) that re-queries and updates the list live when switched, without closing
+  the dialog.
+- **Adapted, not copied, from the source design**:
+  - It targeted WPF (`App.xaml.cs`/`StartupEventArgs`, XAML `ComboBox` bindings); this app is
+    WinForms with a DI container, so the Markov-model bootstrap moved into
+    `AppBootstrapper.CreateHarmonySuggestionService`/`LoadOrTrainMarkovModel` (mirroring how
+    `SampleLibraryService`/`AppTheme` already resolve resources off
+    `AppDomain.CurrentDomain.BaseDirectory`), and the engine picker became a cast-based optional
+    capability instead of a second parallel `IHarmonySuggestionStrategy` interface duplicating the
+    app's existing `IHarmonySuggestionService`.
+  - **Fixed a real bug in the source design's adapter before porting it**: its single-note
+    `JianpuNoteAdapter` discarded every rest wholesale, continuation-dot rests included. In this
+    app's model a continuation-dot rest (`JianpuNote.IsContinuation`) isn't silence -- it extends
+    the *previous* note's duration (see `JianpuNote.IsContinuation`'s doc comment, and
+    `ScoreMidiSchedule`'s identical handling for playback) -- so dropping it would have silently
+    shrunk a held note's weight in the melody-fit scoring. `JianpuNoteAdapter.ToHarmonyMelodyNotes`
+    is sequence-aware instead: a continuation-dot rest extends the previous `HarmonyMelodyNote`'s
+    `Duration` (via the same `JianpuRenderer.GetDurationUnits` every other duration calculation in
+    this codebase already uses) rather than being dropped or treated as a new, pitchless note.
+    Covered by `JianpuNoteAdapterTests` (a bare rest is skipped and extends nothing; a
+    continuation dot with nothing before it is ignored; multiple consecutive continuation dots all
+    extend the same note).
+  - **Fixed a real bug found while porting `RomanNumeral.ToString()`**: the source design both
+    lower-cased the numeral for a minor-family quality (roman-numeral convention) *and* appended
+    that quality's full suffix (`"m"`/`"m7"`/...), double-encoding minor-ness -- e.g. `vi` came
+    out as `"vim"`, `ii7` as `"iim7"`, neither matching the plain `"vi"`/`"ii7"` the corpus and the
+    rest of this codebase expect. `RomanNumeral`'s private `RomanSuffix` now strips the redundant
+    leading `"m"` for a minor-family quality (the case already signals it), while
+    `HarmonyEngine.ComputeChordSymbol` still uses the untouched `ChordQualityExtensions.GetSuffix`
+    for plain chord-symbol text (`"Dm7"`, `"F#dim"`) that has no letter case to lean on. Caught by
+    a scratch verification harness before it ever reached a checked-in test (see below).
+  - Dropped from the ported design as unreachable/unused given this app's actual, stateless
+    per-call `IHarmonySuggestionService` interface (a single-measure suggestion call never sees
+    neighboring measures, so there is no session to carry "previous chord" context across calls):
+    the `HarmonicContext` session object and its user-preference learning, `RomanNumeral.Inversion`
+    and the inversion-aware chord-symbol logic that used it (nothing in the vocabulary ever set
+    it), `ChordQuality.Major6`/`Minor6`/`IsSeventh` (never referenced by the ported algorithm), and
+    `HarmonyMelodyNote.Octave`/`BeatPosition` (computed but never read).
+- **Verification**: the pure-algorithm code (`ChordVocabulary`, `VoiceLeadingScorer`,
+  `MarkovChordModel`, `ChordTransitionTrainer`, `HarmonyEngine`, `ProgressionEngine`,
+  `RomanNumeral`) has no WinForms dependency at all, so it was compiled and run directly with
+  `mcs`/`mono` as a standalone harness (independent of the xunit test files, which need the
+  net8.0-windows / WindowsDesktop runtime this sandbox doesn't have) -- this is where the two bugs
+  above were actually caught, before ever being committed. The WinForms-touching pieces
+  (`JianpuNoteAdapter`, `MarkovHarmonySuggestionService`, `SelectableHarmonySuggestionService`)
+  were verified by compiling a second harness against the real built `JianpuEditor.exe` (named to
+  match the project's `InternalsVisibleTo` grant so it can see the same `internal` types the real
+  test project sees). `AppBootstrapper.CreateHarmonySuggestionService`/`LoadOrTrainMarkovModel`
+  were verified end-to-end via reflection, run from inside the real net472 build output directory:
+  confirms the corpus is actually found and trained through `AppDomain.CurrentDomain.BaseDirectory`
+  exactly as the shipped app will resolve it, that the resulting model gets cached to
+  `Data/markov_chord_model.txt`, and that a second run correctly loads the cache instead of
+  retraining. All new/changed files also passed `dotnet build` (zero errors) and
+  `dotnet format --verify-no-changes` (after the usual CRLF round-trip this sandbox needs -- see
+  the SATB passes above for why).

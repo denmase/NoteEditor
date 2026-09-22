@@ -1,0 +1,51 @@
+# Training corpus for the enhanced (Markov) harmony engine's chord-transition model.
+# One progression per line, chords separated by spaces, in roman-numeral notation matching
+# RomanNumeral.ToString() (e.g. "I", "V7", "vi", "ii7b5", "V7/V"). Lines starting with # are
+# comments. Loaded/trained once at startup by AppBootstrapper -- see MarkovChordModel.
+
+# === Common pop progressions ===
+I vi IV V
+I IV V I
+I V vi IV
+vi IV I V
+I vi ii V
+ii V I vi
+I IV vi V
+I V IV I
+
+# === Seventh chords ===
+Imaj7 vi7 ii7 V7
+ii7 V7 Imaj7 vi7
+Imaj7 IVmaj7 iii7 vi7
+vi7 ii7 V7 Imaj7
+iii7 vi7 ii7 V7
+Imaj7 IV7 iii7 vi7
+
+# === Jazz / ballad ===
+ii7 V7 Imaj7 VImaj7
+Imaj7 vi7 ii7 V7
+ii7b5 V7 Imaj7
+Imaj7 VI7 ii7 V7
+iii7 VI7 ii7 V7
+Imaj7 iv7 iii7 VI7
+
+# === Secondary dominants ===
+I V7/ii ii7 V7
+I V7/vi vi IV
+I V7/IV IV I
+vi V7/ii ii7 V7
+I V7/V V I
+
+# === Modal / borrowed ===
+I bVII IV I
+I bVI bVII I
+I iv I V
+I bIII IV I
+
+# === Cadences ===
+ii V I
+IV V I
+V I
+V7 I
+ii7 V7 Imaj7
+IVmaj7 V7 Imaj7

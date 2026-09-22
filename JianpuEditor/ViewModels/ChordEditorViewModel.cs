@@ -229,6 +229,34 @@ namespace JianpuEditor.ViewModels
             get { return _document.KeySignature; }
         }
 
+        /// <summary>True when the injected harmony service offers more than one suggestion
+        /// backend (see <see cref="SelectableHarmonySuggestionService"/>), i.e. an engine picker
+        /// can be shown in the UI. False for a plain, single-backend service such as the one
+        /// used directly by tests.</summary>
+        public bool SupportsHarmonyEngineSelection
+        {
+            get { return _harmonySuggestionService is IHarmonySuggestionEngineOptions; }
+        }
+
+        /// <summary>Which harmony suggestion backend is currently active. Reading/writing this
+        /// is a no-op when <see cref="SupportsHarmonyEngineSelection"/> is false.</summary>
+        public HarmonySuggestionEngineKind HarmonyEngineKind
+        {
+            get
+            {
+                var options = _harmonySuggestionService as IHarmonySuggestionEngineOptions;
+                return options != null ? options.ActiveKind : HarmonySuggestionEngineKind.Legacy;
+            }
+            set
+            {
+                var options = _harmonySuggestionService as IHarmonySuggestionEngineOptions;
+                if (options != null)
+                {
+                    options.ActiveKind = value;
+                }
+            }
+        }
+
         public IReadOnlyList<HarmonyProgressionSuggestion> GetHarmonyProgressionSuggestions(
             int fromMeasureIndex,
             int toMeasureIndex)

@@ -9,16 +9,21 @@ namespace JianpuEditor.Views
 {
     public sealed class HarmonyProgressionSuggestionDialog : Form
     {
-        private readonly IReadOnlyList<HarmonyProgressionSuggestion> _suggestions;
+        private readonly Func<HarmonySuggestionEngineKind, IReadOnlyList<HarmonyProgressionSuggestion>> _reloadSuggestions;
         private readonly ListBox _suggestionList;
+        private IReadOnlyList<HarmonyProgressionSuggestion> _suggestions;
 
         public HarmonyProgressionSuggestionDialog(
             int fromMeasureNumber,
             int toMeasureNumber,
             string keySignature,
-            IReadOnlyList<HarmonyProgressionSuggestion> suggestions)
+            IReadOnlyList<HarmonyProgressionSuggestion> suggestions,
+            bool supportsEngineSelection = false,
+            HarmonySuggestionEngineKind initialEngineKind = HarmonySuggestionEngineKind.Legacy,
+            Func<HarmonySuggestionEngineKind, IReadOnlyList<HarmonyProgressionSuggestion>> reloadSuggestions = null)
         {
             _suggestions = suggestions ?? Array.Empty<HarmonyProgressionSuggestion>();
+            _reloadSuggestions = reloadSuggestions;
 
             Text = "Chord Progression Suggestions";
             FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -26,26 +31,60 @@ namespace JianpuEditor.Views
             MinimizeBox = false;
             MaximizeBox = false;
             ShowInTaskbar = false;
-            ClientSize = new Size(520, 340);
 
+            var y = 16;
             var contextLabel = new Label
             {
-                Location = new Point(16, 16),
+                Location = new Point(16, y),
                 Size = new Size(488, 36),
                 Text = "Measures " + fromMeasureNumber + "–" + toMeasureNumber + ", key " + (keySignature ?? "1=C")
             };
+            Controls.Add(contextLabel);
+            y += 36;
+
+            ComboBox engineCombo = null;
+            if (supportsEngineSelection && _reloadSuggestions != null)
+            {
+                var engineLabel = new Label
+                {
+                    Location = new Point(16, y + 3),
+                    Size = new Size(50, 20),
+                    Text = "Engine:"
+                };
+                Controls.Add(engineLabel);
+
+                engineCombo = new ComboBox
+                {
+                    Location = new Point(70, y),
+                    Size = new Size(220, 22),
+                    DropDownStyle = ComboBoxStyle.DropDownList
+                };
+                engineCombo.Items.Add("Legacy (diatonic)");
+                engineCombo.Items.Add("Enhanced (Markov)");
+                engineCombo.SelectedIndex = initialEngineKind == HarmonySuggestionEngineKind.Markov ? 1 : 0;
+                engineCombo.SelectedIndexChanged += (s, e) =>
+                {
+                    var kind = engineCombo.SelectedIndex == 1 ? HarmonySuggestionEngineKind.Markov : HarmonySuggestionEngineKind.Legacy;
+                    _suggestions = _reloadSuggestions(kind) ?? Array.Empty<HarmonyProgressionSuggestion>();
+                    PopulateSuggestionList();
+                };
+                Controls.Add(engineCombo);
+                y += 26;
+            }
 
             var hintLabel = new Label
             {
-                Location = new Point(16, 52),
+                Location = new Point(16, y),
                 Size = new Size(488, 32),
                 ForeColor = Color.DimGray,
-                Text = "Based on the melody's bass line and harmonic movement, suggests 1–3 continuous chord progressions (local rules only)."
+                Text = "Based on the melody's bass line and harmonic movement, suggests 1–3 continuous chord progressions."
             };
+            Controls.Add(hintLabel);
+            y += 38;
 
             _suggestionList = new ListBox
             {
-                Location = new Point(16, 88),
+                Location = new Point(16, y),
                 Size = new Size(488, 196),
                 IntegralHeight = false
             };
@@ -57,7 +96,36 @@ namespace JianpuEditor.Views
                     Close();
                 }
             };
+            Controls.Add(_suggestionList);
+            y += 196 + 16;
 
+            PopulateSuggestionList();
+
+            var applyButton = new Button
+            {
+                Text = "Apply to Measures",
+                DialogResult = DialogResult.OK,
+                Location = new Point(300, y),
+                Width = 110
+            };
+            var cancelButton = new Button
+            {
+                Text = "Cancel",
+                DialogResult = DialogResult.Cancel,
+                Location = new Point(424, y),
+                Width = 80
+            };
+            Controls.Add(applyButton);
+            Controls.Add(cancelButton);
+            AcceptButton = applyButton;
+            CancelButton = cancelButton;
+
+            ClientSize = new Size(520, y + 16 + applyButton.Height);
+        }
+
+        private void PopulateSuggestionList()
+        {
+            _suggestionList.Items.Clear();
             foreach (var suggestion in _suggestions)
             {
                 var symbols = string.Join(" - ", suggestion.Steps.Select(step => step.ChordSymbol));
@@ -69,29 +137,6 @@ namespace JianpuEditor.Views
             {
                 _suggestionList.SelectedIndex = 0;
             }
-
-            var applyButton = new Button
-            {
-                Text = "Apply to Measures",
-                DialogResult = DialogResult.OK,
-                Location = new Point(300, 296),
-                Width = 110
-            };
-            var cancelButton = new Button
-            {
-                Text = "Cancel",
-                DialogResult = DialogResult.Cancel,
-                Location = new Point(424, 296),
-                Width = 80
-            };
-
-            Controls.Add(contextLabel);
-            Controls.Add(hintLabel);
-            Controls.Add(_suggestionList);
-            Controls.Add(applyButton);
-            Controls.Add(cancelButton);
-            AcceptButton = applyButton;
-            CancelButton = cancelButton;
         }
 
         public HarmonyProgressionSuggestion SelectedSuggestion

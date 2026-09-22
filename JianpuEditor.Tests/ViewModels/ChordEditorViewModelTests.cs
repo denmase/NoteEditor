@@ -1,4 +1,5 @@
 using JianpuEditor.Models;
+using JianpuEditor.Services;
 using JianpuEditor.Tests.Helpers;
 using JianpuEditor.ViewModels;
 using Xunit;
@@ -126,6 +127,41 @@ namespace JianpuEditor.Tests.ViewModels
             Assert.False(result.Changed);
             Assert.Equal("Invalid key signature", result.Message);
             Assert.Equal("1=C", document.KeySignature);
+        }
+
+        [Fact]
+        public void SupportsHarmonyEngineSelection_PlainHarmonyService_IsFalse()
+        {
+            var (document, selection, messenger, history) = ViewModelTestHelper.CreateDocumentWithSelection();
+            var navigation = ViewModelTestHelper.CreateMeasureNavigation(document, selection, messenger, history);
+            var chordEditor = ViewModelTestHelper.CreateChordEditor(document, selection, navigation, messenger, history: history);
+
+            Assert.False(chordEditor.SupportsHarmonyEngineSelection);
+            Assert.Equal(HarmonySuggestionEngineKind.Legacy, chordEditor.HarmonyEngineKind);
+
+            // Writing is a harmless no-op when the injected service doesn't support switching.
+            chordEditor.HarmonyEngineKind = HarmonySuggestionEngineKind.Markov;
+            Assert.Equal(HarmonySuggestionEngineKind.Legacy, chordEditor.HarmonyEngineKind);
+        }
+
+        [Fact]
+        public void HarmonyEngineKind_SelectableService_SwitchesTheActiveBackend()
+        {
+            var (document, selection, messenger, history) = ViewModelTestHelper.CreateDocumentWithSelection();
+            var navigation = ViewModelTestHelper.CreateMeasureNavigation(document, selection, messenger, history);
+            var selectable = new SelectableHarmonySuggestionService(
+                new HarmonySuggestionServiceAdapter(),
+                new MarkovHarmonySuggestionService());
+            var chordEditor = ViewModelTestHelper.CreateChordEditor(
+                document, selection, navigation, messenger, harmonySuggestionService: selectable, history: history);
+
+            Assert.True(chordEditor.SupportsHarmonyEngineSelection);
+            Assert.Equal(HarmonySuggestionEngineKind.Legacy, chordEditor.HarmonyEngineKind);
+
+            chordEditor.HarmonyEngineKind = HarmonySuggestionEngineKind.Markov;
+
+            Assert.Equal(HarmonySuggestionEngineKind.Markov, chordEditor.HarmonyEngineKind);
+            Assert.Equal(HarmonySuggestionEngineKind.Markov, selectable.ActiveKind);
         }
     }
 }
