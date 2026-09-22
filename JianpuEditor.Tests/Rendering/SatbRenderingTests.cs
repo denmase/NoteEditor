@@ -213,7 +213,7 @@ namespace JianpuEditor.Tests.Rendering
         }
 
         [Fact]
-        public void HitTest_ClickAboveMelodyRow_ResolvesAsGenericMeasureHit()
+        public void HitTest_ClickAboveMelodyRow_ResolvesToTheAboveVoicesOwnNote()
         {
             var renderer = new JianpuRenderer();
             var score = BuildDescantAboveSatbScore();
@@ -221,6 +221,25 @@ namespace JianpuEditor.Tests.Rendering
 
             var descantRowY = layout.GetDrawTop() + JianpuRenderer.MelodyRowHeight / 2;
             var hit = renderer.HitTest(score, 900, new Point(layout.X + 10, descantRowY));
+
+            Assert.Equal(ScoreHitType.Note, hit.HitType);
+            Assert.Equal(0, hit.MeasureIndex);
+            Assert.Equal(0, hit.NoteIndex);
+            Assert.Equal(0, hit.VoiceIndex);
+        }
+
+        [Fact]
+        public void HitTest_ClickInGapBetweenAboveVoiceRowAndMelody_ResolvesAsGenericMeasureHit()
+        {
+            var renderer = new JianpuRenderer();
+            var score = BuildDescantAboveSatbScore();
+            var layout = renderer.GetMeasureLayouts(score, 900)[0];
+
+            // Between the Descant row's own bottom and the melody row's top (BlockTop) -- inside
+            // RowGap, not on the Descant row's own MelodyRowHeight span -- still falls through to a
+            // generic Measure hit, same as the equivalent gap between two "below" voice rows.
+            var gapY = layout.GetDrawTop() + JianpuRenderer.MelodyRowHeight + JianpuRenderer.RowGap / 2;
+            var hit = renderer.HitTest(score, 900, new Point(layout.X + 10, gapY));
 
             Assert.Equal(ScoreHitType.Measure, hit.HitType);
             Assert.Equal(0, hit.MeasureIndex);
