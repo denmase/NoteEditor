@@ -4,6 +4,7 @@
   "Tempo": "Moderato",
   "Bpm": 120,
   "Composer": "Beethoven",
+  "PrimaryVoiceLabel": "Soprano",
   "Measures": [
     {
       "MelodyNotes": [
@@ -12,11 +13,43 @@
         { "Type": 0, "Pitch": 4, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
         { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false }
       ],
+      "ExtraVoices": [
+        {
+          "Role": "Alto",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 7, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 7, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Tenor",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 2, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 2, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Bass",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false }
+          ]
+        }
+      ],
       "ChordMarkers": [
         { "Text": "C", "BeatPosition": 0.0 },
         { "Text": "G", "BeatPosition": 2.0 }
       ],
-      "LyricText": "Goddess of joy"
+      "LyricText": "Joy ful, joy ful,"
     },
     {
       "MelodyNotes": [
@@ -25,43 +58,302 @@
         { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
         { "Type": 0, "Pitch": 2, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false }
       ],
+      "ExtraVoices": [
+        {
+          "Role": "Alto",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 7, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 7, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Tenor",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 2, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 2, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Bass",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false }
+          ]
+        }
+      ],
       "ChordMarkers": [
         { "Text": "G", "BeatPosition": 0.0 },
         { "Text": "C", "BeatPosition": 2.0 }
       ],
-      "LyricText": "pure and beautiful"
-    },
-    {
-      "MelodyNotes": [
-        { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 1, "Dotted": false }
-      ],
-      "ChordMarkers": [
-        { "Text": "F", "BeatPosition": 0.0 }
-      ],
-      "LyricText": "Radiant light"
+      "LyricText": "we a dore Thee,"
     },
     {
       "MelodyNotes": [
         { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+        { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
         { "Type": 0, "Pitch": 2, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
-        { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+        { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false }
+      ],
+      "ExtraVoices": [
+        {
+          "Role": "Alto",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Tenor",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Bass",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false }
+          ]
+        }
+      ],
+      "ChordMarkers": [
+        { "Text": "C", "BeatPosition": 0.0 }
+      ],
+      "LyricText": "God of glo ry,"
+    },
+    {
+      "MelodyNotes": [
+        { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": true },
+        { "Type": 0, "Pitch": 2, "Octave": 0, "Underlines": 1, "Dashes": 0, "Dotted": false },
         { "Type": 0, "Pitch": 2, "Octave": 0, "Underlines": 0, "Dashes": 1, "Dotted": false }
+      ],
+      "ExtraVoices": [
+        {
+          "Role": "Alto",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 7, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": true },
+            { "Type": 0, "Pitch": 7, "Octave": 0, "Underlines": 1, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 7, "Octave": 0, "Underlines": 0, "Dashes": 1, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Tenor",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": true },
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 1, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 1, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Bass",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": true },
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 1, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 1, "Dotted": false }
+          ]
+        }
+      ],
+      "ChordMarkers": [
+        { "Text": "G", "BeatPosition": 0.0 }
+      ],
+      "LyricText": "Lord of love;"
+    },
+    {
+      "MelodyNotes": [
+        { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+        { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+        { "Type": 0, "Pitch": 4, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+        { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false }
+      ],
+      "ExtraVoices": [
+        {
+          "Role": "Alto",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 7, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 7, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Tenor",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 2, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 2, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Bass",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false }
+          ]
+        }
       ],
       "ChordMarkers": [
         { "Text": "C", "BeatPosition": 0.0 },
         { "Text": "G", "BeatPosition": 2.0 }
       ],
-      "LyricText": "shines on the earth"
+      "LyricText": "Hearts un fold like"
     },
     {
       "MelodyNotes": [
-        { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 1, "Dashes": 0, "Dotted": true },
-        { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 1, "Dashes": 0, "Dotted": false }
+        { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+        { "Type": 0, "Pitch": 4, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+        { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+        { "Type": 0, "Pitch": 2, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false }
+      ],
+      "ExtraVoices": [
+        {
+          "Role": "Alto",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 7, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 7, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Tenor",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 2, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 2, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Bass",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false }
+          ]
+        }
+      ],
+      "ChordMarkers": [
+        { "Text": "G", "BeatPosition": 0.0 },
+        { "Text": "C", "BeatPosition": 2.0 }
+      ],
+      "LyricText": "flow'rs be fore Thee,"
+    },
+    {
+      "MelodyNotes": [
+        { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+        { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+        { "Type": 0, "Pitch": 2, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+        { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false }
+      ],
+      "ExtraVoices": [
+        {
+          "Role": "Alto",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Tenor",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Bass",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false }
+          ]
+        }
       ],
       "ChordMarkers": [
         { "Text": "C", "BeatPosition": 0.0 }
       ],
-      "LyricText": "we gather joyfully"
+      "LyricText": "Op' ning to the"
+    },
+    {
+      "MelodyNotes": [
+        { "Type": 0, "Pitch": 2, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": true },
+        { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 1, "Dashes": 0, "Dotted": false },
+        { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 1, "Dotted": false }
+      ],
+      "ExtraVoices": [
+        {
+          "Role": "Alto",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 7, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": true },
+            { "Type": 0, "Pitch": 7, "Octave": 0, "Underlines": 1, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 1, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Tenor",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": true },
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 1, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 1, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Bass",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": true },
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 1, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 1, "Dotted": false }
+          ]
+        }
+      ],
+      "ChordMarkers": [
+        { "Text": "G", "BeatPosition": 0.0 },
+        { "Text": "C", "BeatPosition": 2.0 }
+      ],
+      "LyricText": "sun a bove."
     }
   ],
   "Ties": []

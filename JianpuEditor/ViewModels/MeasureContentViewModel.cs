@@ -124,6 +124,25 @@ namespace JianpuEditor.ViewModels
             return command.Result ?? ScoreEditResult.Unchanged;
         }
 
+        /// <summary>Toggles a forced line break after the current measure -- the only way to make
+        /// a line wrap somewhere other than where <see cref="Rendering.JianpuRenderer.BuildLayout"/>
+        /// would automatically wrap it by width.</summary>
+        public ScoreEditResult ToggleLineBreak()
+        {
+            _document.EnsureMeasures();
+            var measureIndex = Math.Max(0, Math.Min(_navigation.CurrentMeasureIndex, _document.Score.Measures.Count - 1));
+            var measure = _document.Score.Measures[measureIndex];
+
+            var command = new ModifyLineBreakCommand(
+                _document.Score,
+                _messenger,
+                measureIndex,
+                measure.ForcesLineBreak,
+                !measure.ForcesLineBreak);
+            _history.Execute(command);
+            return command.Result ?? ScoreEditResult.Unchanged;
+        }
+
         public ScoreEditResult NotifyInlineLyricEdited(int measureIndex)
         {
             LoadFromMeasure(measureIndex);

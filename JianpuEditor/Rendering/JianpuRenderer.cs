@@ -2901,6 +2901,15 @@ namespace JianpuEditor.Rendering
                     needNewLine = true;
                 }
 
+                // A forced break on the PREVIOUS measure always wraps here, even if this measure
+                // would otherwise still fit the available width -- the only way to break a line
+                // anywhere other than where automatic width-based wrapping would put it. No-op if
+                // already at the start of a fresh line (nothing to break from).
+                if (index > 0 && score.Measures[index - 1].ForcesLineBreak && line.Measures.Count > 0)
+                {
+                    needNewLine = true;
+                }
+
                 if (needNewLine)
                 {
                     blockTop += line.GetEffectiveHeight() + StaffBlockSpacing;

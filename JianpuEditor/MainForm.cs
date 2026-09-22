@@ -797,6 +797,10 @@ namespace JianpuEditor
                 "Toggle Repeat Start",
                 Keys.None,
                 (s, e) => ExecuteScoreEdit(() => _viewModel.MeasureContent.ToggleRepeatStart())));
+            barLineMenu.DropDownItems.Add(CreateMenuItem(
+                "Toggle Line Break After This Measure",
+                Keys.None,
+                (s, e) => ExecuteScoreEdit(() => _viewModel.MeasureContent.ToggleLineBreak())));
             editMenu.DropDownItems.Add(barLineMenu);
             var voltaMenu = new ToolStripMenuItem("Volta Bracket");
             voltaMenu.DropDownItems.Add(CreateMenuItem(

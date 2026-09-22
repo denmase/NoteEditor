@@ -1,0 +1,341 @@
+{
+  "Title": "Amazing Grace",
+  "KeySignature": "1=C",
+  "TimeSignature": "3/4",
+  "Tempo": "Andante",
+  "Bpm": 76,
+  "Composer": "Traditional (New Britain)",
+  "PrimaryVoiceLabel": "Soprano",
+  "Measures": [
+    {
+      "MelodyNotes": [
+        { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+        { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+        { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false }
+      ],
+      "ExtraVoices": [
+        {
+          "Role": "Descant",
+          "IsAbove": true,
+          "Notes": [
+            { "Type": 0, "Pitch": 5, "Octave": 1, "Underlines": 0, "Dashes": 2, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Alto",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 2, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Tenor",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 2, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Bass",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 2, "Dotted": false }
+          ]
+        }
+      ],
+      "ChordMarkers": [
+        { "Text": "C", "BeatPosition": 0.0 }
+      ],
+      "LyricText": "A ma zing grace,"
+    },
+    {
+      "MelodyNotes": [
+        { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+        { "Type": 0, "Pitch": 2, "Octave": 0, "Underlines": 0, "Dashes": 1, "Dotted": false }
+      ],
+      "ExtraVoices": [
+        {
+          "Role": "Descant",
+          "IsAbove": true,
+          "Notes": [
+            { "Type": 0, "Pitch": 2, "Octave": 1, "Underlines": 0, "Dashes": 2, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Alto",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 2, "Octave": 0, "Underlines": 0, "Dashes": 2, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Tenor",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 7, "Octave": 0, "Underlines": 0, "Dashes": 2, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Bass",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 2, "Dotted": false }
+          ]
+        }
+      ],
+      "ChordMarkers": [
+        { "Text": "G", "BeatPosition": 0.0 }
+      ],
+      "LyricText": "how sweet the sound,"
+    },
+    {
+      "MelodyNotes": [
+        { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+        { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+        { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false }
+      ],
+      "ExtraVoices": [
+        {
+          "Role": "Descant",
+          "IsAbove": true,
+          "Notes": [
+            { "Type": 0, "Pitch": 5, "Octave": 1, "Underlines": 0, "Dashes": 2, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Alto",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 2, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Tenor",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 2, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Bass",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 2, "Dotted": false }
+          ]
+        }
+      ],
+      "ChordMarkers": [
+        { "Text": "C", "BeatPosition": 0.0 }
+      ],
+      "LyricText": "that saved a wretch"
+    },
+    {
+      "MelodyNotes": [
+        { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+        { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 1, "Dotted": false }
+      ],
+      "ExtraVoices": [
+        {
+          "Role": "Descant",
+          "IsAbove": true,
+          "Notes": [
+            { "Type": 0, "Pitch": 5, "Octave": 1, "Underlines": 0, "Dashes": 2, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Alto",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 2, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Tenor",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 2, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Bass",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 2, "Dotted": false }
+          ]
+        }
+      ],
+      "ChordMarkers": [
+        { "Text": "C", "BeatPosition": 0.0 }
+      ],
+      "LyricText": "like me."
+    },
+    {
+      "MelodyNotes": [
+        { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+        { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+        { "Type": 0, "Pitch": 6, "Octave": -1, "Underlines": 0, "Dashes": 0, "Dotted": false }
+      ],
+      "ExtraVoices": [
+        {
+          "Role": "Descant",
+          "IsAbove": true,
+          "Notes": [
+            { "Type": 0, "Pitch": 1, "Octave": 1, "Underlines": 0, "Dashes": 2, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Alto",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 2, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Tenor",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 6, "Octave": 0, "Underlines": 0, "Dashes": 2, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Bass",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 4, "Octave": 0, "Underlines": 0, "Dashes": 2, "Dotted": false }
+          ]
+        }
+      ],
+      "ChordMarkers": [
+        { "Text": "F", "BeatPosition": 0.0 }
+      ],
+      "LyricText": "I once was lost,"
+    },
+    {
+      "MelodyNotes": [
+        { "Type": 0, "Pitch": 6, "Octave": -1, "Underlines": 0, "Dashes": 0, "Dotted": false },
+        { "Type": 0, "Pitch": 5, "Octave": -1, "Underlines": 0, "Dashes": 1, "Dotted": false }
+      ],
+      "ExtraVoices": [
+        {
+          "Role": "Descant",
+          "IsAbove": true,
+          "Notes": [
+            { "Type": 0, "Pitch": 3, "Octave": 1, "Underlines": 0, "Dashes": 2, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Alto",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 2, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Tenor",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 2, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Bass",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 6, "Octave": -1, "Underlines": 0, "Dashes": 2, "Dotted": false }
+          ]
+        }
+      ],
+      "ChordMarkers": [
+        { "Text": "Am", "BeatPosition": 0.0 }
+      ],
+      "LyricText": "but now am found,"
+    },
+    {
+      "MelodyNotes": [
+        { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+        { "Type": 0, "Pitch": 2, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+        { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false }
+      ],
+      "ExtraVoices": [
+        {
+          "Role": "Descant",
+          "IsAbove": true,
+          "Notes": [
+            { "Type": 0, "Pitch": 5, "Octave": 1, "Underlines": 0, "Dashes": 2, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Alto",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 2, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Tenor",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 2, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Bass",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 2, "Dotted": false }
+          ]
+        }
+      ],
+      "ChordMarkers": [
+        { "Text": "C", "BeatPosition": 0.0 }
+      ],
+      "LyricText": "was blind but now"
+    },
+    {
+      "MelodyNotes": [
+        { "Type": 0, "Pitch": 2, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+        { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 1, "Dotted": false }
+      ],
+      "ExtraVoices": [
+        {
+          "Role": "Descant",
+          "IsAbove": true,
+          "Notes": [
+            { "Type": 0, "Pitch": 2, "Octave": 1, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 1, "Octave": 1, "Underlines": 0, "Dashes": 1, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Alto",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 2, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 1, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Tenor",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 7, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 3, "Octave": 0, "Underlines": 0, "Dashes": 1, "Dotted": false }
+          ]
+        },
+        {
+          "Role": "Bass",
+          "IsAbove": false,
+          "Notes": [
+            { "Type": 0, "Pitch": 5, "Octave": 0, "Underlines": 0, "Dashes": 0, "Dotted": false },
+            { "Type": 0, "Pitch": 1, "Octave": 0, "Underlines": 0, "Dashes": 1, "Dotted": false }
+          ]
+        }
+      ],
+      "ChordMarkers": [
+        { "Text": "G", "BeatPosition": 0.0 },
+        { "Text": "C", "BeatPosition": 1.0 }
+      ],
+      "LyricText": "I see."
+    }
+  ],
+  "Ties": []
+}

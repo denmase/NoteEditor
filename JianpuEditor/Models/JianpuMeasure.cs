@@ -30,5 +30,10 @@ namespace JianpuEditor.Models
 
         /// <summary>Whether a repeat-start bar line is drawn at this measure's left edge.</summary>
         public bool IsRepeatStart { get; set; }
+
+        /// <summary>When true, the line always wraps after this measure, even if the next measure
+        /// would otherwise still fit the available width -- the only way to force a line break;
+        /// without one, JianpuRenderer.BuildLayout wraps purely automatically, by width.</summary>
+        public bool ForcesLineBreak { get; set; }
     }
 }

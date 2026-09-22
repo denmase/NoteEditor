@@ -78,5 +78,37 @@ namespace JianpuEditor.Tests.ViewModels
 
             Assert.False(document.Score.Measures[0].IsRepeatStart);
         }
+
+        [Fact]
+        public void ToggleLineBreak_TogglesCurrentMeasure()
+        {
+            var (document, selection, messenger, history) = ViewModelTestHelper.CreateDocumentWithSelection();
+            document.EnsureMeasures();
+            var navigation = ViewModelTestHelper.CreateMeasureNavigation(document, selection, messenger, history);
+            var measureContent = new MeasureContentViewModel(document, navigation, messenger, history);
+
+            var result = measureContent.ToggleLineBreak();
+
+            Assert.True(result.Changed);
+            Assert.True(document.Score.Measures[0].ForcesLineBreak);
+
+            measureContent.ToggleLineBreak();
+
+            Assert.False(document.Score.Measures[0].ForcesLineBreak);
+        }
+
+        [Fact]
+        public void ToggleLineBreak_Undo_RestoresPreviousValue()
+        {
+            var (document, selection, messenger, history) = ViewModelTestHelper.CreateDocumentWithSelection();
+            document.EnsureMeasures();
+            var navigation = ViewModelTestHelper.CreateMeasureNavigation(document, selection, messenger, history);
+            var measureContent = new MeasureContentViewModel(document, navigation, messenger, history);
+            measureContent.ToggleLineBreak();
+
+            history.Undo();
+
+            Assert.False(document.Score.Measures[0].ForcesLineBreak);
+        }
     }
 }
