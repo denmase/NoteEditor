@@ -48,6 +48,46 @@ namespace JianpuEditor.Tests.Services
         }
 
         [Fact]
+        public void Clone_ExtraVoices_RoundTripsWithNoSpecialCasing()
+        {
+            var score = new JianpuScore
+            {
+                Title = "SATB",
+                Measures =
+                {
+                    new JianpuMeasure
+                    {
+                        MelodyNotes = { new JianpuNote { Pitch = 1, Type = NoteType.Note } },
+                        ExtraVoices =
+                        {
+                            new JianpuVoice
+                            {
+                                Role = "Alto",
+                                Notes = { new JianpuNote { Pitch = 5, Type = NoteType.Note } }
+                            },
+                            new JianpuVoice
+                            {
+                                Role = "Descant",
+                                IsAbove = true,
+                                Notes = { new JianpuNote { Pitch = 5, Octave = 1, Type = NoteType.Note } }
+                            }
+                        }
+                    }
+                }
+            };
+
+            var clone = ScoreCloneService.Clone(score);
+
+            Assert.NotSame(score.Measures[0].ExtraVoices, clone.Measures[0].ExtraVoices);
+            Assert.Equal(2, clone.Measures[0].ExtraVoices.Count);
+            Assert.Equal("Alto", clone.Measures[0].ExtraVoices[0].Role);
+            Assert.Equal(5, clone.Measures[0].ExtraVoices[0].Notes[0].Pitch);
+            Assert.False(clone.Measures[0].ExtraVoices[0].IsAbove);
+            Assert.Equal("Descant", clone.Measures[0].ExtraVoices[1].Role);
+            Assert.True(clone.Measures[0].ExtraVoices[1].IsAbove);
+        }
+
+        [Fact]
         public void AreEquivalent_DetectsEqualClonesAndDifferentScores()
         {
             var original = new JianpuScore { Title = "A" };

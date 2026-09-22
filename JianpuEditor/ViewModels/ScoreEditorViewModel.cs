@@ -228,6 +228,35 @@ namespace JianpuEditor.ViewModels
             return ScoreEditResult.WithMessage(message);
         }
 
+        /// <summary>Backs the Edit &gt; Voices &gt; Single/SATB menu preset (see
+        /// <see cref="VoiceModeService"/>) -- the minimal, whole-score way to reach the new
+        /// multi-voice rendering/playback path.</summary>
+        public ScoreEditResult SetVoiceMode(bool useSatb)
+        {
+            return EditCommandHelper.Execute(
+                _history,
+                new ScoreSnapshotEditCommand(
+                    _document,
+                    _navigation,
+                    _messenger,
+                    () => ApplySetVoiceMode(useSatb),
+                    useSatb ? "Switch to SATB voices" : "Switch to single voice"));
+        }
+
+        private ScoreEditResult ApplySetVoiceMode(bool useSatb)
+        {
+            _document.EnsureMeasures();
+            var changed = useSatb
+                ? VoiceModeService.ApplySatb(_document.Score)
+                : VoiceModeService.ApplySingle(_document.Score);
+            if (!changed)
+            {
+                return ScoreEditResult.Unchanged;
+            }
+
+            return ScoreEditResult.WithMessage(useSatb ? "Switched to SATB voices" : "Switched to single voice");
+        }
+
         private List<ScoreNoteRef> GetSelectedNoteRefs()
         {
             if (_selection.SelectedNotes != null && _selection.SelectedNotes.Count > 0)

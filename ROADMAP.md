@@ -362,24 +362,28 @@ here and intentionally excluded.*
    field/behavior for backward compatibility; additional verses are new, optional). Inline lyric
    editor gains a verse stepper; renderer stacks N lyric rows instead of a fixed one — a real but
    contained rendering change, inert for every existing single-verse score.
-9. **SATB / multi-voice support — not started; a scratchpad prototype (throwaway code, not in
-   this repo) validated the architecture directly at 4 voices first.** By far the largest item —
-   this is a core data-model change (today's single `MelodyNotes` per measure would need to
-   become one of N independent voices, rippling through rendering, playback scheduling, MIDI
-   import/export, undo/redo commands, and the selection model). Still its own separately-scoped
-   project, not part of the same wave as items 1-8.
+9. **SATB / multi-voice support — prototype phase done, first real implementation pass shipped.** By far
+   the largest item — a core data-model change (today's single `MelodyNotes` per measure becomes
+   one of N independent voices), rippling through rendering, playback scheduling, MIDI import/
+   export, undo/redo commands, and the selection model. A multi-round scratchpad prototype
+   (throwaway code, never part of this repo, always reverted before any commit) fully validated
+   the architecture before any production code changed — full findings below, since they directly
+   define what the real implementation had to get right from the start.
 
    The original plan here was "prototype with 2 voices before committing to 4 (SATB)," on the
    assumption that 2 voices proves out the architecture at half the risk. Skipped straight to 4
    per explicit direction, since the real risk items (independent rhythm per voice, whether
    undo/clone/serialization need any changes, whether ties stay voice-scoped) don't actually get
-   cheaper to prove at 2 voices than at 4 — the same code paths are exercised either way.
+   cheaper to prove at 2 voices than at 4 — the same code paths are exercised either way. Later
+   extended to 5 (Descant above SATB) specifically to validate voice *ordering* as a distinct
+   concern from voice *count*.
 
-   Built a throwaway `SatbMeasure`/`SatbScore` (real `JianpuNote`/duration logic reused via a
-   direct reference to the built assembly, not a reinvented toy model) with a 2-measure chorale
-   phrase, one measure deliberately giving Bass a different rhythm (four eighth notes) than the
-   other three voices (a half note each) — the actual hard case, since real hymnal SATB
-   occasionally has a passing tone in one voice while the others hold. Findings:
+   **Round 1 — data model, undo/clone, per-voice scheduling, tie-scoping.** Built a throwaway
+   `SatbMeasure`/`SatbScore` (real `JianpuNote`/duration logic reused via a direct reference to
+   the built assembly, not a reinvented toy model) with a 2-measure chorale phrase, one measure
+   deliberately giving Bass a different rhythm (four eighth notes) than the other three voices (a
+   half note each) — the actual hard case, since real hymnal SATB occasionally has a passing tone
+   in one voice while the others hold.
    - **Undo/redo and file save/load need zero changes.** `ScoreSnapshotEditCommand`'s undo and
      `ScoreFileService`'s save/load both already go through `ScoreCloneService.Clone`, which is a
      plain Newtonsoft.Json serialize/deserialize round-trip over the whole `JianpuScore` object
@@ -391,35 +395,156 @@ here and intentionally excluded.*
      GetDurationUnits`/`ScoreMidiSchedule.ToMelodyMidiNote` — Bass's 8 differently-shaped events
      and the other three voices' 5 events each land on correct, independent timelines with no
      shared-state bugs between voices.
-   - **A real cross-voice invariant surfaced that the real feature will need to actively check,
-     not just assume**: every voice's *total* duration within a measure must agree even when
-     slot counts differ (Bass's 4×0.5 = the others' 1×2.0 in the stress-test measure) — nothing
-     enforces this in a naive per-voice note list today, and a mismatched voice would silently
-     misalign the shared bar line. Worth a validation/warning in the real editor, not left to
-     silently corrupt playback.
+   - **A real cross-voice invariant surfaced that the real feature needs to actively check, not
+     just assume**: every voice's *total* duration within a measure must agree even when slot
+     counts differ (Bass's 4×0.5 = the others' 1×2.0 in the stress-test measure) — nothing
+     enforces this in a naive per-voice note list, and a mismatched voice silently miscalibrates
+     that voice's own per-measure scale factor instead of erroring (confirmed for real later, see
+     below — a hand-entered descant measure that was actually 5 beats against the other voices'
+     6 drifted every note after the first, silently, until measured).
    - **Ties stay correctly voice-scoped** with a `VoicePart` discriminator added to a `JianpuTie`-
      shaped record: an identical-looking note in a different voice at the same measure/note
-     position is untouched by another voice's tie, confirming per-voice tie lists (or one list
-     with a voice field) don't need any cross-voice bookkeeping beyond what `TieMaintenanceService`
-     already does per voice independently.
-   - **Visual stacking (4 voice rows + one shared chord/lyric row under one measure grid) reads
-     as a coherent chorale block** — see the rendered prototype image. But this also exposed the
-     one genuine rendering-architecture gap the prototype was built to find: the real
-     `JianpuRenderer`'s horizontal layout is *duration-proportional* (beat-grid positioning via
-     `ChordMarkerLayout.GetBeatAnchorX`-style cumulative-time placement, with underlines/dashes
-     affecting a note's own cell width), not slot-count-based. A naive "N slots = N equal cells"
-     layout (what the throwaway prototype renderer used, for simplicity) only happens to keep
-     voices aligned when a coincidence of cell width and note duration lines up, and would visibly
-     drift out of alignment for less tidy rhythms. **The real implementation must compute each
-     measure's width from the widest-in-*time* voice and position every voice's notes by
-     cumulative beat offset (mirroring how chord markers already position within one row today),
-     not by each voice laying out its own slots independently** — this is the one piece of real,
-     non-trivial new layout math the eventual feature needs, not something that falls out for
-     free the way undo/clone/tie-scoping did.
+     position is untouched by another voice's tie.
 
-   Not yet scoped: the actual `JianpuMeasure`/rendering/`ScoreMidiSchedule`/selection-model
-   changes to build this for real, which the findings above should directly inform once that work
-   starts.
+   **Round 2 — full-fidelity rendering (real `JianpuRenderer` glyphs, not a toy renderer) exposed
+   three separate, real layout bugs**, found and fixed in this order, each verified by patching
+   `JianpuRenderer.cs` locally, re-rendering, measuring actual glyph pixel positions (not
+   eyeballing), then reverting before commit:
+   - **Bug 1 — shared measure width.** `MeasureLayout.Width` is derived independently per voice
+     from that voice's own note content. Two voices with the same total beat duration but very
+     different note granularity (Bass's 16 sixteenth-notes vs. the others' one whole note) can
+     compute *different* widths, because `MinNoteWidth` (28px) floors any note narrower than
+     that — 16×28=448px vs. the proportional 16×24=384px. Measured drift: up to 160px in the
+     stress case. Fix: compute each measure's width as `max` across all its voices, then stretch
+     every narrower voice to that shared width — `MeasureLayout.ApplyMelodyScale` gained a second
+     `stretchToFill` parameter (`false` preserves today's exact shrink-only behavior).
+   - **Bug 2 — dash marks aren't on the beat grid.** `DrawNoteDottedAndDashes` spaced a held
+     note's trailing dashes by evenly dividing the *leftover space after the glyph*
+     (`extensionWidth / (Dashes + 1)`), a purely cosmetic convention invisible in single-voice
+     rendering (nothing else ever needed to line up against it) that visibly drifted once a
+     second voice's independently-positioned notes/dashes were compared at the same beat.
+     Fix: one dash per true beat-cell, `beatCellWidth = noteWidth / (Dashes + 1)`.
+   - **Bug 3 — notes and dashes disagreed on where "centered" means.** After bug 2's fix, glyphs
+     still looked wrong together: `DrawCenteredNoteText` visually centers a note glyph *within*
+     its own beat-cell (`cellStart + beatCellWidth/2`), but the bug-2 fix placed each dash's
+     center *at* the cell boundary, not centered within its own cell — a systematic half-cell
+     offset between two individually-grid-correct conventions. A note in one voice and a dash in
+     another voice at the exact same beat, both mathematically on-grid, still rendered visibly
+     half a cell apart. Fix: `dashCenterX = x + beatCellWidth × (i + 1.5)`, matching exactly where
+     a note glyph would center if it occupied that same beat.
+   - **Both fixes' regression risk, confirmed and resolved by gating, not by changing the default
+     path.** Naively making `ApplyMelodyScale` unconditionally bidirectional, or switching
+     `DrawNoteDottedAndDashes` unconditionally to the grid formula, each visibly changes ordinary
+     *single-voice* scores that exist today (a short measure that's correctly padded with blank
+     space now stretches to fill it instead; every dashed note's dashes shift position) — confirmed
+     with real before/after pixel diffs, including one round where the "no difference" first
+     result turned out to be a stale-build testing mistake on the AI's part, caught by re-deriving
+     the numbers by hand and not matching, then corrected by rebuilding after every single edit
+     going forward. **Final, verified-safe design: both fixes gate behind the same condition
+     (a measure has more than one active voice), so a score with no `ExtraVoices` renders through
+     the exact unchanged code path.** Re-verified after the fix: a single-voice regression render
+     pixel-diffs as byte-identical to a freshly-rebuilt true original (only each test image's own
+     title text differs); the multi-voice case's bar-line and within-cell glyph positions now
+     agree within 1-4px across every voice, everywhere measured.
+   - **Voice *ordering* validated separately, at 5 voices (Descant above SATB).** Confirms the
+     render loop needs zero special-casing for "which voice is the descant" — it's purely a
+     position in an ordered list (`[Descant, Soprano, Alto, Tenor, Bass]` renders top-to-bottom).
+     The descant was deliberately given fully independent rhythm (its own 8th-note run, a
+     whole-measure rest while Bass is busy, its own cadence) to stress-test the general N-voice
+     case, not just the 4-voice SATB one.
+   - **One unrelated, real bug found and already fixed while visually comparing octave dots
+     across the multi-voice render**: `NoteTopAnnotationPlanner` computed a high-octave dot's X
+     as `HeadCenterX - 3f`, and the renderer's draw call subtracted 3 again — a double subtraction
+     that left every high-octave dot 3px left of true center (low-octave dots, drawn via a
+     different code path, were unaffected). Shipped as its own standalone fix, independent of
+     the multi-voice work — see the git history for the dedicated commit; two existing tests had
+     pinned the buggy offset as "expected" and were corrected alongside it.
+
+   **Proposed real data model** (what's now being implemented, see below): `JianpuMeasure.
+   MelodyNotes` stays exactly as-is (zero migration, the primary/Soprano-equivalent voice). New
+   `List<JianpuVoice> ExtraVoices` (`JianpuVoice { string Role; List<JianpuNote> Notes; bool
+   IsAbove; }`), empty by default. Render order resolves to: every `IsAbove` voice first (in list
+   order), then `MelodyNotes`, then the rest of `ExtraVoices` in list order — this is exactly the
+   ordering rule the 5-voice prototype validated needs no special-casing beyond list position.
+   Ties/Ornaments/DynamicMarking/Hairpins each gain a voice discriminator. UI exposes a small
+   fixed preset set (Single / SATB / SATB+Solo) that populate/clear `ExtraVoices`, rather than
+   free-form add-any-voice — the data model itself stays fully general for a later "custom" option.
+
+   **First implementation pass — shipped.** All of the following is real, committed production
+   code (not scratchpad), each piece verified against the actual built assembly via the same
+   Mono/libgdiplus render-and-measure harness the prototype used, since `dotnet test` can't run in
+   this sandbox:
+   - **Data model**: `JianpuMeasure.ExtraVoices: List<JianpuVoice>` (`JianpuVoice { string Role;
+     List<JianpuNote> Notes; bool IsAbove; }`), empty by default — zero migration, an existing
+     score round-trips (clone/save/load) unchanged. `VoiceLayoutService.GetRenderOrder` resolves a
+     measure's voices into the validated order (every `IsAbove` voice first, then `MelodyNotes`,
+     then the rest of `ExtraVoices` in list order); `HasMultipleVoices` is the single gate every
+     piece below uses.
+   - **Both verified rendering fixes, ported into production `JianpuRenderer`**, gated on
+     `VoiceLayoutService.HasMultipleVoices(measure)` instead of the prototype's test-only
+     `EqualizeMeasureWidths` reuse: `CalculateMeasureWidth` takes the max natural width across
+     every voice in the measure; `MeasureLayout.ApplyMelodyScale` gained the `stretchToFill`
+     parameter; `DrawNoteDottedAndDashes` switches to the beat-grid-precise dash formula only for
+     a multi-voice measure. Regression-verified byte-identical (matching SHA-256 of the rendered
+     bitmap, not just "looks the same") for a plain score with no `ExtraVoices`.
+   - **N-voice row stacking.** Each measure's "below" voices (Alto/Tenor/Bass) render in their own
+     row directly under the melody, via a new `MeasureLayout.ExtraVoiceLayout` (mirrors the
+     primary voice's own note-layout/draw-bounds math, scaled to the same shared width) and
+     `DrawExtraVoiceRows`/`DrawExtraVoiceNote` — notes, octave dots, and dotted-note/dash marks
+     only; ties, ornaments, chords, and beat-group underlines aren't part of `JianpuVoice` yet, so
+     they're not drawn for extra voices (kept additive to `DrawMelodyRow` rather than generalizing
+     it). `StaffBlockHeight` (previously a fixed constant used everywhere: hit-testing, PDF content
+     height, block/line stacking) is now `MeasureLayout.GetEffectiveHeight()`/`StaffLineLayout.
+     GetEffectiveHeight()`, growing by `MelodyRowHeight + RowGap` per below-voice row; Dynamics/
+     Secondary/Lyrics rows, hit-testing zones, row labels, bar-line height, and selection highlight
+     all shift down through the same two helpers, so they never drifted out of sync with what's
+     actually drawn. A click on a below-voice row resolves as a generic Measure hit (no per-note
+     editing there yet — see below) rather than being misread against the primary voice's note
+     bounds. Verified via `RenderToBitmap` (ink actually present on each extra row, at the right Y)
+     and `HitTest` (below-voice clicks vs. melody clicks resolve correctly) — not just the layout
+     math. **"Above" voices (descant/solo) are in the data model and render-order rule, but not
+     drawn as their own row yet** — deferred alongside per-note editing below, since both need the
+     same kind of generalization work.
+   - **Per-voice MIDI/playback scheduling.** `ScoreMidiSchedule.BuildExtraVoiceNotes` schedules
+     every `ExtraVoices` slot (both "below" and "above" — audio doesn't depend on the row being
+     drawn) on its own channel (`ExtraVoiceChannelBase` = 2, one channel per slot), deliberately
+     much simpler than the primary voice's `BuildMelodyNotes`: plain notes/rests/continuation-dots
+     only, no ties/ornaments/dynamics/hairpins (not on `JianpuVoice` yet). Each measure resyncs to
+     the shared per-measure clock regardless of how a voice's own notes added up, so a duration
+     mismatch (the real risk the prototype's descant flagged) can't cascade into drift on later
+     measures — it only ever affects that one measure's internal timing, and is actively logged via
+     `AppLog.Info` rather than silently miscalibrating. Verified including the resync case directly
+     (a voice missing from one measure in the middle of a score, confirming the next measure's notes
+     land back on the correct beat).
+   - **Minimal reachability: Edit → Voices → Single Voice / SATB.** `VoiceModeService.ApplySatb`
+     populates every measure with rest-filled Alto/Tenor/Bass voices (each rest's dash count sized
+     to that measure's own beat count, so it never trips the mismatch check above) unless that
+     measure already has extra voices — re-choosing "SATB" never clobbers hand-entered voice
+     content. `ApplySingle` clears them. Wired through `ScoreEditorViewModel.SetVoiceMode` as an
+     ordinary `ScoreSnapshotEditCommand` (whole-score undo/redo, same as Clear Score/Add Volta).
+     Verified end-to-end: apply SATB, hand-edit a rest into a real note (simulating what a user
+     would type next), render to a bitmap, confirm the extra rows/taller layout/pushed-down
+     Dynamics all appear together, then switch back to Single Voice and confirm the score collapses
+     back to exactly its original single-voice layout.
+
+   **Known gaps, not yet addressed by this pass** (real, not hypothetical — each is a fixed
+   constant that assumes uniform per-line height, same root cause, different call site):
+   - `PdfPagePlanner.GetLinesHeight` estimates how many lines fit on a PDF page using the fixed
+     `StaffBlockHeight` alone, so a page containing an SATB line may be planned as if it were
+     shorter than it actually renders (the render itself, via `RenderPdfPageToBitmap`, does use
+     the real per-line effective height and sizes its own bitmap correctly — it's specifically the
+     *page-count estimate* that's still uniform-height).
+   - `PlaybackLayout`'s vertical playback marker and Y-based drag-to-seek row-matching both still
+     use the fixed `StaffBlockHeight` for a line's vertical extent, so on a line with extra voice
+     rows the marker doesn't extend through them and a seek-drag into that space snaps to the
+     nearest available row instead of that exact one.
+
+   **Deliberately deferred to a follow-up** (unchanged from the original assessment): per-note
+   editing/selection of the extra voices (`ScoreNoteRef` needs a voice index, rippling through
+   `ScoreCanvas` hit-testing and `NoteEditorViewModel`) — identified in the prototype as the single
+   largest remaining chunk, and not something that could be validated by rendering/playback alone
+   the way everything above was. "Above" voice (descant) rendering as its own row is the other
+   piece that needs this same generalization and is deferred alongside it.
 10. **Pickup measure — verified, documentation only, done.** Traced every path a manually-entered
     short first measure touches: editing (`MeasureNavigationViewModel.ApplyAddMeasure` appends a
     new measure unconditionally, no check that the previous one is "full"), rendering/beam

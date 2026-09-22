@@ -832,6 +832,16 @@ namespace JianpuEditor
                 Keys.None,
                 (s, e) => ExecuteNoteEdit(() => _viewModel.NoteEditor.SetAccidental(AccidentalKind.None))));
             editMenu.DropDownItems.Add(accidentalMenu);
+            var voicesMenu = new ToolStripMenuItem("Voices");
+            voicesMenu.DropDownItems.Add(CreateMenuItem(
+                "Single Voice",
+                Keys.None,
+                (s, e) => ExecuteScoreEdit(() => _viewModel.ScoreEditor.SetVoiceMode(false))));
+            voicesMenu.DropDownItems.Add(CreateMenuItem(
+                "SATB (Alto / Tenor / Bass)",
+                Keys.None,
+                (s, e) => ExecuteScoreEdit(() => _viewModel.ScoreEditor.SetVoiceMode(true))));
+            editMenu.DropDownItems.Add(voicesMenu);
             editMenu.DropDownItems.Add(CreateMenuItem("Clear Score", Keys.None, OnClearScore));
 
             var viewMenu = new ToolStripMenuItem("View");
