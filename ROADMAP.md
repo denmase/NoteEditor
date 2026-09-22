@@ -705,6 +705,40 @@ here and intentionally excluded.*
      (`Octave: 1`) throughout, resolving to a high tonic on the final "I see." Verified every voice
      totals exactly 3 beats in every measure and the render shows all five labeled rows in the
      correct order (Descant / Soprano / Alto / Tenor / Bass).
+
+   **Fifth pass — extra voices played as bare piano notes indistinguishable from the melody, and
+   the playback marker didn't cover a descant row — done.** Both found by the user actually
+   listening to and watching playback of the new real-content SATB samples above.
+   - **Extra voices had no instrument of their own.** `ScorePlaybackService.LoadTimeline` and
+     `MidiExportService.BuildTrack` only ever sent a `ProgramChange` for the melody and chord
+     channels — every extra-voice channel (`ExtraVoiceChannelBase` and up) was left on whatever a
+     never-explicitly-set MIDI channel happens to default to, which is typically the *same* plain
+     piano patch as the melody. The notes were genuinely being scheduled and played correctly (not
+     silent), but on an identical timbre in a similar register with no octave separation, four-part
+     block harmony can easily just sound like "one voice" rather than four -- exactly what was
+     reported. New `ScoreMidiSchedule.DefaultExtraVoiceInstrument` (General MIDI program 52,
+     "Choir Aahs") is now sent for every extra-voice channel a score actually uses, in both the live
+     playback path and MIDI export, via a new `ScoreMidiSchedule.ExtraVoiceChannelCount` (the same
+     "how many extra-voice slots does this score need" count `BuildExtraVoiceNotes` already computed
+     internally, now shared instead of duplicated). Verified with a `FakeMidiOutput`-based test that
+     every extra-voice channel receives the `ProgramChange` before playback starts, a MIDI-export
+     test that the written file contains the same `ProgramChange` bytes on those channels, and
+     end-to-end against the real "Ode to Joy" SATB sample file (Alto/Tenor/Bass channels 2-4 all
+     receive it).
+   - **The playback marker/seek didn't reach an above voice.** `BuildPlaybackSegments` built each
+     segment's `BlockTop`/`Height` from `MeasureLayout.BlockTop`/`GetEffectiveHeight()` -- exactly
+     the melody-row-and-below span, which is *below* where a descant/solo row actually draws (see
+     the "above" voice rendering pass). The marker's own top (and the seekable region) started at
+     the melody row, never covering the descant above it, matching the user's report precisely.
+     Fixed by switching to `GetDrawTop()`/`GetDrawHeight()` -- the same "whole visual block,
+     above-voice rows included" accessors hit-testing, bar lines, and the selection highlight
+     already use, so this was a real gap specific to `BuildPlaybackSegments` alone, not a new
+     concept. A plain score or a SATB score with only below voices sees `GetDrawTop() == BlockTop`
+     and `GetDrawHeight() == GetEffectiveHeight()` exactly (no above-voice headroom to add), so
+     this is a strict generalization with no behavior change for either case -- confirmed by the
+     full existing `PlaybackLayoutTests` suite passing unchanged. New tests cover the descant case
+     directly: the segment's `BlockTop` sits above the melody row's own `BlockTop`, and the marker's
+     `Top` reaches at least a full melody-row-height above it.
 10. **Pickup measure — verified, documentation only, done.** Traced every path a manually-entered
     short first measure touches: editing (`MeasureNavigationViewModel.ApplyAddMeasure` appends a
     new measure unconditionally, no check that the previous one is "full"), rendering/beam

@@ -105,8 +105,12 @@ namespace JianpuEditor.Rendering
                     DurationBeat = duration,
                     X = measure.X,
                     Width = measure.Width,
-                    BlockTop = measure.BlockTop,
-                    Height = measure.GetEffectiveHeight(),
+                    // The whole visual block, not just the melody-row-and-below span: a line with
+                    // an above voice (descant/solo) draws it above BlockTop, and the marker/seek
+                    // must reach through that row too, exactly like hit-testing/selection already
+                    // do via these same two accessors.
+                    BlockTop = measure.GetDrawTop(),
+                    Height = measure.GetDrawHeight(),
                     Measure = measure
                 });
                 beat += duration;

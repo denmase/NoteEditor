@@ -156,6 +156,12 @@ namespace JianpuEditor.Services
             var chordInstrument = GeneralMidiInstruments.Clamp(score.ChordInstrument);
             _synthesizer.ProgramChange(ScoreMidiSchedule.MelodyChannel, melodyInstrument);
             _synthesizer.ProgramChange(ScoreMidiSchedule.ChordChannel, chordInstrument);
+            for (var voiceIndex = 0; voiceIndex < schedule.ExtraVoiceChannelCount; voiceIndex++)
+            {
+                _synthesizer.ProgramChange(
+                    ScoreMidiSchedule.ExtraVoiceChannelBase + voiceIndex,
+                    ScoreMidiSchedule.DefaultExtraVoiceInstrument);
+            }
 
             AppLog.Info(
                 "Playback timeline loaded: melody+chord notes=" + schedule.Notes.Count +
