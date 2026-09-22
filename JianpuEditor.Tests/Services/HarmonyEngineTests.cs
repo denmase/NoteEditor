@@ -101,5 +101,23 @@ namespace JianpuEditor.Tests.Services
             var result = engine.SuggestProgression(new List<IReadOnlyList<HarmonyMelodyNote>>(), keyRootMidi: 60);
             Assert.Empty(result);
         }
+
+        [Fact]
+        public void ProgressionEngine_LongerThanFourMeasures_CoversEveryMeasureInsteadOfTruncating()
+        {
+            // A whole song is usually well past the 4-measure templates above; every candidate
+            // progression must still cover every measure rather than silently stopping at 4.
+            var engine = new ProgressionEngine();
+            var measures = new List<IReadOnlyList<HarmonyMelodyNote>>();
+            for (var i = 0; i < 9; i++)
+            {
+                measures.Add(new List<HarmonyMelodyNote> { N(1), N(2), N(3), N(4) });
+            }
+
+            var result = engine.SuggestProgression(measures, keyRootMidi: 60);
+
+            Assert.NotEmpty(result);
+            Assert.All(result, r => Assert.Equal(9, r.Chords.Count));
+        }
     }
 }

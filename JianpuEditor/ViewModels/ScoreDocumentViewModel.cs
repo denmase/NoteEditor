@@ -183,6 +183,22 @@ namespace JianpuEditor.ViewModels
             }
         }
 
+        public ChordPlaybackStyle ChordPlaybackStyle
+        {
+            get { return _score.ChordPlaybackStyle; }
+            set
+            {
+                if (_score.ChordPlaybackStyle == value)
+                {
+                    return;
+                }
+
+                _score.ChordPlaybackStyle = value;
+                OnPropertyChanged(nameof(ChordPlaybackStyle));
+                MarkDirty();
+            }
+        }
+
         public string CurrentFilePath
         {
             get { return _currentFilePath; }
@@ -395,6 +411,17 @@ namespace JianpuEditor.ViewModels
             }
 
             _history.Execute(new ModifyInstrumentCommand(this, _messenger, isChordInstrument, oldProgram, newProgram));
+        }
+
+        public void ApplyChordPlaybackStyleEdit(ChordPlaybackStyle newStyle)
+        {
+            var oldStyle = ChordPlaybackStyle;
+            if (oldStyle == newStyle)
+            {
+                return;
+            }
+
+            _history.Execute(new ModifyChordPlaybackStyleCommand(this, _messenger, oldStyle, newStyle));
         }
 
         private string GetHeaderStringValue(ScoreHeaderField field)

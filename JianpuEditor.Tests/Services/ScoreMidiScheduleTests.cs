@@ -1,3 +1,4 @@
+using System.Linq;
 using JianpuEditor.Models;
 using JianpuEditor.Rendering;
 using JianpuEditor.Services;
@@ -45,6 +46,102 @@ namespace JianpuEditor.Tests.Services
             Assert.True(schedule.TotalQuarterLength >= 4);
             Assert.Contains(schedule.Notes, note => note.Channel == ScoreMidiSchedule.MelodyChannel);
             Assert.Contains(schedule.Notes, note => note.Channel == ScoreMidiSchedule.ChordChannel);
+        }
+
+        [Fact]
+        public void Build_ChordPlaybackStyleBlock_OneSustainedHitPerChordTone()
+        {
+            var score = ScoreTestHelper.CreateScore(
+                ScoreTestHelper.MeasureWithChords(
+                    new[] { "C" },
+                    new[] { 0d },
+                    ScoreTestHelper.Note(1), ScoreTestHelper.Note(2), ScoreTestHelper.Note(3), ScoreTestHelper.Note(4)));
+            var chordToneCount = ChordParser.ToBlockChordMidiNotes("C").Count;
+
+            var schedule = ScoreMidiSchedule.Build(score);
+            var chordEvents = schedule.Notes.Where(n => n.Channel == ScoreMidiSchedule.ChordChannel).ToList();
+
+            Assert.Equal(chordToneCount, chordEvents.Count);
+            Assert.All(chordEvents, e => Assert.Equal(0.0, e.StartQuarter, 3));
+            Assert.All(chordEvents, e => Assert.Equal(4.0, e.DurationQuarter, 3));
+        }
+
+        [Fact]
+        public void Build_ChordPlaybackStyleComping_ReStrikesOnEveryBeat()
+        {
+            var score = ScoreTestHelper.CreateScore(
+                ScoreTestHelper.MeasureWithChords(
+                    new[] { "C" },
+                    new[] { 0d },
+                    ScoreTestHelper.Note(1), ScoreTestHelper.Note(2), ScoreTestHelper.Note(3), ScoreTestHelper.Note(4)));
+            score.ChordPlaybackStyle = ChordPlaybackStyle.Comping;
+            var chordToneCount = ChordParser.ToBlockChordMidiNotes("C").Count;
+
+            var schedule = ScoreMidiSchedule.Build(score);
+            var chordEvents = schedule.Notes.Where(n => n.Channel == ScoreMidiSchedule.ChordChannel).ToList();
+
+            // A 4-beat chord re-struck every beat produces 4 re-strikes, each with every chord tone.
+            Assert.Equal(chordToneCount * 4, chordEvents.Count);
+            var starts = chordEvents.Select(e => e.StartQuarter).Distinct().OrderBy(s => s).ToList();
+            Assert.Equal(new[] { 0.0, 1.0, 2.0, 3.0 }, starts);
+            // Detached (gated), not sustained for the full beat -- otherwise it would just be Block.
+            Assert.All(chordEvents, e => Assert.True(e.DurationQuarter < 1.0));
+        }
+
+        [Fact]
+        public void Build_ChordPlaybackStyleArpeggio_BreaksChordIntoOneNoteAtATime()
+        {
+            var score = ScoreTestHelper.CreateScore(
+                ScoreTestHelper.MeasureWithChords(
+                    new[] { "C" },
+                    new[] { 0d },
+                    ScoreTestHelper.Note(1), ScoreTestHelper.Note(2), ScoreTestHelper.Note(3), ScoreTestHelper.Note(4)));
+            score.ChordPlaybackStyle = ChordPlaybackStyle.Arpeggio;
+
+            var schedule = ScoreMidiSchedule.Build(score);
+            var chordEvents = schedule.Notes.Where(n => n.Channel == ScoreMidiSchedule.ChordChannel).ToList();
+
+            // 4 beats / 0.5-beat steps = 8 single-note events, not chord-tone-count-per-step.
+            Assert.Equal(8, chordEvents.Count);
+            Assert.All(chordEvents, e => Assert.True(e.DurationQuarter <= 0.5));
+            var starts = chordEvents.Select(e => e.StartQuarter).OrderBy(s => s).ToList();
+            var expectedStarts = new[] { 0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5 };
+            for (var i = 0; i < expectedStarts.Length; i++)
+            {
+                Assert.Equal(expectedStarts[i], starts[i], 3);
+            }
+        }
+
+        [Fact]
+        public void Build_ChordPlaybackStyleStrum_StaggersEachTonesOnset()
+        {
+            var score = ScoreTestHelper.CreateScore(
+                ScoreTestHelper.MeasureWithChords(
+                    new[] { "C" },
+                    new[] { 0d },
+                    ScoreTestHelper.Note(1), ScoreTestHelper.Note(2), ScoreTestHelper.Note(3), ScoreTestHelper.Note(4)));
+            score.ChordPlaybackStyle = ChordPlaybackStyle.Strum;
+            var chordToneCount = ChordParser.ToBlockChordMidiNotes("C").Count;
+
+            var schedule = ScoreMidiSchedule.Build(score);
+            var chordEvents = schedule.Notes
+                .Where(n => n.Channel == ScoreMidiSchedule.ChordChannel)
+                .OrderBy(n => n.StartQuarter)
+                .ToList();
+
+            Assert.Equal(chordToneCount, chordEvents.Count);
+            // Every tone's onset is later than the previous one -- a real (if tiny) stagger.
+            for (var i = 1; i < chordEvents.Count; i++)
+            {
+                Assert.True(chordEvents[i].StartQuarter > chordEvents[i - 1].StartQuarter);
+            }
+
+            // Pitches ascend low to high (typical downstrum), even though ToBlockChordMidiNotes
+            // doesn't return them in pitch order for a slash chord.
+            for (var i = 1; i < chordEvents.Count; i++)
+            {
+                Assert.True(chordEvents[i].MidiNote >= chordEvents[i - 1].MidiNote);
+            }
         }
 
         [Fact]

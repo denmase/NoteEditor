@@ -32,6 +32,9 @@ namespace JianpuEditor.Models
         /// <summary>General MIDI program number (0-127) used for chord markers during playback/MIDI export.</summary>
         public int ChordInstrument { get; set; }
 
+        /// <summary>How chord markers are played back -- see <see cref="ChordPlaybackStyle"/>.</summary>
+        public ChordPlaybackStyle ChordPlaybackStyle { get; set; }
+
         public List<JianpuMeasure> Measures { get; set; } = new List<JianpuMeasure>();
 
         public List<JianpuTie> Ties { get; set; } = new List<JianpuTie>();

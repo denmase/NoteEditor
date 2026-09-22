@@ -504,6 +504,7 @@ namespace JianpuEditor.Services
         {
             var events = new List<ScheduledMidiNote>();
             var measures = score.Measures ?? new List<JianpuMeasure>();
+            var style = score.ChordPlaybackStyle;
             var measureStart = 0.0;
 
             foreach (var measureIndex in playOrder)
@@ -522,17 +523,7 @@ namespace JianpuEditor.Services
                             : measureStart + measureDuration;
                         var chordDuration = Math.Max(0.01, chordEnd - chordStart);
                         var midiNotes = ChordParser.ToBlockChordMidiNotes(chord.Symbol);
-                        foreach (var midiNote in midiNotes)
-                        {
-                            events.Add(new ScheduledMidiNote
-                            {
-                                StartQuarter = chordStart,
-                                DurationQuarter = chordDuration,
-                                MidiNote = midiNote,
-                                Channel = ChordChannel,
-                                Velocity = ChordVelocity
-                            });
-                        }
+                        AppendChordEvents(events, style, midiNotes, chordStart, chordDuration);
                     }
                 }
 
@@ -540,6 +531,158 @@ namespace JianpuEditor.Services
             }
 
             return events;
+        }
+
+        /// <summary>Dispatches one chord marker's span to the note-generation pattern matching
+        /// <see cref="JianpuScore.ChordPlaybackStyle"/> -- see <see cref="ChordPlaybackStyle"/>
+        /// for what each pattern sounds like. The same event list feeds both live playback
+        /// (<see cref="Services.ScorePlaybackService"/>) and MIDI export
+        /// (<see cref="Services.MidiExportService"/>), so a style applies identically to both.</summary>
+        private static void AppendChordEvents(
+            List<ScheduledMidiNote> events,
+            ChordPlaybackStyle style,
+            IReadOnlyList<int> midiNotes,
+            double chordStart,
+            double chordDuration)
+        {
+            if (midiNotes == null || midiNotes.Count == 0)
+            {
+                return;
+            }
+
+            switch (style)
+            {
+                case ChordPlaybackStyle.Comping:
+                    AppendCompingEvents(events, midiNotes, chordStart, chordDuration);
+                    break;
+                case ChordPlaybackStyle.Arpeggio:
+                    AppendArpeggioEvents(events, midiNotes, chordStart, chordDuration);
+                    break;
+                case ChordPlaybackStyle.Strum:
+                    AppendStrumEvents(events, midiNotes, chordStart, chordDuration);
+                    break;
+                default:
+                    AppendBlockEvents(events, midiNotes, chordStart, chordDuration);
+                    break;
+            }
+        }
+
+        private static void AppendBlockEvents(List<ScheduledMidiNote> events, IReadOnlyList<int> midiNotes, double chordStart, double chordDuration)
+        {
+            foreach (var midiNote in midiNotes)
+            {
+                events.Add(new ScheduledMidiNote
+                {
+                    StartQuarter = chordStart,
+                    DurationQuarter = chordDuration,
+                    MidiNote = midiNote,
+                    Channel = ChordChannel,
+                    Velocity = ChordVelocity
+                });
+            }
+        }
+
+        /// <summary>Detached-hit ratio for Comping/Arpeggio: each re-strike's audible duration is
+        /// this fraction of the beat/step it occupies, leaving a small gap before the next
+        /// re-strike so it reads as rhythmic re-articulation rather than one long sustained note.</summary>
+        private const double ChordReStrikeGateRatio = 0.85;
+
+        private static void AppendCompingEvents(List<ScheduledMidiNote> events, IReadOnlyList<int> midiNotes, double chordStart, double chordDuration)
+        {
+            var chordEnd = chordStart + chordDuration;
+            var hitStart = chordStart;
+            while (hitStart < chordEnd - 0.001)
+            {
+                var hitDuration = Math.Min(1.0, chordEnd - hitStart);
+                var gatedDuration = Math.Max(0.05, hitDuration * ChordReStrikeGateRatio);
+                foreach (var midiNote in midiNotes)
+                {
+                    events.Add(new ScheduledMidiNote
+                    {
+                        StartQuarter = hitStart,
+                        DurationQuarter = gatedDuration,
+                        MidiNote = midiNote,
+                        Channel = ChordChannel,
+                        Velocity = ChordVelocity
+                    });
+                }
+
+                hitStart += 1.0;
+            }
+        }
+
+        private const double ArpeggioStepBeats = 0.5;
+
+        private static void AppendArpeggioEvents(List<ScheduledMidiNote> events, IReadOnlyList<int> midiNotes, double chordStart, double chordDuration)
+        {
+            var pattern = BuildArpeggioPattern(midiNotes);
+            var chordEnd = chordStart + chordDuration;
+            var stepStart = chordStart;
+            var patternIndex = 0;
+            while (stepStart < chordEnd - 0.001)
+            {
+                var stepDuration = Math.Min(ArpeggioStepBeats, chordEnd - stepStart);
+                var gatedDuration = Math.Max(0.05, stepDuration * ChordReStrikeGateRatio);
+                events.Add(new ScheduledMidiNote
+                {
+                    StartQuarter = stepStart,
+                    DurationQuarter = gatedDuration,
+                    MidiNote = pattern[patternIndex % pattern.Count],
+                    Channel = ChordChannel,
+                    Velocity = ChordVelocity
+                });
+
+                stepStart += ArpeggioStepBeats;
+                patternIndex++;
+            }
+        }
+
+        /// <summary>Up-down arpeggio order: ascending pitch, then back down to just above the
+        /// root, repeating -- e.g. a triad [C,E,G] becomes C,E,G,E,C,E,G,E,... -- rather than a
+        /// plain sawtooth "climb up, jump back to root" shape. <see cref="ChordParser.ToBlockChordMidiNotes"/>
+        /// doesn't return notes in pitch order (a slash-chord bass note is appended last and can
+        /// be lower than the root), so this sorts ascending first.</summary>
+        private static List<int> BuildArpeggioPattern(IReadOnlyList<int> midiNotes)
+        {
+            var ascending = new List<int>(midiNotes);
+            ascending.Sort();
+            if (ascending.Count <= 2)
+            {
+                return ascending;
+            }
+
+            var pattern = new List<int>(ascending);
+            for (var i = ascending.Count - 2; i > 0; i--)
+            {
+                pattern.Add(ascending[i]);
+            }
+
+            return pattern;
+        }
+
+        /// <summary>How far apart (in beats) each successive strummed note's onset is staggered.
+        /// Expressed in beats rather than wall-clock time so the strum's relative feel stays the
+        /// same at any tempo, the same way every other duration in this schedule is tempo-agnostic
+        /// until <see cref="Services.ScorePlaybackService"/>/<see cref="Services.MidiExportService"/>
+        /// convert it -- roughly 7-8ms per note at a typical 120bpm.</summary>
+        private const double StrumStaggerBeats = 0.015;
+
+        private static void AppendStrumEvents(List<ScheduledMidiNote> events, IReadOnlyList<int> midiNotes, double chordStart, double chordDuration)
+        {
+            var ascending = new List<int>(midiNotes);
+            ascending.Sort();
+            for (var i = 0; i < ascending.Count; i++)
+            {
+                var offset = i * StrumStaggerBeats;
+                events.Add(new ScheduledMidiNote
+                {
+                    StartQuarter = chordStart + offset,
+                    DurationQuarter = Math.Max(0.05, chordDuration - offset),
+                    MidiNote = ascending[i],
+                    Channel = ChordChannel,
+                    Velocity = ChordVelocity
+                });
+            }
         }
 
         private static HashSet<NotePosition> BuildTieEndSet(IList<JianpuTie> ties)
