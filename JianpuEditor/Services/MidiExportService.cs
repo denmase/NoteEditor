@@ -30,7 +30,7 @@ namespace JianpuEditor.Services
             var tempoBpm = ClampBpm(score.Bpm);
             var melodyInstrument = GeneralMidiInstruments.Clamp(score.MelodyInstrument);
             var chordInstrument = GeneralMidiInstruments.Clamp(score.ChordInstrument);
-            var track = BuildTrack(noteEvents, tempoBpm, melodyInstrument, chordInstrument);
+            var track = BuildTrack(noteEvents, tempoBpm, melodyInstrument, chordInstrument, schedule.ExtraVoiceChannelCount);
             WriteMidiFile(path, track);
         }
 
@@ -67,13 +67,26 @@ namespace JianpuEditor.Services
             return Math.Max(MinBpm, Math.Min(MaxBpm, bpm));
         }
 
-        private static byte[] BuildTrack(List<MidiTickNoteEvent> noteEvents, int tempoBpm, int melodyInstrument, int chordInstrument)
+        private static byte[] BuildTrack(
+            List<MidiTickNoteEvent> noteEvents,
+            int tempoBpm,
+            int melodyInstrument,
+            int chordInstrument,
+            int extraVoiceChannelCount)
         {
             var ordered = new List<RawMidiEvent>();
             var microsecondsPerQuarter = 60_000_000 / tempoBpm;
             ordered.Add(new RawMidiEvent(0, EventType.Tempo, microsecondsPerQuarter));
             ordered.Add(new RawMidiEvent(0, EventType.ProgramChange, melodyInstrument, channel: ScoreMidiSchedule.MelodyChannel));
             ordered.Add(new RawMidiEvent(0, EventType.ProgramChange, chordInstrument, channel: ScoreMidiSchedule.ChordChannel));
+            for (var voiceIndex = 0; voiceIndex < extraVoiceChannelCount; voiceIndex++)
+            {
+                ordered.Add(new RawMidiEvent(
+                    0,
+                    EventType.ProgramChange,
+                    ScoreMidiSchedule.DefaultExtraVoiceInstrument,
+                    channel: ScoreMidiSchedule.ExtraVoiceChannelBase + voiceIndex));
+            }
 
             foreach (var note in noteEvents)
             {

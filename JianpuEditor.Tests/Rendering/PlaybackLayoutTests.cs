@@ -67,5 +67,46 @@ namespace JianpuEditor.Tests.Rendering
 
             Assert.InRange(beat, 0, 4.5);
         }
+
+        private static JianpuScore BuildDescantScore()
+        {
+            var measure = ScoreTestHelper.Measure(
+                ScoreTestHelper.Note(1), ScoreTestHelper.Note(2), ScoreTestHelper.Note(3), ScoreTestHelper.Note(4));
+            measure.ExtraVoices.Add(new JianpuVoice { Role = "Descant", IsAbove = true, Notes = { ScoreTestHelper.Note(5), ScoreTestHelper.Note(5), ScoreTestHelper.Note(5), ScoreTestHelper.Note(5) } });
+
+            var score = new JianpuScore { Title = "Descant playback" };
+            score.Measures.Add(measure);
+            return score;
+        }
+
+        [Fact]
+        public void BuildSegments_DescantScore_BlockTopStartsAboveTheMelodyRow()
+        {
+            var renderer = new JianpuRenderer();
+            var score = BuildDescantScore();
+            var layout = renderer.GetMeasureLayouts(score, 900)[0];
+
+            var segments = PlaybackLayout.BuildSegments(score, 900);
+
+            // BuildSegments used to report the melody row's own top (layout.BlockTop), which sits
+            // BELOW the descant row -- the marker/seek never reached it. It must report the whole
+            // block's real top instead.
+            Assert.Equal(layout.GetDrawTop(), segments[0].BlockTop);
+            Assert.True(segments[0].BlockTop < layout.BlockTop);
+        }
+
+        [Fact]
+        public void GetMarkerPosition_DescantScore_MarkerTopCoversTheDescantRow()
+        {
+            var renderer = new JianpuRenderer();
+            var score = BuildDescantScore();
+            var layout = renderer.GetMeasureLayouts(score, 900)[0];
+
+            var segments = PlaybackLayout.BuildSegments(score, 900);
+            var marker = PlaybackLayout.GetMarkerPosition(segments, 2.0);
+
+            Assert.Equal(layout.GetDrawTop(), marker.Top);
+            Assert.True(marker.Top <= layout.BlockTop - JianpuRenderer.MelodyRowHeight);
+        }
     }
 }

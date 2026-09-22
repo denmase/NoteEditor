@@ -37,11 +37,26 @@ namespace JianpuEditor.Services
         public const int DefaultMeasureBeats = 4;
         public const int DefaultTonicMidi = 60;
 
+        /// <summary>General MIDI program 52, "Choir Aahs" -- the instrument every extra-voice
+        /// channel (<see cref="ExtraVoiceChannelBase"/> and up) is set to, since <see
+        /// cref="JianpuVoice"/> has no instrument selection of its own yet. Deliberately different
+        /// from the melody's own instrument (usually piano by default) so SATB/descant parts are
+        /// audibly distinct voices during playback, not just more notes blended into the same
+        /// timbre.</summary>
+        public const int DefaultExtraVoiceInstrument = 52;
+
         private static readonly int[] MajorScaleOffsets = { 0, 2, 4, 5, 7, 9, 11 };
 
         public IList<ScheduledMidiNote> Notes { get; private set; } = new List<ScheduledMidiNote>();
 
         public double TotalQuarterLength { get; private set; }
+
+        /// <summary>How many extra-voice MIDI channels (<see cref="ExtraVoiceChannelBase"/> and up,
+        /// one per slot) this schedule actually uses -- the widest <see
+        /// cref="JianpuMeasure.ExtraVoices"/> list across every measure in play order. Both
+        /// playback and MIDI export use this to know which extra-voice channels need their own
+        /// `ProgramChange`, without re-scanning <see cref="Notes"/> for distinct channel numbers.</summary>
+        public int ExtraVoiceChannelCount { get; private set; }
 
         public static ScoreMidiSchedule Build(JianpuScore score)
         {
@@ -63,7 +78,25 @@ namespace JianpuEditor.Services
             notes.AddRange(extraVoices);
             schedule.Notes = notes;
             schedule.TotalQuarterLength = ComputeTotalQuarterLength(score, playOrder);
+            schedule.ExtraVoiceChannelCount = GetMaxExtraVoiceCount(score.Measures, playOrder);
             return schedule;
+        }
+
+        private static int GetMaxExtraVoiceCount(IList<JianpuMeasure> measures, IReadOnlyList<int> playOrder)
+        {
+            var max = 0;
+            if (measures == null)
+            {
+                return max;
+            }
+
+            foreach (var measureIndex in playOrder)
+            {
+                var count = measures[measureIndex]?.ExtraVoices?.Count ?? 0;
+                max = Math.Max(max, count);
+            }
+
+            return max;
         }
 
         /// <summary>Total playback length in quarter-note units, following repeats and volta
@@ -258,12 +291,7 @@ namespace JianpuEditor.Services
         {
             var events = new List<ScheduledMidiNote>();
             var measures = score.Measures ?? new List<JianpuMeasure>();
-            var maxExtraVoices = 0;
-            foreach (var measureIndex in playOrder)
-            {
-                var count = measures[measureIndex]?.ExtraVoices?.Count ?? 0;
-                maxExtraVoices = Math.Max(maxExtraVoices, count);
-            }
+            var maxExtraVoices = GetMaxExtraVoiceCount(measures, playOrder);
 
             var tonicMidi = ParseTonicMidi(score.KeySignature);
             for (var voiceIndex = 0; voiceIndex < maxExtraVoices; voiceIndex++)

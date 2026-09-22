@@ -24,6 +24,26 @@ namespace JianpuEditor.Tests.Services
         }
 
         [Fact]
+        public void Play_SendsProgramChangeForEveryExtraVoiceChannel()
+        {
+            var midiOutput = new FakeMidiOutput();
+            using var playback = new ScorePlaybackService(midiOutput);
+            var measure = ScoreTestHelper.Measure(ScoreTestHelper.Note(1), ScoreTestHelper.Note(2));
+            measure.ExtraVoices.Add(new JianpuVoice { Role = "Alto", Notes = { ScoreTestHelper.Note(5), ScoreTestHelper.Note(5) } });
+            measure.ExtraVoices.Add(new JianpuVoice { Role = "Tenor", Notes = { ScoreTestHelper.Note(3), ScoreTestHelper.Note(3) } });
+            var score = ScoreTestHelper.CreateScore(measure);
+
+            playback.Play(score, bpm: 120);
+
+            Assert.Contains(
+                (ScoreMidiSchedule.ExtraVoiceChannelBase + 0, ScoreMidiSchedule.DefaultExtraVoiceInstrument),
+                midiOutput.ProgramChanges);
+            Assert.Contains(
+                (ScoreMidiSchedule.ExtraVoiceChannelBase + 1, ScoreMidiSchedule.DefaultExtraVoiceInstrument),
+                midiOutput.ProgramChanges);
+        }
+
+        [Fact]
         public void Play_DefaultsToAcousticGrandPianoWhenInstrumentsNotSet()
         {
             var midiOutput = new FakeMidiOutput();

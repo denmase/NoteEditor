@@ -417,6 +417,17 @@ namespace JianpuEditor.Tests.Services
             Assert.Equal(0d, alto[0].StartQuarter);
             Assert.Equal(1d, alto[1].StartQuarter);
             Assert.Equal(0d, tenor[0].StartQuarter);
+            Assert.Equal(2, schedule.ExtraVoiceChannelCount);
+        }
+
+        [Fact]
+        public void Build_NoExtraVoices_ReportsZeroExtraVoiceChannels()
+        {
+            var score = ScoreTestHelper.CreateScore(ScoreTestHelper.Measure(ScoreTestHelper.Note(1)));
+
+            var schedule = ScoreMidiSchedule.Build(score);
+
+            Assert.Equal(0, schedule.ExtraVoiceChannelCount);
         }
 
         [Fact]
