@@ -1,9 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using JianpuEditor.Core.Abstractions;
 using JianpuEditor.Models;
+using Newtonsoft.Json;
 
 namespace JianpuEditor.Services
 {
@@ -14,6 +19,8 @@ namespace JianpuEditor.Services
         private const int DefaultBpm = 120;
 
         private readonly IMidiOutput _synthesizer;
+        private readonly IMidiDdspSynthesisService _ddspService;
+        private readonly IDdspAudioPlayer _ddspAudioPlayer;
         private readonly Timer _timer;
         private readonly Stopwatch _stopwatch = new Stopwatch();
         private readonly HashSet<long> _activeNotes = new HashSet<long>();
@@ -25,9 +32,19 @@ namespace JianpuEditor.Services
         private int _currentBpm = DefaultBpm;
         private bool _isPlaying;
 
-        public ScorePlaybackService(IMidiOutput midiOutput = null)
+        private HashSet<int> _ddspEligibleChannels = new HashSet<int>();
+        private string _ddspCacheKey;
+        private MidiDdspRenderResult _ddspRenderResult;
+        private System.Threading.CancellationTokenSource _ddspRenderCts;
+
+        public ScorePlaybackService(
+            IMidiOutput midiOutput = null,
+            IMidiDdspSynthesisService ddspService = null,
+            IDdspAudioPlayer ddspAudioPlayer = null)
         {
             _synthesizer = midiOutput ?? new WindowsMidiSynthesizer();
+            _ddspService = ddspService ?? new MidiDdspSynthesisService();
+            _ddspAudioPlayer = ddspAudioPlayer ?? new BassDdspAudioPlayer();
             _timer = new Timer { Interval = 15 };
             _timer.Tick += OnTimerTick;
             AppLog.Info("ScorePlaybackService initialized");
@@ -44,6 +61,8 @@ namespace JianpuEditor.Services
         public event Action PlaybackFinished;
 
         public event Action<Exception> PlaybackError;
+
+        public event Action<string> RenderingStatusChanged;
 
         public void Prepare(JianpuScore score, double startQuarter = 0)
         {
@@ -82,21 +101,147 @@ namespace JianpuEditor.Services
                 _playbackStartQuarter = PositionQuarter;
                 SkipTimelineTo(PositionQuarter);
 
-                _isPlaying = true;
-                _stopwatch.Restart();
-                _timer.Start();
-                PositionChanged?.Invoke(PositionQuarter);
-                AppLog.Info(
-                    "Playback started: bpm=" + _currentBpm +
-                    ", startQuarter=" + PositionQuarter.ToString("0.###") +
-                    ", totalQuarter=" + _totalQuarterLength.ToString("0.###") +
-                    ", events=" + _timeline.Count);
+                StartPlaybackConsideringDdsp(score);
             }
             catch (Exception ex)
             {
                 StopInternal(resetPosition: false);
                 AppLog.Exception("Play failed", ex);
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// Starts the live, per-note timeline immediately when no part of this score needs
+        /// MIDI-DDSP rendering (the overwhelmingly common case -- no render delay, same as
+        /// before this existed). Otherwise renders in the background (MIDI-DDSP can only render a
+        /// whole part upfront, not stream note-by-note) and only starts playback -- of both the
+        /// live timeline and the rendered audio, together -- once that finishes, reusing the
+        /// previous render when nothing DDSP-relevant has changed since.
+        /// </summary>
+        private void StartPlaybackConsideringDdsp(JianpuScore score)
+        {
+            _ddspRenderCts?.Cancel();
+            _ddspRenderCts = null;
+
+            if (_ddspEligibleChannels.Count == 0)
+            {
+                ApplyDdspRenderResult(MidiDdspRenderResult.Empty);
+                BeginLivePlayback();
+                return;
+            }
+
+            var cacheKey = ComputeDdspCacheKey(score);
+            if (cacheKey == _ddspCacheKey && _ddspRenderResult != null)
+            {
+                ApplyDdspRenderResult(_ddspRenderResult);
+                BeginLivePlayback();
+                return;
+            }
+
+            var cts = new System.Threading.CancellationTokenSource();
+            _ddspRenderCts = cts;
+            var uiContext = System.Threading.SynchronizationContext.Current;
+            RenderingStatusChanged?.Invoke("Rendering neural instrument audio…");
+            AppLog.Info("MIDI-DDSP render starting for " + _ddspEligibleChannels.Count + " channel(s)");
+
+            _ddspService.RenderAsync(score, cts.Token).ContinueWith(task =>
+            {
+                void Continue()
+                {
+                    if (cts.IsCancellationRequested)
+                    {
+                        return;
+                    }
+
+                    RenderingStatusChanged?.Invoke(null);
+                    if (task.IsFaulted)
+                    {
+                        AppLog.Exception("MIDI-DDSP render task failed", task.Exception);
+                        ApplyDdspRenderResult(MidiDdspRenderResult.Empty);
+                    }
+                    else if (!task.IsCanceled)
+                    {
+                        _ddspRenderResult = task.Result;
+                        _ddspCacheKey = cacheKey;
+                        ApplyDdspRenderResult(_ddspRenderResult);
+                        AppLog.Info("MIDI-DDSP render finished: hasAudio=" + _ddspRenderResult.HasAudio);
+                    }
+
+                    BeginLivePlayback();
+                }
+
+                if (uiContext != null)
+                {
+                    uiContext.Post(_ => Continue(), null);
+                }
+                else
+                {
+                    Continue();
+                }
+            }, TaskScheduler.Default);
+        }
+
+        private void ApplyDdspRenderResult(MidiDdspRenderResult result)
+        {
+            _ddspAudioPlayer.LoadSamples(result?.HasAudio == true ? result.Samples : null, result?.SampleRate ?? 0);
+        }
+
+        private void BeginLivePlayback()
+        {
+            _isPlaying = true;
+            _stopwatch.Restart();
+            _timer.Start();
+            _ddspAudioPlayer.Play(SecondsFromQuarter(PositionQuarter));
+            PositionChanged?.Invoke(PositionQuarter);
+            AppLog.Info(
+                "Playback started: bpm=" + _currentBpm +
+                ", startQuarter=" + PositionQuarter.ToString("0.###") +
+                ", totalQuarter=" + _totalQuarterLength.ToString("0.###") +
+                ", events=" + _timeline.Count);
+        }
+
+        private double SecondsFromQuarter(double quarter)
+        {
+            return 60.0 / _currentBpm * quarter;
+        }
+
+        private HashSet<int> ComputeDdspEligibleChannels(JianpuScore score, ScoreMidiSchedule schedule)
+        {
+            var channels = new HashSet<int>();
+            if (!_ddspService.IsConfigured)
+            {
+                return channels;
+            }
+
+            if (_ddspService.IsInstrumentSupported(score.MelodyInstrument))
+            {
+                channels.Add(ScoreMidiSchedule.MelodyChannel);
+            }
+
+            if (_ddspService.IsInstrumentSupported(score.ChordInstrument))
+            {
+                channels.Add(ScoreMidiSchedule.ChordChannel);
+            }
+
+            for (var voiceIndex = 0; voiceIndex < schedule.ExtraVoiceChannelCount; voiceIndex++)
+            {
+                if (_ddspService.IsInstrumentSupported(ScoreMidiSchedule.GetExtraVoiceInstrument(score, voiceIndex)))
+                {
+                    channels.Add(ScoreMidiSchedule.ExtraVoiceChannelBase + voiceIndex);
+                }
+            }
+
+            return channels;
+        }
+
+        private static string ComputeDdspCacheKey(JianpuScore score)
+        {
+            var json = JsonConvert.SerializeObject(score);
+            using (var sha = SHA256.Create())
+            {
+                var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(json));
+                return Convert.ToBase64String(bytes);
             }
         }
 
@@ -118,6 +263,7 @@ namespace JianpuEditor.Services
                 PositionQuarter = ClampQuarter(quarterBeat, _totalQuarterLength);
                 _playbackStartQuarter = PositionQuarter;
                 SkipTimelineTo(PositionQuarter);
+                _ddspAudioPlayer.Seek(SecondsFromQuarter(PositionQuarter));
 
                 if (wasPlaying)
                 {
@@ -149,7 +295,14 @@ namespace JianpuEditor.Services
         {
             var schedule = ScoreMidiSchedule.Build(score);
             _totalQuarterLength = schedule.TotalQuarterLength;
-            _timeline = BuildTimeline(schedule.Notes);
+            _ddspEligibleChannels = ComputeDdspEligibleChannels(score, schedule);
+            // Notes on a DDSP-eligible channel are rendered into the separate DDSP audio buffer
+            // (see StartPlaybackConsideringDdsp) instead, so excluded here to avoid playing the
+            // same part twice through both the live SoundFont channel and the neural render.
+            var liveNotes = _ddspEligibleChannels.Count == 0
+                ? schedule.Notes
+                : schedule.Notes.Where(note => !_ddspEligibleChannels.Contains(note.Channel)).ToList();
+            _timeline = BuildTimeline(liveNotes);
             _nextEventIndex = 0;
 
             var melodyInstrument = GeneralMidiInstruments.Clamp(score.MelodyInstrument);
@@ -242,6 +395,10 @@ namespace JianpuEditor.Services
 
         private void StopInternal(bool resetPosition)
         {
+            _ddspRenderCts?.Cancel();
+            _ddspRenderCts = null;
+            RenderingStatusChanged?.Invoke(null);
+
             _timer.Stop();
             _stopwatch.Reset();
             _isPlaying = false;
@@ -252,6 +409,15 @@ namespace JianpuEditor.Services
             catch (Exception ex)
             {
                 AppLog.Exception("StopInternal AllNotesOff failed", ex);
+            }
+
+            try
+            {
+                _ddspAudioPlayer.Stop();
+            }
+            catch (Exception ex)
+            {
+                AppLog.Exception("StopInternal DDSP audio stop failed", ex);
             }
 
             _activeNotes.Clear();
@@ -338,15 +504,20 @@ namespace JianpuEditor.Services
             return ((long)channel << 8) | (uint)note;
         }
 
-        // Does *not* dispose _synthesizer: it's the shared IMidiOutput singleton (the real
-        // BASS/VST audio hardware handle), not something this instance owns -- now that this
-        // service is scoped per document tab, disposing it here would kill audio for every other
-        // open tab the moment any one tab closes. The root IServiceProvider disposes it exactly
-        // once, at real application shutdown (see Program.cs).
+        // Does *not* dispose _synthesizer or _ddspService: they're shared singletons (the real
+        // BASS/VST audio hardware handle, and the cached MIDI-DDSP model respectively), not
+        // something this instance owns -- now that this service is scoped per document tab,
+        // disposing them here would kill audio (or force a costly model reload) for every other
+        // open tab the moment any one tab closes. The root IServiceProvider disposes IMidiOutput
+        // exactly once, at real application shutdown (see Program.cs); IMidiDdspSynthesisService
+        // holds no unmanaged resources, so it needs no disposal at all. _ddspAudioPlayer, by
+        // contrast, is constructed by (and scoped to) this instance like _timer, so it is disposed
+        // here.
         public void Dispose()
         {
             StopInternal(resetPosition: true);
             _timer.Dispose();
+            _ddspAudioPlayer.Dispose();
             AppLog.Info("ScorePlaybackService disposed");
         }
 

@@ -2363,7 +2363,7 @@ namespace JianpuEditor
 
         private void ShowAudioEngineDialog()
         {
-            using (var dialog = new AudioEngineDialog(AppTheme.CustomSoundFontPath, _midiOutput.EngineName))
+            using (var dialog = new AudioEngineDialog(AppTheme.CustomSoundFontPath, _midiOutput.EngineName, AppTheme.MidiDdspWeightsPath))
             {
                 if (dialog.ShowDialog(this) != DialogResult.OK)
                 {
@@ -2377,12 +2377,20 @@ namespace JianpuEditor
                     return;
                 }
 
-                if (AppTheme.CustomSoundFontPath == selectedSoundFontPath)
+                var selectedWeightsPath = dialog.SelectedMidiDdspWeightsPath;
+                if (!string.IsNullOrWhiteSpace(selectedWeightsPath) && !Directory.Exists(selectedWeightsPath))
+                {
+                    MessageBox.Show("MIDI-DDSP weights folder not found: " + selectedWeightsPath, "Audio Engine", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                if (AppTheme.CustomSoundFontPath == selectedSoundFontPath && AppTheme.MidiDdspWeightsPath == selectedWeightsPath)
                 {
                     return;
                 }
 
                 AppTheme.SetCustomSoundFontPath(selectedSoundFontPath);
+                AppTheme.SetMidiDdspWeightsPath(selectedWeightsPath);
                 MessageBox.Show(
                     "Audio engine setting saved. Restart Jianpu Editor for this to take effect.",
                     "Audio Engine",

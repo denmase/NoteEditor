@@ -43,6 +43,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Neural MIDI-to-audio synthesis for the 13 URMP instruments (violin, viola, cello,
+         double bass, flute, oboe, clarinet, saxophone, bassoon, trumpet, horn, trombone, tuba).
+         A plain net472-targeting class library (no WinForms/WPF), so it needs none of the
+         EnableWindowsTargeting-style workarounds this project itself needs on non-Windows build
+         machines. See external/csharp-midi-dssp's own README for what it does and doesn't do. -->
+    <ProjectReference Include="..\external\csharp-midi-dssp\src\MidiDdsp.Core\MidiDdsp.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="..\sample\**\*.*">
       <Link>sample\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

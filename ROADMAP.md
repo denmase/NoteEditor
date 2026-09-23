@@ -26,6 +26,61 @@ Until now, playback always used whatever General MIDI patch 0 (Acoustic Grand Pi
   - **VST2 only, not VST3** — BASSVST's `ChannelCreate` takes a single DLL file path, matching VST2's architecture; VST3 is a different bundle format/ABI. Also means no GPLv3/VST3-SDK licensing question, since VST2 hosting doesn't need Steinberg's SDK at all.
   - Bundles one more native library, `bass_vst.dll` (x86 + x64), same as `bass.dll`/`bassmidi.dll` — see `JianpuEditor/Native/NOTICE.md`.
   - **Not covered:** VST *effect* plugins (reverb, EQ, etc.) — BASSVST handles those completely differently (`ChannelSetDSP`, attached to an already-existing audio stream) from instrument plugins (`ChannelCreate`, generates audio from nothing). Effects would be a separate feature using that other API.
+- **Phase 4 (done): neural instrument synthesis via MIDI-DDSP, for the 13 instruments it has
+  pretrained models for.** Investigated whether an ONNX-based neural model could give
+  SoundFont-quality-limited instruments (strings, winds) genuinely realistic timbre, closing the
+  "instrument/timbre itself sounds fake" gap the chord-playback-realism work below explicitly
+  left open.
+  - **The ONNX path (Magenta's MIDI-DDSP exported via `tf2onnx`) turned out to be a dead end,
+    not for lack of trying.** Got as far as a fully working `SavedModel` export (after fixing nine
+    separate static-vs-dynamic-shape bugs in `ddsp`/`midi_ddsp`'s Python source, and sidestepping a
+    Keras SavedModel-serialization quirk that otherwise forced tracing the *entire* training-time
+    graph), but `tf2onnx` itself has no `IRFFT` op support and only partial `RFFT` support — a hard
+    blocker, since MIDI-DDSP's `FilteredNoise` synthesizer and its reverb both do FFT-based fast
+    convolution (RFFT → complex multiply → IRFFT), a core, unavoidable part of the architecture.
+  - **Found `denmase/csharp-midi-dssp` instead**: a from-scratch C# reimplementation of MIDI-DDSP's
+    inference path (checkpoint reader, neural layers, DDSP synthesis), verified tensor-by-tensor
+    against the original, with no TensorFlow/ONNX dependency at all — sidesteps the `tf2onnx`
+    blocker entirely by not going through ONNX. It only targeted net8.0, though, and this app is
+    net472 (.NET Framework), so [PR #5](https://github.com/denmase/csharp-midi-dssp/pull/5)
+    multi-targeted its `MidiDdsp.Core` library to `net8.0;net472`: an `IsExternalInit`/`System.
+    Index`/`System.Range` polyfill, a manual bit-loop CRC32C standing in for the hardware-intrinsic
+    `BitOperations.Crc32C`, a handful of BCL-surface-gap rewrites that behave identically on both
+    frameworks, and excluding the FluidSynth fallback (needs .NET 7+'s `LibraryImport` marshaling,
+    with no Framework equivalent — not needed here anyway, see below). Also fixed a real,
+    platform-independent bug found along the way: `Matrix`'s two-arg constructor allocated its
+    backing array before validating `rows`/`cols`, so a negative value failed with
+    `OverflowException` instead of the intended `ArgumentOutOfRangeException`, on net8.0 too.
+  - **Wired in as `external/csharp-midi-dssp`, a git submodule** (pinned to the `add-net472-target`
+    branch pending that PR's merge), referenced directly from `JianpuEditor.csproj` — an in-process
+    library reference, not the originally-considered out-of-process CLI bridge, now that the
+    net472 port makes that possible.
+  - **MIDI-DDSP can only render a whole part upfront** (a full neural-network pass per part), not
+    stream note-by-note the way the rest of playback does — the same constraint the original
+    Magenta model has. `ScorePlaybackService.Play` accounts for this: any voice (melody, chords, or
+    an extra SATB voice) whose instrument is one of MIDI-DDSP's 13 URMP instruments (violin, viola,
+    cello, double bass, flute, oboe, clarinet, saxophone, bassoon, trumpet, horn, trombone, tuba) is
+    excluded from the live, per-note SoundFont schedule and rendered by `MidiDdspSynthesizer`
+    instead — in the background (never blocking the UI thread), with a "Rendering neural instrument
+    audio..." status message reusing the existing status-bar mechanism, and played back through a
+    second, time-synchronized BASS audio stream (`BassDdspAudioPlayer`) mixed alongside the live
+    SoundFont channels. The render is cached by a hash of the whole score, so replaying an unchanged
+    score doesn't re-render; Play/Seek/Stop all keep the two channels in lockstep.
+  - **The pretrained weights (~tens of MB) are not bundled** — `Edit → Audio Engine...` gained a
+    "MIDI-DDSP model weights folder" field (mirrors the existing custom-SoundFont-path picker)
+    pointing at an already-downloaded `midi_ddsp_model_weights_urmp_9_10` folder; leaving it blank
+    (the default) means every instrument continues through the existing SoundFont/BASSMIDI path
+    exactly as before this feature existed, with zero performance cost (the check that decides
+    whether a voice needs neural rendering short-circuits immediately when unconfigured).
+  - **Verified**: the net472 port itself — a clean multi-target build, the full existing
+    `MidiDdsp.Core` test suite passing unchanged, and a Mono-based smoke test proving the net472
+    assembly's actual *runtime* behavior (not just that it compiles) against real `Span`-slicing,
+    FFT, and WAV-clamping code paths, plus the CRC32C polyfill independently cross-checked
+    bit-for-bit against the real hardware `BitOperations.Crc32C` output. The NoteEditor-side wiring
+    (channel exclusion from the live schedule, render caching, Play/Seek/Stop synchronization) was
+    verified with new `ScorePlaybackServiceTests` plus a Mono harness against the real compiled
+    assembly, including a check that every pre-existing `ScorePlaybackService` behavior this pass
+    touched (per-voice program changes, instrument clamping, `Prepare`) still holds unchanged.
 
 ## Indonesian notasi angka completeness (gap analysis + plan)
 

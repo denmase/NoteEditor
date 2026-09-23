@@ -34,6 +34,7 @@ namespace JianpuEditor.ViewModels
             _playbackService.PositionChanged += OnPlaybackPositionChanged;
             _playbackService.PlaybackFinished += OnPlaybackFinished;
             _playbackService.PlaybackError += OnPlaybackError;
+            _playbackService.RenderingStatusChanged += OnRenderingStatusChanged;
             _messenger.Register<PlaybackViewModel, ScoreEditedMessage>(this, OnScoreEdited);
         }
 
@@ -139,6 +140,7 @@ namespace JianpuEditor.ViewModels
             _playbackService.PositionChanged -= OnPlaybackPositionChanged;
             _playbackService.PlaybackFinished -= OnPlaybackFinished;
             _playbackService.PlaybackError -= OnPlaybackError;
+            _playbackService.RenderingStatusChanged -= OnRenderingStatusChanged;
             _messenger.UnregisterAll<PlaybackViewModel>(this);
             _playbackService.Dispose();
         }
@@ -162,6 +164,14 @@ namespace JianpuEditor.ViewModels
             IsPlaying = false;
             _coordinator.NotifyStopped(this);
             PlaybackError?.Invoke(ex);
+        }
+
+        private void OnRenderingStatusChanged(string status)
+        {
+            if (!string.IsNullOrEmpty(status))
+            {
+                _messenger.Send(new StatusChangedMessage(status));
+            }
         }
 
         private void OnScoreEdited(PlaybackViewModel recipient, ScoreEditedMessage message)
