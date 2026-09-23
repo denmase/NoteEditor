@@ -739,6 +739,37 @@ here and intentionally excluded.*
      full existing `PlaybackLayoutTests` suite passing unchanged. New tests cover the descant case
      directly: the segment's `BlockTop` sits above the melody row's own `BlockTop`, and the marker's
      `Top` reaches at least a full melody-row-height above it.
+
+   **Sixth pass — every extra voice was permanently stuck on "Choir Aahs", with no way to change
+   it — done.** The Fifth pass above gave extra voices *an* instrument (fixing "sounds like one
+   voice"), but that instrument was `ScoreMidiSchedule.DefaultExtraVoiceInstrument`, a hardcoded
+   constant with no UI to override it -- raised directly by the user while scoping a separate,
+   unrelated realistic-playback investigation (piano-only ONNX synthesis backends). Mirrors how
+   `MelodyInstrument`/`ChordInstrument` already work, extended to a *list* since the number of
+   extra-voice slots is per-score, not fixed at 3 (SATB):
+   - **`JianpuScore.ExtraVoiceInstruments`** (`List<int>`, General MIDI program per channel slot,
+     indexed the same way as `ScoreMidiSchedule.ExtraVoiceChannelBase` + index). A slot missing from
+     the list -- including every slot in a score saved before this field existed -- still falls back
+     to `DefaultExtraVoiceInstrument`, via a new `ScoreMidiSchedule.GetExtraVoiceInstrument(score,
+     voiceIndex)` helper used by both `ScorePlaybackService.LoadTimeline` and
+     `MidiExportService.Export` in place of the old hardcoded constant, so every existing SATB score
+     keeps sounding exactly as it did before this change.
+   - **`ScoreMidiSchedule.GetExtraVoiceRoleLabels(score)`** resolves each slot's display label (e.g.
+     "Alto") from the first measure that names it, sized to the widest `ExtraVoices` list across the
+     whole score -- used to label the new picker rows without needing a playback timeline built
+     first.
+   - **`InstrumentDialog`** now lays out one additional "Role:" instrument picker row per extra-voice
+     slot the score actually has (none at all for a plain single-voice score, unchanged from before),
+     growing the dialog's height dynamically; a slot with no `Role` label anywhere falls back to
+     "Voice N". `ScoreDocumentViewModel.ApplyExtraVoiceInstrumentEdit`/new
+     `ModifyExtraVoiceInstrumentCommand` give each slot its own undoable edit, exactly mirroring
+     `ApplyInstrumentEdit`/`ModifyInstrumentCommand` for melody/chords.
+   - Verified with new `ScoreMidiScheduleTests`/`ScoreDocumentViewModelTests` cases (default
+     fallback, clamped override, undo/redo, role-label resolution) plus a standalone end-to-end
+     check against a real compiled build: setting Alto to Violin (program 40) and Tenor to Bassoon
+     (program 70) and exporting to MIDI produces the exact `ProgramChange` bytes on channels 2/3,
+     while an untouched slot still resolves to the "Choir Aahs" default.
+
 10. **Pickup measure — verified, documentation only, done.** Traced every path a manually-entered
     short first measure touches: editing (`MeasureNavigationViewModel.ApplyAddMeasure` appends a
     new measure unconditionally, no check that the previous one is "full"), rendering/beam

@@ -30,7 +30,13 @@ namespace JianpuEditor.Services
             var tempoBpm = ClampBpm(score.Bpm);
             var melodyInstrument = GeneralMidiInstruments.Clamp(score.MelodyInstrument);
             var chordInstrument = GeneralMidiInstruments.Clamp(score.ChordInstrument);
-            var track = BuildTrack(noteEvents, tempoBpm, melodyInstrument, chordInstrument, schedule.ExtraVoiceChannelCount);
+            var extraVoiceInstruments = new int[schedule.ExtraVoiceChannelCount];
+            for (var voiceIndex = 0; voiceIndex < extraVoiceInstruments.Length; voiceIndex++)
+            {
+                extraVoiceInstruments[voiceIndex] = ScoreMidiSchedule.GetExtraVoiceInstrument(score, voiceIndex);
+            }
+
+            var track = BuildTrack(noteEvents, tempoBpm, melodyInstrument, chordInstrument, extraVoiceInstruments);
             WriteMidiFile(path, track);
         }
 
@@ -72,19 +78,19 @@ namespace JianpuEditor.Services
             int tempoBpm,
             int melodyInstrument,
             int chordInstrument,
-            int extraVoiceChannelCount)
+            IReadOnlyList<int> extraVoiceInstruments)
         {
             var ordered = new List<RawMidiEvent>();
             var microsecondsPerQuarter = 60_000_000 / tempoBpm;
             ordered.Add(new RawMidiEvent(0, EventType.Tempo, microsecondsPerQuarter));
             ordered.Add(new RawMidiEvent(0, EventType.ProgramChange, melodyInstrument, channel: ScoreMidiSchedule.MelodyChannel));
             ordered.Add(new RawMidiEvent(0, EventType.ProgramChange, chordInstrument, channel: ScoreMidiSchedule.ChordChannel));
-            for (var voiceIndex = 0; voiceIndex < extraVoiceChannelCount; voiceIndex++)
+            for (var voiceIndex = 0; voiceIndex < extraVoiceInstruments.Count; voiceIndex++)
             {
                 ordered.Add(new RawMidiEvent(
                     0,
                     EventType.ProgramChange,
-                    ScoreMidiSchedule.DefaultExtraVoiceInstrument,
+                    extraVoiceInstruments[voiceIndex],
                     channel: ScoreMidiSchedule.ExtraVoiceChannelBase + voiceIndex));
             }
 

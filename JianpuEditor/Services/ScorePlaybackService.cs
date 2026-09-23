@@ -160,7 +160,7 @@ namespace JianpuEditor.Services
             {
                 _synthesizer.ProgramChange(
                     ScoreMidiSchedule.ExtraVoiceChannelBase + voiceIndex,
-                    ScoreMidiSchedule.DefaultExtraVoiceInstrument);
+                    ScoreMidiSchedule.GetExtraVoiceInstrument(score, voiceIndex));
             }
 
             AppLog.Info(

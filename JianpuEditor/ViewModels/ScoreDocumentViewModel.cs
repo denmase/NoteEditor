@@ -199,6 +199,41 @@ namespace JianpuEditor.ViewModels
             }
         }
 
+        /// <summary>The display label (e.g. "Alto") for each extra-voice channel slot -- see
+        /// <see cref="ScoreMidiSchedule.GetExtraVoiceRoleLabels"/>.</summary>
+        public IReadOnlyList<string> ExtraVoiceRoleLabels
+        {
+            get { return ScoreMidiSchedule.GetExtraVoiceRoleLabels(_score); }
+        }
+
+        /// <summary>Resolves the General MIDI program for one extra-voice channel slot -- see
+        /// <see cref="ScoreMidiSchedule.GetExtraVoiceInstrument"/>.</summary>
+        public int GetExtraVoiceInstrument(int voiceIndex)
+        {
+            return ScoreMidiSchedule.GetExtraVoiceInstrument(_score, voiceIndex);
+        }
+
+        /// <summary>Sets one extra-voice channel slot's instrument directly, growing <see
+        /// cref="JianpuScore.ExtraVoiceInstruments"/> (padding any newly-created earlier slots
+        /// with the current default so they keep sounding the same) as needed. Called by <see
+        /// cref="Services.EditCommands.ModifyExtraVoiceInstrumentCommand"/>; use <see
+        /// cref="ApplyExtraVoiceInstrumentEdit"/> for an undoable edit.</summary>
+        public void SetExtraVoiceInstrument(int voiceIndex, int program)
+        {
+            if (_score.ExtraVoiceInstruments == null)
+            {
+                _score.ExtraVoiceInstruments = new List<int>();
+            }
+
+            while (_score.ExtraVoiceInstruments.Count <= voiceIndex)
+            {
+                _score.ExtraVoiceInstruments.Add(ScoreMidiSchedule.DefaultExtraVoiceInstrument);
+            }
+
+            _score.ExtraVoiceInstruments[voiceIndex] = program;
+            MarkDirty();
+        }
+
         public string CurrentFilePath
         {
             get { return _currentFilePath; }
@@ -411,6 +446,18 @@ namespace JianpuEditor.ViewModels
             }
 
             _history.Execute(new ModifyInstrumentCommand(this, _messenger, isChordInstrument, oldProgram, newProgram));
+        }
+
+        public void ApplyExtraVoiceInstrumentEdit(int voiceIndex, int newProgram)
+        {
+            newProgram = GeneralMidiInstruments.Clamp(newProgram);
+            var oldProgram = GetExtraVoiceInstrument(voiceIndex);
+            if (oldProgram == newProgram)
+            {
+                return;
+            }
+
+            _history.Execute(new ModifyExtraVoiceInstrumentCommand(this, _messenger, voiceIndex, oldProgram, newProgram));
         }
 
         public void ApplyChordPlaybackStyleEdit(ChordPlaybackStyle newStyle)

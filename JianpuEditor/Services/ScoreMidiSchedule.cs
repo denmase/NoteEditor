@@ -57,6 +57,61 @@ namespace JianpuEditor.Services
         /// `ProgramChange`, without re-scanning <see cref="Notes"/> for distinct channel numbers.</summary>
         public int ExtraVoiceChannelCount { get; private set; }
 
+        /// <summary>Resolves the General MIDI program for one extra-voice channel slot, falling
+        /// back to <see cref="DefaultExtraVoiceInstrument"/> when the score has no explicit entry
+        /// for it (including every score saved before <see cref="JianpuScore.
+        /// ExtraVoiceInstruments"/> existed).</summary>
+        public static int GetExtraVoiceInstrument(JianpuScore score, int voiceIndex)
+        {
+            var instruments = score?.ExtraVoiceInstruments;
+            if (instruments != null && voiceIndex >= 0 && voiceIndex < instruments.Count)
+            {
+                return GeneralMidiInstruments.Clamp(instruments[voiceIndex]);
+            }
+
+            return DefaultExtraVoiceInstrument;
+        }
+
+        /// <summary>The display label (e.g. "Alto") for each extra-voice channel slot, taken from
+        /// the first measure that names it -- sized to the widest <see
+        /// cref="JianpuMeasure.ExtraVoices"/> list across the whole score (not just the current
+        /// play order, unlike <see cref="ExtraVoiceChannelCount"/>, since this is for UI display
+        /// before any playback timeline exists). A slot no measure ever labeled is null.</summary>
+        public static IReadOnlyList<string> GetExtraVoiceRoleLabels(JianpuScore score)
+        {
+            var measures = score?.Measures;
+            if (measures == null)
+            {
+                return Array.Empty<string>();
+            }
+
+            var slotCount = 0;
+            foreach (var measure in measures)
+            {
+                slotCount = Math.Max(slotCount, measure?.ExtraVoices?.Count ?? 0);
+            }
+
+            var labels = new string[slotCount];
+            foreach (var measure in measures)
+            {
+                var voices = measure?.ExtraVoices;
+                if (voices == null)
+                {
+                    continue;
+                }
+
+                for (var i = 0; i < voices.Count; i++)
+                {
+                    if (labels[i] == null && !string.IsNullOrEmpty(voices[i]?.Role))
+                    {
+                        labels[i] = voices[i].Role;
+                    }
+                }
+            }
+
+            return labels;
+        }
+
         public static ScoreMidiSchedule Build(JianpuScore score)
         {
             if (score == null)
