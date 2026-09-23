@@ -61,6 +61,10 @@ namespace JianpuEditor
             services.AddSingleton<ISessionService, SessionService>();
             // Shared across tabs deliberately (like IMidiOutput): cut/copy in one tab, paste in another.
             services.AddSingleton<INoteClipboardService, NoteClipboardService>();
+            // Singleton for the same reason as IMidiOutput: loading the pretrained model is
+            // expensive, and it's stateless once loaded, so every tab reuses one instance rather
+            // than reloading it per tab.
+            services.AddSingleton<IMidiDdspSynthesisService, MidiDdspSynthesisService>();
             services.AddTransient<MainForm>();
 
             return services.BuildServiceProvider();

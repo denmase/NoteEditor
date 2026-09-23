@@ -18,6 +18,8 @@ namespace JianpuEditor.Tests.ViewModels
         public event Action PlaybackFinished;
 
         public event Action<Exception> PlaybackError;
+
+        public event Action<string> RenderingStatusChanged;
 #pragma warning restore CS0067
 
         public void Prepare(JianpuScore score, double startQuarter = 0)

@@ -664,5 +664,41 @@ namespace JianpuEditor.Tests.Services
 
             Assert.Equal(new[] { 0d, 1d, 4d, 5d }, alto.Select(note => note.StartQuarter).ToArray());
         }
+
+        [Fact]
+        public void GetExtraVoiceInstrument_NoOverride_FallsBackToDefault()
+        {
+            var score = ScoreTestHelper.CreateScore(ScoreTestHelper.Measure(ScoreTestHelper.Note(1)));
+
+            Assert.Equal(ScoreMidiSchedule.DefaultExtraVoiceInstrument, ScoreMidiSchedule.GetExtraVoiceInstrument(score, 0));
+        }
+
+        [Fact]
+        public void GetExtraVoiceInstrument_Overridden_ReturnsClampedOverride()
+        {
+            var score = ScoreTestHelper.CreateScore(ScoreTestHelper.Measure(ScoreTestHelper.Note(1)));
+            score.ExtraVoiceInstruments.Add(40); // Violin
+            score.ExtraVoiceInstruments.Add(999); // out of range, should clamp
+
+            Assert.Equal(40, ScoreMidiSchedule.GetExtraVoiceInstrument(score, 0));
+            Assert.Equal(127, ScoreMidiSchedule.GetExtraVoiceInstrument(score, 1));
+            // A slot beyond the explicit list still falls back to the default.
+            Assert.Equal(ScoreMidiSchedule.DefaultExtraVoiceInstrument, ScoreMidiSchedule.GetExtraVoiceInstrument(score, 2));
+        }
+
+        [Fact]
+        public void GetExtraVoiceRoleLabels_ReturnsFirstLabelSeenPerSlot()
+        {
+            var m0 = ScoreTestHelper.Measure(ScoreTestHelper.Note(1));
+            m0.ExtraVoices.Add(new JianpuVoice { Role = "Alto", Notes = { ScoreTestHelper.Note(1) } });
+            var m1 = ScoreTestHelper.Measure(ScoreTestHelper.Note(2));
+            m1.ExtraVoices.Add(new JianpuVoice { Role = "Alto", Notes = { ScoreTestHelper.Note(1) } });
+            m1.ExtraVoices.Add(new JianpuVoice { Role = "Tenor", Notes = { ScoreTestHelper.Note(1) } });
+            var score = ScoreTestHelper.CreateScore(m0, m1);
+
+            var labels = ScoreMidiSchedule.GetExtraVoiceRoleLabels(score);
+
+            Assert.Equal(new[] { "Alto", "Tenor" }, labels);
+        }
     }
 }

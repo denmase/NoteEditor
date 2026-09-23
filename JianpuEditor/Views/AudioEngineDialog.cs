@@ -7,8 +7,10 @@ namespace JianpuEditor.Views
     {
         private readonly TextBox _soundFontPathBox;
         private readonly Button _browseButton;
+        private readonly TextBox _ddspWeightsPathBox;
+        private readonly Button _ddspBrowseButton;
 
-        public AudioEngineDialog(string currentCustomSoundFontPath, string activeEngineName)
+        public AudioEngineDialog(string currentCustomSoundFontPath, string activeEngineName, string currentMidiDdspWeightsPath)
         {
             Text = "Audio Engine";
             FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -16,7 +18,7 @@ namespace JianpuEditor.Views
             MinimizeBox = false;
             MaximizeBox = false;
             ShowInTaskbar = false;
-            ClientSize = new Size(420, 190);
+            ClientSize = new Size(420, 320);
 
             var activeLabel = new Label
             {
@@ -71,14 +73,62 @@ namespace JianpuEditor.Views
                 ForeColor = Color.DimGray
             };
 
-            var okButton = new Button { Text = "OK", DialogResult = DialogResult.OK, Location = new Point(236, 152), Width = 76 };
-            var cancelButton = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, Location = new Point(320, 152), Width = 76 };
+            var ddspLabel = new Label
+            {
+                Text = "MIDI-DDSP model weights folder (neural synthesis):",
+                Location = new Point(16, 164),
+                AutoSize = true
+            };
+
+            _ddspWeightsPathBox = new TextBox
+            {
+                Location = new Point(16, 184),
+                Width = 324,
+                Text = currentMidiDdspWeightsPath ?? string.Empty
+            };
+            _ddspBrowseButton = new Button
+            {
+                Text = "Browse...",
+                Location = new Point(340, 182),
+                Width = 64
+            };
+            _ddspBrowseButton.Click += (s, e) =>
+            {
+                using (var browseDialog = new FolderBrowserDialog
+                {
+                    Description = "Select the midi_ddsp_model_weights_urmp_9_10 folder"
+                })
+                {
+                    if (browseDialog.ShowDialog(this) == DialogResult.OK)
+                    {
+                        _ddspWeightsPathBox.Text = browseDialog.SelectedPath;
+                    }
+                }
+            };
+
+            var ddspHintLabel = new Label
+            {
+                Text = "Leave blank to skip neural synthesis. When set, violin/viola/cello/double\n" +
+                       "bass/flute/oboe/clarinet/saxophone/bassoon/trumpet/horn/trombone/tuba parts\n" +
+                       "are rendered with the pretrained MIDI-DDSP model instead of the SoundFont.\n" +
+                       "Takes effect after restarting Jianpu Editor.",
+                Location = new Point(16, 214),
+                Size = new Size(388, 60),
+                ForeColor = Color.DimGray
+            };
+
+            var okButton = new Button { Text = "OK", DialogResult = DialogResult.OK, Location = new Point(236, 282), Width = 76 };
+            var cancelButton = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, Location = new Point(320, 282), Width = 76 };
 
             Controls.Add(activeLabel);
             Controls.Add(pathLabel);
             Controls.Add(_soundFontPathBox);
             Controls.Add(_browseButton);
             Controls.Add(hintLabel);
+            Controls.Add(ddspLabel);
+            Controls.Add(_ddspWeightsPathBox);
+            Controls.Add(_ddspBrowseButton);
+            Controls.Add(ddspHintLabel);
             Controls.Add(okButton);
             Controls.Add(cancelButton);
             AcceptButton = okButton;
@@ -89,6 +139,12 @@ namespace JianpuEditor.Views
         public string SelectedSoundFontPath
         {
             get { return (_soundFontPathBox.Text ?? string.Empty).Trim(); }
+        }
+
+        /// <summary>Empty string means "neural synthesis is not configured".</summary>
+        public string SelectedMidiDdspWeightsPath
+        {
+            get { return (_ddspWeightsPathBox.Text ?? string.Empty).Trim(); }
         }
     }
 }

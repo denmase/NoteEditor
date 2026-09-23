@@ -128,5 +128,47 @@ namespace JianpuEditor.Tests.ViewModels
 
             Assert.False(history.CanUndo);
         }
+
+        [Fact]
+        public void ApplyExtraVoiceInstrumentEdit_UpdatesOneSlotAndSupportsUndo()
+        {
+            var messenger = ViewModelTestHelper.CreateMessenger();
+            var history = ViewModelTestHelper.CreateHistory(messenger);
+            var viewModel = ViewModelTestHelper.CreateDocument(messenger, history);
+
+            // Slot 1 changes without ever setting slot 0 -- slot 0 should stay at the default
+            // rather than being silently pinned to whatever slot 1's value happens to be.
+            viewModel.ApplyExtraVoiceInstrumentEdit(1, 40);
+
+            Assert.Equal(ScoreMidiSchedule.DefaultExtraVoiceInstrument, viewModel.GetExtraVoiceInstrument(0));
+            Assert.Equal(40, viewModel.GetExtraVoiceInstrument(1));
+            Assert.True(history.CanUndo);
+
+            history.Undo();
+
+            Assert.Equal(ScoreMidiSchedule.DefaultExtraVoiceInstrument, viewModel.GetExtraVoiceInstrument(1));
+        }
+
+        [Fact]
+        public void ApplyExtraVoiceInstrumentEdit_ClampsOutOfRangeProgramNumbers()
+        {
+            var viewModel = ViewModelTestHelper.CreateDocument();
+
+            viewModel.ApplyExtraVoiceInstrumentEdit(0, 999);
+
+            Assert.Equal(127, viewModel.GetExtraVoiceInstrument(0));
+        }
+
+        [Fact]
+        public void ApplyExtraVoiceInstrumentEdit_NoOpWhenValueUnchanged()
+        {
+            var messenger = ViewModelTestHelper.CreateMessenger();
+            var history = ViewModelTestHelper.CreateHistory(messenger);
+            var viewModel = ViewModelTestHelper.CreateDocument(messenger, history);
+
+            viewModel.ApplyExtraVoiceInstrumentEdit(0, ScoreMidiSchedule.DefaultExtraVoiceInstrument);
+
+            Assert.False(history.CanUndo);
+        }
     }
 }

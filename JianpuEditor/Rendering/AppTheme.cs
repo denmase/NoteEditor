@@ -74,6 +74,12 @@ namespace JianpuEditor.Rendering
         /// bundled General MIDI SoundFont, or empty to use the bundled one.</summary>
         public static string CustomSoundFontPath { get; private set; } = string.Empty;
 
+        /// <summary>Path to a local <c>midi_ddsp_model_weights_urmp_9_10</c> folder (see
+        /// external/csharp-midi-dssp's own README for how to obtain one), or empty if neural
+        /// synthesis isn't configured. Not bundled with the app -- these are tens of MB of
+        /// pretrained model weights the user downloads separately, same as a custom SoundFont.</summary>
+        public static string MidiDdspWeightsPath { get; private set; } = string.Empty;
+
         public static event Action ThemeChanged;
 
         public static void Load()
@@ -94,6 +100,7 @@ namespace JianpuEditor.Rendering
                 VstMelodyPluginPath = settings?.VstMelodyPluginPath ?? settings?.VstPluginPath ?? string.Empty;
                 VstChordPluginPath = settings?.VstChordPluginPath ?? string.Empty;
                 CustomSoundFontPath = settings?.CustomSoundFontPath ?? string.Empty;
+                MidiDdspWeightsPath = settings?.MidiDdspWeightsPath ?? string.Empty;
                 NotationStyle = ResolveNotationStyle(settings);
             }
             catch
@@ -103,6 +110,7 @@ namespace JianpuEditor.Rendering
                 VstMelodyPluginPath = string.Empty;
                 VstChordPluginPath = string.Empty;
                 CustomSoundFontPath = string.Empty;
+                MidiDdspWeightsPath = string.Empty;
                 NotationStyle = NotationStyle.Chinese;
             }
         }
@@ -199,6 +207,21 @@ namespace JianpuEditor.Rendering
             }
 
             CustomSoundFontPath = path;
+            if (persist)
+            {
+                Save();
+            }
+        }
+
+        public static void SetMidiDdspWeightsPath(string path, bool persist = true)
+        {
+            path = path ?? string.Empty;
+            if (MidiDdspWeightsPath == path)
+            {
+                return;
+            }
+
+            MidiDdspWeightsPath = path;
             if (persist)
             {
                 Save();
@@ -313,6 +336,7 @@ namespace JianpuEditor.Rendering
                         VstMelodyPluginPath = VstMelodyPluginPath,
                         VstChordPluginPath = VstChordPluginPath,
                         CustomSoundFontPath = CustomSoundFontPath,
+                        MidiDdspWeightsPath = MidiDdspWeightsPath,
                         NotationStyle = NotationStyle.ToString()
                     },
                     Formatting.Indented);
@@ -339,6 +363,8 @@ namespace JianpuEditor.Rendering
             public string VstChordPluginPath { get; set; } = string.Empty;
 
             public string CustomSoundFontPath { get; set; } = string.Empty;
+
+            public string MidiDdspWeightsPath { get; set; } = string.Empty;
 
             /// <summary>Legacy field from before NotationStyle existed; read as a migration
             /// fallback (see ResolveNotationStyle), never written.</summary>

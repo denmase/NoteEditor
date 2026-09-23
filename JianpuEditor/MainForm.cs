@@ -2330,10 +2330,19 @@ namespace JianpuEditor
 
         private void ShowInstrumentDialog()
         {
+            var extraVoiceLabels = _viewModel.Document.ExtraVoiceRoleLabels;
+            var currentExtraVoiceInstruments = new int[extraVoiceLabels.Count];
+            for (var i = 0; i < currentExtraVoiceInstruments.Length; i++)
+            {
+                currentExtraVoiceInstruments[i] = _viewModel.Document.GetExtraVoiceInstrument(i);
+            }
+
             using (var dialog = new InstrumentDialog(
                 _viewModel.Document.MelodyInstrument,
                 _viewModel.Document.ChordInstrument,
-                _viewModel.Document.ChordPlaybackStyle))
+                _viewModel.Document.ChordPlaybackStyle,
+                extraVoiceLabels,
+                currentExtraVoiceInstruments))
             {
                 if (dialog.ShowDialog(this) != DialogResult.OK)
                 {
@@ -2343,12 +2352,18 @@ namespace JianpuEditor
                 _viewModel.Document.ApplyInstrumentEdit(false, dialog.SelectedMelodyInstrument);
                 _viewModel.Document.ApplyInstrumentEdit(true, dialog.SelectedChordInstrument);
                 _viewModel.Document.ApplyChordPlaybackStyleEdit(dialog.SelectedChordPlaybackStyle);
+
+                var selectedExtraVoiceInstruments = dialog.SelectedExtraVoiceInstruments;
+                for (var i = 0; i < selectedExtraVoiceInstruments.Count; i++)
+                {
+                    _viewModel.Document.ApplyExtraVoiceInstrumentEdit(i, selectedExtraVoiceInstruments[i]);
+                }
             }
         }
 
         private void ShowAudioEngineDialog()
         {
-            using (var dialog = new AudioEngineDialog(AppTheme.CustomSoundFontPath, _midiOutput.EngineName))
+            using (var dialog = new AudioEngineDialog(AppTheme.CustomSoundFontPath, _midiOutput.EngineName, AppTheme.MidiDdspWeightsPath))
             {
                 if (dialog.ShowDialog(this) != DialogResult.OK)
                 {
@@ -2362,12 +2377,20 @@ namespace JianpuEditor
                     return;
                 }
 
-                if (AppTheme.CustomSoundFontPath == selectedSoundFontPath)
+                var selectedWeightsPath = dialog.SelectedMidiDdspWeightsPath;
+                if (!string.IsNullOrWhiteSpace(selectedWeightsPath) && !Directory.Exists(selectedWeightsPath))
+                {
+                    MessageBox.Show("MIDI-DDSP weights folder not found: " + selectedWeightsPath, "Audio Engine", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                if (AppTheme.CustomSoundFontPath == selectedSoundFontPath && AppTheme.MidiDdspWeightsPath == selectedWeightsPath)
                 {
                     return;
                 }
 
                 AppTheme.SetCustomSoundFontPath(selectedSoundFontPath);
+                AppTheme.SetMidiDdspWeightsPath(selectedWeightsPath);
                 MessageBox.Show(
                     "Audio engine setting saved. Restart Jianpu Editor for this to take effect.",
                     "Audio Engine",

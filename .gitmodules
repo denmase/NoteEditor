@@ -1,0 +1,4 @@
+[submodule "external/csharp-midi-dssp"]
+	path = external/csharp-midi-dssp
+	url = https://github.com/denmase/csharp-midi-dssp
+	branch = add-net472-target

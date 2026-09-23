@@ -35,6 +35,15 @@ namespace JianpuEditor.Models
         /// <summary>How chord markers are played back -- see <see cref="ChordPlaybackStyle"/>.</summary>
         public ChordPlaybackStyle ChordPlaybackStyle { get; set; }
 
+        /// <summary>General MIDI program numbers (0-127) for each <see
+        /// cref="JianpuMeasure.ExtraVoices"/> channel slot (SATB's Alto/Tenor/Bass, and/or a
+        /// descant), indexed the same way as <see cref="Services.ScoreMidiSchedule.
+        /// ExtraVoiceChannelBase"/> + index. A slot with no entry here -- including every slot for
+        /// a score saved before per-voice instruments existed -- falls back to <see
+        /// cref="Services.ScoreMidiSchedule.DefaultExtraVoiceInstrument"/> ("Choir Aahs"), so
+        /// existing scores keep sounding exactly as they did before this field existed.</summary>
+        public List<int> ExtraVoiceInstruments { get; set; } = new List<int>();
+
         public List<JianpuMeasure> Measures { get; set; } = new List<JianpuMeasure>();
 
         public List<JianpuTie> Ties { get; set; } = new List<JianpuTie>();
